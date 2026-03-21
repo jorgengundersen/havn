@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "havn",
+  "project_id": "38143377-2adb-4aa8-96da-d05c32db054d"
+}
