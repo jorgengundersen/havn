@@ -77,5 +77,13 @@ func NewRoot(_ Deps) *cobra.Command {
 	root.Flags().BoolVar(&opts.NoDolt, "no-dolt", false, "skip Dolt server")
 	root.Flags().StringVar(&opts.Image, "image", "", "override base image")
 
+	root.AddCommand(newListCmd())
+	root.AddCommand(newStopCmd())
+	root.AddCommand(newBuildCmd())
+	root.AddCommand(newConfigCmd())
+	root.AddCommand(newVolumeCmd())
+	root.AddCommand(newDoctorCmd())
+	root.AddCommand(newDoltCmd())
+
 	return root
 }
