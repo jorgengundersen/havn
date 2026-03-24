@@ -19,8 +19,10 @@ func Execute() int {
 	deps := Deps{}
 	root := NewRoot(deps)
 	if err := root.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-		return 1
+		jsonMode, _ := root.PersistentFlags().GetBool("json")
+		out := NewOutput(os.Stdout, os.Stderr, jsonMode, false)
+		out.Error(err)
+		return ExitCode(err)
 	}
 	return 0
 }

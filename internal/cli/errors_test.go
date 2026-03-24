@@ -1,0 +1,58 @@
+package cli_test
+
+import (
+	"bytes"
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/jorgengundersen/havn/internal/cli"
+)
+
+func TestExitError_ExposesCodeAndWrapsErr(t *testing.T) {
+	inner := errors.New("boom")
+	exitErr := &cli.ExitError{Code: 42, Err: inner}
+
+	assert.Equal(t, 42, exitErr.Code)
+	assert.Equal(t, "boom", exitErr.Error())
+	assert.ErrorIs(t, exitErr, inner)
+}
+
+func TestExitCode_ReturnsCodeFromExitError(t *testing.T) {
+	err := &cli.ExitError{Code: 3, Err: errors.New("fail")}
+
+	assert.Equal(t, 3, cli.ExitCode(err))
+}
+
+func TestExitCode_DefaultsTo1ForPlainError(t *testing.T) {
+	err := errors.New("plain error")
+
+	assert.Equal(t, 1, cli.ExitCode(err))
+}
+
+func TestFormatError_ReturnsErrorMessage(t *testing.T) {
+	err := errors.New("something went wrong")
+
+	assert.Equal(t, "something went wrong", cli.FormatError(err))
+}
+
+func TestOutput_Error_JSONMode(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	out := cli.NewOutput(&stdout, &stderr, true, false)
+
+	out.Error(errors.New("something broke"))
+
+	assert.Empty(t, stdout.String(), "error should not write to stdout")
+	assert.JSONEq(t, `{"error": "something broke"}`, stderr.String())
+}
+
+func TestOutput_Error_NormalMode(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	out := cli.NewOutput(&stdout, &stderr, false, false)
+
+	out.Error(errors.New("disk full"))
+
+	assert.Empty(t, stdout.String(), "error should not write to stdout")
+	assert.Equal(t, "Error: disk full\n", stderr.String())
+}
