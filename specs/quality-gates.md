@@ -25,13 +25,22 @@ Only Go is required. All tool dependencies are pinned in `go.mod` via the
 
 ## Pre-commit hook
 
-The beads pre-commit shim (`.beads/hooks/pre-commit`) calls `make check`
-automatically on every commit. Beads owns all hook files via
-`core.hooksPath = .beads/hooks`.
+Git hooks live in `.beads/hooks/` (via `core.hooksPath`). The
+pre-commit hook chains two tools:
 
-Hook order on commit:
-1. Beads integration (JSONL sync, prepare-commit-msg)
-2. `make check` (fmt → lint → test → build)
+1. **Lefthook** — runs quality gates in parallel (fmt, lint, test,
+   build) as defined in `lefthook.yml`.
+2. **Beads** — JSONL sync and issue tracking integration, injected
+   via `bd hooks install --beads --chain` using section markers.
+
+Lefthook owns the hook file. Beads appends its section between
+`BEGIN/END BEADS INTEGRATION` markers, which lefthook preserves
+across syncs. To reinstall after changes:
+
+```bash
+lefthook install --force    # install lefthook hook shim
+bd hooks install --beads --chain  # chain beads into it
+```
 
 A failure in any gate blocks the commit.
 
