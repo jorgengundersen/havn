@@ -75,8 +75,10 @@ into the existing hook file. Running `bd hooks install` without
 
 ### Local development
 
-`make check` runs automatically via pre-commit hook. Run it manually
-to verify before staging.
+Lefthook runs the quality gate jobs automatically on commit when `.go`
+files are staged. Jobs run in parallel for speed. Use `make check` to
+run all gates manually (sequential, always runs regardless of file
+types).
 
 ### CI
 
