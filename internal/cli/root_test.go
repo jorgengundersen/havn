@@ -131,6 +131,12 @@ func TestNewRoot_HelpIncludesAllFlags(t *testing.T) {
 	}
 }
 
+func TestNewRoot_HasVersion(t *testing.T) {
+	root := cli.NewRoot(cli.Deps{})
+
+	assert.NotEmpty(t, root.Version, "root command should have a version set")
+}
+
 func TestNewRoot_RunE_ReturnsNotImplemented(t *testing.T) {
 	root := cli.NewRoot(cli.Deps{})
 	root.SetArgs([]string{})

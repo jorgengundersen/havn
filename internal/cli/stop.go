@@ -15,8 +15,9 @@ func newStopCmd() *cobra.Command {
 	var opts stopOpts
 
 	cmd := &cobra.Command{
-		Use:   "stop",
+		Use:   "stop [name|path]",
 		Short: "Stop havn container(s)",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return fmt.Errorf("havn stop: %w", ErrNotImplemented)
 		},

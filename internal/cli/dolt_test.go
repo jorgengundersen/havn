@@ -48,11 +48,28 @@ func TestDoltDatabasesCommand_ReturnsNotImplemented(t *testing.T) {
 }
 
 func TestDoltDropCommand_ReturnsNotImplemented(t *testing.T) {
-	_, _, err := executeCommand("dolt", "drop")
+	_, _, err := executeCommand("dolt", "drop", "mydb")
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, cli.ErrNotImplemented)
 	assert.Contains(t, err.Error(), "havn dolt drop:")
+}
+
+func TestDoltDropCommand_RequiresName(t *testing.T) {
+	_, _, err := executeCommand("dolt", "drop")
+
+	require.Error(t, err)
+	assert.NotErrorIs(t, err, cli.ErrNotImplemented)
+}
+
+func TestDoltDropCommand_HasYesFlag(t *testing.T) {
+	root := cli.NewRoot(cli.Deps{})
+	dropCmd, _, err := root.Find([]string{"dolt", "drop"})
+
+	require.NoError(t, err)
+	f := dropCmd.Flags().Lookup("yes")
+	require.NotNil(t, f, "--yes flag should exist")
+	assert.Equal(t, "false", f.DefValue)
 }
 
 func TestDoltConnectCommand_ReturnsNotImplemented(t *testing.T) {
@@ -63,16 +80,30 @@ func TestDoltConnectCommand_ReturnsNotImplemented(t *testing.T) {
 	assert.Contains(t, err.Error(), "havn dolt connect:")
 }
 
-func TestDoltImportCommand_ReturnsNotImplemented(t *testing.T) {
+func TestDoltImportCommand_RequiresPath(t *testing.T) {
 	_, _, err := executeCommand("dolt", "import")
+
+	require.Error(t, err)
+	assert.NotErrorIs(t, err, cli.ErrNotImplemented)
+}
+
+func TestDoltImportCommand_ReturnsNotImplemented(t *testing.T) {
+	_, _, err := executeCommand("dolt", "import", "/some/path")
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, cli.ErrNotImplemented)
 	assert.Contains(t, err.Error(), "havn dolt import:")
 }
 
-func TestDoltExportCommand_ReturnsNotImplemented(t *testing.T) {
+func TestDoltExportCommand_RequiresName(t *testing.T) {
 	_, _, err := executeCommand("dolt", "export")
+
+	require.Error(t, err)
+	assert.NotErrorIs(t, err, cli.ErrNotImplemented)
+}
+
+func TestDoltExportCommand_ReturnsNotImplemented(t *testing.T) {
+	_, _, err := executeCommand("dolt", "export", "mydb")
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, cli.ErrNotImplemented)

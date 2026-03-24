@@ -9,6 +9,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// version is set at build time via ldflags.
+var version = "dev"
+
 // ErrNotImplemented is returned by commands that are wired but not yet backed
 // by domain logic.
 var ErrNotImplemented = errors.New("not implemented")
@@ -57,6 +60,7 @@ func NewRoot(_ Deps) *cobra.Command {
 		Short: "Manage development environment containers",
 		Args:  cobra.MaximumNArgs(1),
 
+		Version:       version,
 		SilenceErrors: true,
 		SilenceUsage:  true,
 

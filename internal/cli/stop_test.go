@@ -27,6 +27,20 @@ func TestStopCommand_HasAllFlag(t *testing.T) {
 	assert.Equal(t, "false", f.DefValue)
 }
 
+func TestStopCommand_AcceptsOptionalName(t *testing.T) {
+	_, _, err := executeCommand("stop", "mycontainer")
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, cli.ErrNotImplemented)
+}
+
+func TestStopCommand_RejectsTooManyArgs(t *testing.T) {
+	_, _, err := executeCommand("stop", "one", "two")
+
+	require.Error(t, err)
+	assert.NotErrorIs(t, err, cli.ErrNotImplemented)
+}
+
 func TestStopCommand_HasYesFlag(t *testing.T) {
 	root := cli.NewRoot(cli.Deps{})
 	stopCmd, _, err := root.Find([]string{"stop"})

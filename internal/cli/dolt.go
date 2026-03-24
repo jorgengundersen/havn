@@ -66,14 +66,25 @@ func newDoltDatabasesCmd() *cobra.Command {
 	}
 }
 
+type doltDropOpts struct {
+	Yes bool
+}
+
 func newDoltDropCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "drop",
+	var opts doltDropOpts
+
+	cmd := &cobra.Command{
+		Use:   "drop <name>",
 		Short: "Drop a project database",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return fmt.Errorf("havn dolt drop: %w", ErrNotImplemented)
 		},
 	}
+
+	cmd.Flags().BoolVar(&opts.Yes, "yes", false, "confirm database drop")
+
+	return cmd
 }
 
 func newDoltConnectCmd() *cobra.Command {
@@ -88,8 +99,9 @@ func newDoltConnectCmd() *cobra.Command {
 
 func newDoltImportCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "import",
+		Use:   "import <path>",
 		Short: "Import local database",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return fmt.Errorf("havn dolt import: %w", ErrNotImplemented)
 		},
@@ -98,8 +110,9 @@ func newDoltImportCmd() *cobra.Command {
 
 func newDoltExportCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "export",
+		Use:   "export <name>",
 		Short: "Export database",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return fmt.Errorf("havn dolt export: %w", ErrNotImplemented)
 		},
