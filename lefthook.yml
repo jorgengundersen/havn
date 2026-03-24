@@ -2,4 +2,17 @@
 
 pre-commit:
   parallel: true
-  jobs: []
+  jobs:
+    - name: beads
+      run: |
+        if command -v bd >/dev/null 2>&1; then
+          BD_GIT_HOOK=1 bd hooks run pre-commit
+        fi
+    - name: fmt
+      run: gofmt -l . | grep . && echo "gofmt failed — run 'make fmt'" && exit 1 || true
+    - name: lint
+      run: go tool golangci-lint run
+    - name: test
+      run: go test ./...
+    - name: build
+      run: go build -o /dev/null ./cmd/havn

@@ -1,7 +1,7 @@
-.PHONY: build test lint fmt check clean
+.PHONY: build test lint fmt check install clean
 
 build:
-	go build ./...
+	go build -o bin/havn ./cmd/havn
 
 test:
 	go test ./...
@@ -10,11 +10,14 @@ test-integration:
 	go test -tags integration ./...
 
 lint:
-	golangci-lint run
+	go tool golangci-lint run
 
 fmt:
 	gofmt -w .
-	gci write --section standard --section default --section "prefix(github.com/jorgengundersen/havn)" .
+	go tool gci write --section standard --section default --section "prefix(github.com/jorgengundersen/havn)" .
+
+install:
+	go install ./cmd/havn/
 
 check: fmt lint test build
 
