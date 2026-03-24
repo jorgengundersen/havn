@@ -1,8 +1,12 @@
 // havn manages the lifecycle of development environment containers.
 package main
 
-import "fmt"
+import (
+	"os"
+
+	"github.com/jorgengundersen/havn/internal/cli"
+)
 
 func main() {
-	fmt.Println("havn")
+	os.Exit(cli.Execute())
 }
