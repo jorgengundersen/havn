@@ -1,0 +1,39 @@
+version: "2"
+
+formatters:
+  enable:
+    - gci
+
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/jorgengundersen/havn)
+      custom-order: true
+
+linters:
+  enable:
+    # Correctness (gosimple is included in staticcheck in v2)
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+
+    # Consistency
+    - revive
+
+  disable-all: true
+
+linters-settings:
+  revive:
+    rules:
+      - name: blank-imports
+      - name: exported
+      - name: unexported-return
+      - name: unused-parameter
+      - name: var-naming
+      - name: error-return
+      - name: error-naming
+      - name: receiver-naming
+      - name: indent-error-flow
