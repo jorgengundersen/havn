@@ -26,12 +26,12 @@ func NewOutput(stdout, stderr io.Writer, jsonMode, verbose bool) *Output {
 
 // Status writes a status message to stderr.
 func (o *Output) Status(msg string) {
-	fmt.Fprintln(o.stderr, msg)
+	_, _ = fmt.Fprintln(o.stderr, msg)
 }
 
 // Data writes data output to stdout.
 func (o *Output) Data(msg string) {
-	fmt.Fprintln(o.stdout, msg)
+	_, _ = fmt.Fprintln(o.stdout, msg)
 }
 
 // DataJSON encodes v as JSON and writes it to stdout.
@@ -48,6 +48,6 @@ func (o *Output) IsJSON() bool {
 // Verbose writes a debug message to stderr when verbose mode is enabled.
 func (o *Output) Verbose(msg string) {
 	if o.verbose {
-		fmt.Fprintln(o.stderr, msg)
+		_, _ = fmt.Fprintln(o.stderr, msg)
 	}
 }

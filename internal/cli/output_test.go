@@ -35,7 +35,8 @@ func TestDataJSON_ProducesValidJSON(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	out := cli.NewOutput(&stdout, &stderr, true, false)
 
-	out.DataJSON(map[string]string{"id": "abc-123"})
+	err := out.DataJSON(map[string]string{"id": "abc-123"})
+	require.NoError(t, err)
 
 	assert.Empty(t, stderr.String(), "JSON data should not write to stderr")
 	require.True(t, json.Valid(stdout.Bytes()), "output should be valid JSON")
