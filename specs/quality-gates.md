@@ -23,12 +23,24 @@ Only Go is required. All tool dependencies are pinned in `go.mod` via the
 | `make check` | fmt + lint + test + build | Full quality gate |
 | `make clean` | `rm -rf bin/` | Remove build artifacts |
 
+## Pre-commit hook
+
+The beads pre-commit shim (`.beads/hooks/pre-commit`) calls `make check`
+automatically on every commit. Beads owns all hook files via
+`core.hooksPath = .beads/hooks`.
+
+Hook order on commit:
+1. Beads integration (JSONL sync, prepare-commit-msg)
+2. `make check` (fmt → lint → test → build)
+
+A failure in any gate blocks the commit.
+
 ## Workflow
 
 ### Local development
 
-Run `make check` before committing. It runs all gates in order:
-format, lint, test, build.
+`make check` runs automatically via pre-commit hook. Run it manually
+to verify before staging.
 
 ### CI
 
