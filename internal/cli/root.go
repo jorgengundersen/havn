@@ -1,3 +1,4 @@
+// Package cli defines the Cobra command tree and CLI boundary for havn.
 package cli
 
 import (
@@ -24,7 +25,7 @@ func Execute() int {
 type Deps struct{}
 
 // NewRoot creates the root cobra command with the given dependencies.
-func NewRoot(deps Deps) *cobra.Command {
+func NewRoot(_ Deps) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "havn",
 		Short: "Manage development environment containers",
@@ -32,7 +33,7 @@ func NewRoot(deps Deps) *cobra.Command {
 		SilenceErrors: true,
 		SilenceUsage:  true,
 
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			cmd.Println("havn")
 			return nil
 		},
