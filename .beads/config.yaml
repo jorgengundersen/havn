@@ -10,6 +10,7 @@
 
 dolt:
   auto-start: false
+  port: 13629
 
 # Use no-db mode: JSONL-only, no Dolt database
 # When true, bd will use .beads/issues.jsonl as the source of truth
