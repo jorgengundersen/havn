@@ -1,0 +1,13 @@
+# https://lefthook.dev/configuration/
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: fmt
+      run: gofmt -l . | grep . && echo "gofmt failed — run 'make fmt'" && exit 1 || true
+    - name: lint
+      run: go tool golangci-lint run
+    - name: test
+      run: go test ./...
+    - name: build
+      run: go build -o /dev/null ./cmd/havn
