@@ -146,3 +146,6 @@ For more details, see README.md and docs/QUICKSTART.md.
 - If push fails, resolve and retry until it succeeds
 
 <!-- END BEADS INTEGRATION -->
+
+- before implementing or planning an implementation, ask yourself; is this defined in a spec?
+- use conventional commits
