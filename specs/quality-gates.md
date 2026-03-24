@@ -23,26 +23,53 @@ Only Go is required. All tool dependencies are pinned in `go.mod` via the
 | `make check` | fmt + lint + test + build | Full quality gate |
 | `make clean` | `rm -rf bin/` | Remove build artifacts |
 
-## Pre-commit hook
+## Git hooks
 
-Git hooks live in `.beads/hooks/` (via `core.hooksPath`). The
-pre-commit hook chains two tools:
+Git hooks live in `.beads/hooks/` (via `core.hooksPath`). Two tools
+share the hook files with distinct responsibilities:
 
-1. **Lefthook** — runs quality gates in parallel (fmt, lint, test,
-   build) as defined in `lefthook.yml`.
-2. **Beads** — JSONL sync and issue tracking integration, injected
-   via `bd hooks install --beads --chain` using section markers.
+| Tool | Role | Owns hook file? | Config |
+|------|------|-----------------|--------|
+| **Lefthook** | Quality gates (fmt, lint, test, build) | Yes — writes the hook shim | `lefthook.yml` |
+| **Beads** | Issue tracking sync, commit metadata | No — appends via section markers | `.beads/config.yaml` |
 
-Lefthook owns the hook file. Beads appends its section between
-`BEGIN/END BEADS INTEGRATION` markers, which lefthook preserves
-across syncs. To reinstall after changes:
+### How they coexist
+
+Lefthook owns the hook files and writes its shim (the script that
+finds and invokes `lefthook run`). Beads injects its integration
+between `BEGIN/END BEADS INTEGRATION` markers using the `--chain`
+flag. Lefthook preserves content outside its own shim across syncs,
+so the beads section survives `lefthook run` and `lefthook install`.
+
+The pre-commit hook executes in this order:
+1. **Lefthook** — runs quality gate jobs in parallel (defined in
+   `lefthook.yml`)
+2. **Beads** — runs `bd hooks run pre-commit` (JSONL sync)
+
+A failure in either tool blocks the commit.
+
+### Hook setup
+
+After cloning or when hooks need reinstalling:
 
 ```bash
-lefthook install --force    # install lefthook hook shim
-bd hooks install --beads --chain  # chain beads into it
+lefthook install --force          # 1. install lefthook hook shim
+bd hooks install --beads --chain  # 2. chain beads into it
 ```
 
-A failure in any gate blocks the commit.
+Order matters — lefthook must be installed first so beads can chain
+into the existing hook file. Running `bd hooks install` without
+`--chain` would replace the lefthook shim.
+
+### All managed hooks
+
+| Hook | Lefthook | Beads |
+|------|----------|-------|
+| `pre-commit` | Quality gates | JSONL sync |
+| `prepare-commit-msg` | — | Agent identity trailers |
+| `post-merge` | — | JSONL import after pull |
+| `post-checkout` | — | JSONL import after checkout |
+| `pre-push` | — | Validation before push |
 
 ## Workflow
 
