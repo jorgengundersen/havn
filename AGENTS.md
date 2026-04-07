@@ -147,5 +147,11 @@ For more details, see README.md and docs/QUICKSTART.md.
 
 <!-- END BEADS INTEGRATION -->
 
+## Memory
+
+**Do not** write to file-based auto-memory (e.g. `~/.local/share/claude/memory/`) for havn-specific insights. Use `bd remember "<insight>" --key <stable-key>` instead, and search with `bd memories <keyword>`. Beads memories are scoped to this repo, injected at prime time via `bd prime`, and survive account rotations.
+
+Cross-project knowledge (your general workflow preferences, other projects, etc.) may still live in file-based auto-memory.
+
 - before implementing or planning an implementation, ask yourself; is this defined in a spec?
 - use conventional commits
