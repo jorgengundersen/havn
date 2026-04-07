@@ -42,3 +42,6 @@ go.work.sum
 
 # Beads / Dolt files (added by bd init)
 .beads-credential-key
+
+# Claude Code local settings (machine-local, not shared)
+.claude/settings.local.json
