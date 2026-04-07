@@ -40,13 +40,3 @@ func TestStopCommand_RejectsTooManyArgs(t *testing.T) {
 	require.Error(t, err)
 	assert.NotErrorIs(t, err, cli.ErrNotImplemented)
 }
-
-func TestStopCommand_HasYesFlag(t *testing.T) {
-	root := cli.NewRoot(cli.Deps{})
-	stopCmd, _, err := root.Find([]string{"stop"})
-
-	require.NoError(t, err)
-	f := stopCmd.Flags().Lookup("yes")
-	require.NotNil(t, f, "--yes flag should exist")
-	assert.Equal(t, "false", f.DefValue)
-}

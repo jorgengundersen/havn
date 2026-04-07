@@ -8,7 +8,6 @@ import (
 
 type stopOpts struct {
 	All bool
-	Yes bool
 }
 
 func newStopCmd() *cobra.Command {
@@ -24,7 +23,6 @@ func newStopCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&opts.All, "all", false, "stop all havn containers")
-	cmd.Flags().BoolVar(&opts.Yes, "yes", false, "skip confirmation prompt")
 
 	return cmd
 }
