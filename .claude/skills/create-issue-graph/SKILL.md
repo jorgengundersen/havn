@@ -5,15 +5,13 @@ description: Plan and file a graph of beads (bd) issues for havn — epics, task
 
 # create-issue-graph
 
-Plans a beads graph → shows the plan → files on confirmation.
+Plan → show → file on confirmation.
 
 ## Two phases
 
 ### Phase 1 — PLAN (always)
 
-Produce a markdown plan in chat. Do **not** file yet.
-
-**Plan format:**
+Markdown plan in chat. Do NOT file.
 
 ```markdown
 ## Planned graph
@@ -25,96 +23,93 @@ Produce a markdown plan in chat. Do **not** file yet.
 
 ### Draft descriptions
 **n1 — <title>**
-<full description following the havn template below>
-
-**n2 — <title>**
-<…>
+<havn template>
 
 Ready to file? (yes / revise / cancel)
 ```
 
-On `revise`, update and re-confirm. On `cancel`, abort. On `yes`, go to Phase 2.
+`revise` → update + reconfirm. `cancel` → abort. `yes` → Phase 2.
 
-### Phase 2 — FILE (only after confirmation)
+### Phase 2 — FILE (only after confirm)
 
-1. **Create in dependency order.** Parents before children. Parallelize creates across *different* parents; serialize creates under the *same* parent (see Rule 9).
-2. **Use `bd create` with full flags** (see "Filing mechanics" below).
-3. **Wire deps with `bd dep add`** after creates succeed.
-4. **Verify with `bd list` and `bd ready -n 100`.** Confirm expected leaves are ready and nothing is unexpectedly blocked.
-5. **Report filed IDs + `bd ready` shape** back to the user.
+1. Create in dep order. Parents before children. Parallel across *different* parents; serial under *same* parent (Rule 9).
+2. `bd create` with full flags.
+3. `bd dep add` after creates succeed.
+4. Verify: `bd list`, `bd ready -n 100`. Confirm expected leaves ready, nothing unexpectedly blocked.
+5. Report filed IDs + `bd ready` shape.
 
 ---
 
 ## Rules
 
-### 1. Priority = urgency, never ordering
-P0 critical · P1 high · **P2 default** · P3 low · P4 backlog. Children default to the parent's priority; bump only if a specific child has genuinely different urgency. Never use priority to serialize "do A then B then C".
+### 1. Priority = urgency, not ordering
+P0 crit · P1 high · **P2 default** · P3 low · P4 backlog. Children inherit parent prio; bump only for genuinely different urgency. Never use prio to serialize.
 
-### 2. `blocks` = real technical dependencies only
-Add `blocks` only when B's tests literally cannot compile/run until A's public API exists, or B's behavior genuinely requires runtime state from A. Never for preference, cleanliness, or phase ordering.
+### 2. `blocks` = real tech dep only
+Add `blocks` only when B literally can't compile/run or needs A's runtime state. Never for preference/cleanliness/phase ordering.
 
-### 3. Cross-epic deps go on the LEAF, not the parent
-Beads propagates block state parent → children. An epic-level `blocks` dep blocks *every* child. Put cross-graph deps on the specific leaf task that actually needs the prerequisite; siblings that don't need it stay in `bd ready` and parallelize. Epic-level blocks are correct only if *every* child truly needs the prerequisite (rare).
+### 3. Cross-epic deps on LEAF, not parent
+Bd propagates block state parent → children. Epic-level `blocks` blocks *every* child. Put cross-graph deps on specific leaf that needs the prereq. Epic-level only when *every* child needs it (rare).
 
 ### 4. `--parent` = containment, not blocking
-An open (unblocked) parent does not block children. A blocked parent blocks all children transitively. Sibling ordering, when real, requires explicit `blocks` deps between the specific siblings — subject to Rule 2.
+Open parent doesn't block children. Blocked parent blocks all children transitively. Sibling ordering needs explicit `blocks` between specific siblings (subject to Rule 2).
 
-### 5. Task granularity: one cohesive behavior (2–5 TDD cycles)
-Vertical slice through the package's public API. Large enough to be meaningful, small enough that a wrong turn is cheap.
+### 5. Leaf size = one agent context window
+One cohesive behavior. Fits in one context window without derailing. Vertical slice, ~2–5 TDD cycles. Merge if splitting leaves sub-tasks with no observable result on their own (skeleton — anti-pattern 6).
 - ✅ *"Config.Load reads global TOML (handles missing and malformed)"*
-- ❌ too fine: *"Add Config.Load signature"* / *"Add default case"*
-- ❌ too coarse: *"Implement config package"* (that's the epic)
+- ❌ fine: *"Add Config.Load signature"*
+- ❌ coarse: *"Implement config package"* (epic)
 
 ### 6. No "write tests" sibling tasks
-Under TDD the test drives the implementation in the same cycle. Never split "implement X" and "test X" into separate tasks. Never split an epic into "design / implement / test" phases.
+TDD: test drives impl same cycle. Never split impl/test. Never split epic into design/impl/test phases.
 
-### 7. Acceptance criteria describe behavior, not test mechanics
-- ✅ *"`havn list --json` emits the shape in havn-overview.md §3"*
-- ✅ *"Stopping a missing container returns `container.NotFoundError`"*
-- ❌ *"Table-driven tests cover edge cases"* / *"Black-box tests with fake X"* / *"Integration test hits real Docker"*
+### 7. Acceptance = behavior, not test mechanics
+- ✅ *"`havn list --json` emits shape in havn-overview.md §3"*
+- ✅ *"Stopping missing container returns `container.NotFoundError`"*
+- ❌ *"Table-driven tests cover edges"* / *"Black-box tests with fake X"*
 
-### 8. Epics can only be blocked by other epics
-Beads enforces this as a hard constraint (*"epics can only block other epics, not tasks"*). If you feel you need a task→epic block, you're modeling it wrong — put the block on the specific *child tasks* of the epic that need the prerequisite (Rule 3).
+### 8. Epics only blocked by epics
+Bd hard constraint. Task→epic block = wrong model → put block on specific child tasks (Rule 3).
 
-### 9. Serialize sibling creates under the same parent
-Parallel `bd create --parent <same-id>` collides on hierarchical IDs and drops siblings. Creates under the *same* parent must be sequential. Creates across *different* parents (or with no parent) may be parallel.
+### 9. Serial creates under same parent
+Parallel `bd create --parent <same>` collides on hierarchical IDs, drops siblings. Same parent → sequential. Different parents (or no parent) → parallel.
 
-### 10. Beads auto-closes completed molecules
-Closing all children of an epic auto-closes the epic. Do not add an explicit epic-blocked-by-children dep to achieve this — it's native.
+### 10. Bd auto-closes molecules
+Closing all children auto-closes epic. Don't add epic-blocked-by-children dep.
 
-### 11. Use non-blocking annotations freely when they add context
-- `discovered-from` — **only** when the new issue was literally discovered while working on the linked issue.
-- `related` — informational link between issues in the same area.
-- `caused-by` — root-cause link for bugs.
-- `supersedes` — replaces another issue.
-These do not affect `bd ready`.
+### 11. Non-blocking annotations
+- `discovered-from` — only when literally discovered while working on linked issue.
+- `related` — informational.
+- `caused-by` — bug root cause.
+- `supersedes` — replaces.
+None affect `bd ready`.
 
 ### 12. Issue types
-- `epic` — multi-task initiative container.
+- `epic` — multi-task container.
 - `feature` — user-visible functionality.
-- `task` — internal work (refactor, wire-up, plumbing). **Default for decomposition children.**
-- `bug` — something broken. Use `caused-by` when root cause is known.
+- `task` — internal work. **Default for children.**
+- `bug` — broken. Use `caused-by` when root cause known.
 - `chore` — tooling, deps, CI.
 
 ## havn description template
 
 ```markdown
-<one-paragraph summary including *why* the work exists>
+<one-para summary + *why*>
 
 ## Scope
-- <what this issue covers>
+- <what this covers>
 
 ## Out of scope
-- <only if there is ambiguity to resolve>
+- <only if ambiguous>
 
 ## Specs
-- specs/<file>.md §<section>
+- specs/<f>.md §<n>
 
 ## Wires up
-- <what gets connected when this closes; only for domain-logic issues>
+- <what connects when this closes; domain-logic only>
 
 ## Acceptance
-- <user-visible behavior or contract guarantee>
+- <user-visible behavior or contract>
 ```
 
 ## Filing mechanics
@@ -124,34 +119,32 @@ bd create "<title>" \
   --type <epic|task|feature|bug|chore> \
   --priority <0-4> \
   --parent <id>            # if applicable
-  --spec-id <spec-name>    # if the issue maps directly to a spec file
-  --description "<havn template>" \
+  --spec-id <spec-name>    # if maps to a spec file
+  --description "<template>" \
   --json
 
-# after all creates:
-bd dep add <dependent-id> <prerequisite-id>             # default type: blocks
-bd dep add <from> <to> --type discovered-from           # non-blocking
-bd dep add <from> <to> --type related                   # non-blocking
+bd dep add <dependent> <prereq>             # default: blocks
+bd dep add <from> <to> --type discovered-from
+bd dep add <from> <to> --type related
 
-# verify:
 bd list
 bd ready -n 100
 ```
 
-## Anti-patterns (reject explicitly)
+## Anti-patterns (reject)
 
-1. Phase ordering within an epic (Design → Implement → Test). Beads docs show this; it's wrong for TDD.
+1. Phase ordering (Design → Impl → Test).
 2. Separate "write tests" tasks.
-3. `blocks` deps between siblings just to give `bd ready` a deterministic order.
-4. Mixing priority tiers within an epic to serialize work.
-5. Epic-level `blocks` when only some children need the prerequisite.
-6. "Skeleton" or "scaffolding" tasks (create dir, add empty file). Not behaviors.
-7. TDD mechanics in issue descriptions (the implementation agent handles TDD separately).
-8. Using `-f` markdown or `--graph` JSON batch flags — their schemas are undocumented. Use parallel `bd create` + `bd dep add`.
+3. `blocks` between siblings just for `bd ready` order.
+4. Priority tiers to serialize within epic.
+5. Epic-level `blocks` when only some children need prereq.
+6. Skeleton/scaffolding tasks (create dir, add empty file).
+7. TDD mechanics in descriptions.
+8. `-f` markdown or `--graph` JSON batch flags — undocumented. Use `bd create` + `bd dep add`.
 
 ## Hard rules
 
-- **Never file before the user confirms the plan.**
-- **Never claim work** (`bd update --claim`) — that's the implementation agent's job.
-- **Never update existing issues via this skill** — use `bd update` directly.
-- **Always check `bd search` / `bd list`** before filing to avoid duplicates.
+- Never file before user confirms.
+- Never claim work (`bd update --claim`) — impl agent's job.
+- Never update existing issues via this skill — use `bd update` directly.
+- Always `bd search` / `bd list` before filing to avoid dupes.

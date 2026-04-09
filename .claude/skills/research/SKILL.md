@@ -5,41 +5,41 @@ description: Investigate the havn codebase and produce a structured research rep
 
 # research
 
-Read-only investigator. Produces a report for the user and/or for handoff to `create-issue-graph`.
+Read-only investigator. Report → user or handoff to `create-issue-graph`.
 
 ## Rules
 
-1. **Read-only.** Do not modify code. Do not file beads issues. That's for other skills.
-2. **Specs are intent; code is current behavior.** Read both; cite both.
-3. **Cite everything.** Every non-obvious claim gets `specs/<file>.md §N` or `path/file.go:LINE`.
-4. **Check beads memory first.** `bd memories <keyword>` may already have the answer. Also `bd search <keyword>` for related existing issues.
-5. **No TDD prescriptions.** Describe *what* needs doing, not *how* to TDD it.
-6. **No priority or urgency calls.** Report what exists; urgency is the user's call.
-7. **Flag surprises explicitly.** Stale state, spec/code contradictions, already-done-but-not-closed work go in a dedicated "Flags" section.
+1. Read-only. No code edits. No bd writes.
+2. Specs = intent. Code = behavior. Read both, cite both.
+3. Cite everything: `specs/<f>.md §N` or `path/file.go:LINE`.
+4. Check `bd memories <kw>` + `bd search <kw>` first.
+5. No TDD prescriptions. *What*, not *how*.
+6. No priority/urgency. User's call.
+7. Flag surprises (stale state, spec/code contradictions, done-but-open) in Flags section.
 
 ## Procedure
 
-1. **Restate scope** in your own words. Identify specs, code paths, and existing beads issues in play.
-2. **Read relevant specs** fully (not skim). Note section numbers.
-3. **Read relevant code**, starting from `cmd/havn/main.go` / `internal/cli/` and following imports. Read tests alongside code.
-4. **Compare and classify** (for gap analysis): `MET` / `PARTIAL` / `MISSING` / `DIVERGENT`. For bugs: `CONFIRMED` / `NOT REPRODUCED` / `ADJACENT`.
-5. **Write the report** using the template below.
+1. Restate scope. List specs, code paths, bd issues in play.
+2. Read specs fully. Note section numbers.
+3. Read code from `cmd/havn/main.go` / `internal/cli/` outward. Tests alongside code.
+4. Classify. Gap analysis: `MET` / `PARTIAL` / `MISSING` / `DIVERGENT`. Bugs: `CONFIRMED` / `NOT REPRODUCED` / `ADJACENT`.
+5. Write report.
 
 ## Report template
 
 Omit sections that don't apply.
 
 ```markdown
-# Research: <short title>
+# Research: <title>
 
 ## Scope
-<restated request + what was investigated>
+<request + what was investigated>
 
 ## Summary
-<2-4 sentence executive summary>
+<2-4 sentences>
 
 ## Findings
-<organized by area; each with spec:§ or file:line citation>
+<by area; each cited>
 
 ## Gap analysis
 | Item | Status | Evidence |
@@ -47,18 +47,18 @@ Omit sections that don't apply.
 | … | MET/PARTIAL/MISSING/DIVERGENT | specs/foo.md §2 vs internal/foo/bar.go:45 |
 
 ## Critical gaps
-<ordered by what unblocks the most downstream work, NOT by urgency>
+<ordered by downstream unblock value, NOT urgency>
 
 ## Flags
-<surprises, stale state, contradictions, already-done-but-not-closed work>
+<surprises, stale state, contradictions, done-but-open>
 
 ## Suggested next step
-<"file issue graph with create-issue-graph" / "user decides X first" / "nothing to do">
+<"create-issue-graph" / "user decides X" / "nothing to do">
 ```
 
-## What NOT to include
+## Do NOT include
 
-- Implementation plans, pseudocode, or code changes.
-- TDD cycle breakdowns or task granularity (that's `create-issue-graph`).
-- Priority assignments or time estimates.
-- New beads issues (use `create-issue-graph` as a follow-up).
+- Implementation plans, pseudocode, code changes.
+- TDD breakdowns, task granularity (→ `create-issue-graph`).
+- Priorities, time estimates.
+- New bd issues (→ `create-issue-graph`).
