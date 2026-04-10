@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/jorgengundersen/havn/internal/cli"
+	"github.com/jorgengundersen/havn/internal/dolt"
 )
 
 func TestExitError_ExposesCodeAndWrapsErr(t *testing.T) {
@@ -35,6 +37,24 @@ func TestFormatError_ReturnsErrorMessage(t *testing.T) {
 	err := errors.New("something went wrong")
 
 	assert.Equal(t, "something went wrong", cli.FormatError(err))
+}
+
+func TestFormatError_StartError(t *testing.T) {
+	err := &dolt.StartError{Err: errors.New("connection refused")}
+
+	assert.Equal(t, "Failed to start Dolt server: connection refused. Run `havn doctor` to diagnose", cli.FormatError(err))
+}
+
+func TestFormatError_HealthCheckTimeoutError(t *testing.T) {
+	err := &dolt.HealthCheckTimeoutError{Timeout: 30 * time.Second}
+
+	assert.Equal(t, "Dolt server started but not responding. Check `docker logs havn-dolt`", cli.FormatError(err))
+}
+
+func TestFormatError_NotManagedError(t *testing.T) {
+	err := &dolt.NotManagedError{Name: "havn-dolt"}
+
+	assert.Equal(t, `container "havn-dolt" exists but was not created by havn`, cli.FormatError(err))
 }
 
 func TestOutput_Error_JSONMode(t *testing.T) {

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/jorgengundersen/havn/internal/dolt"
 )
 
 // ExitError wraps an error with a specific process exit code.
@@ -30,8 +32,22 @@ func ExitCode(err error) int {
 }
 
 // FormatError translates an error into a user-facing message.
-// Domain error type translations will be added as domain packages land.
 func FormatError(err error) string {
+	var startErr *dolt.StartError
+	if errors.As(err, &startErr) {
+		return fmt.Sprintf("Failed to start Dolt server: %s. Run `havn doctor` to diagnose", startErr.Err)
+	}
+
+	var healthErr *dolt.HealthCheckTimeoutError
+	if errors.As(err, &healthErr) {
+		return "Dolt server started but not responding. Check `docker logs havn-dolt`"
+	}
+
+	var notManaged *dolt.NotManagedError
+	if errors.As(err, &notManaged) {
+		return notManaged.Error()
+	}
+
 	return err.Error()
 }
 
