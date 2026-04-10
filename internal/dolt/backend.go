@@ -16,6 +16,8 @@ type Backend interface {
 	ContainerInspect(ctx context.Context, name string) (ContainerInfo, bool, error)
 	// ContainerExec runs a one-shot command inside a container and returns stdout.
 	ContainerExec(ctx context.Context, container string, cmd []string) (string, error)
+	// ContainerExecInteractive runs an interactive command with TTY attached.
+	ContainerExecInteractive(ctx context.Context, container string, cmd []string) error
 	// CopyToContainer copies data into a container at the given path.
 	CopyToContainer(ctx context.Context, container string, destPath string, content []byte) error
 	// CopyFromContainer copies data from a container path and returns it.

@@ -30,6 +30,9 @@ type fakeBackend struct {
 
 	copyFromData []byte
 	copyFromErr  error
+
+	interactiveCalls []execCall
+	interactiveErr   error
 }
 
 // execCall records a ContainerExec invocation.
@@ -71,4 +74,9 @@ func (f *fakeBackend) CopyToContainer(_ context.Context, _ string, destPath stri
 
 func (f *fakeBackend) CopyFromContainer(_ context.Context, _ string, _ string) ([]byte, error) {
 	return f.copyFromData, f.copyFromErr
+}
+
+func (f *fakeBackend) ContainerExecInteractive(_ context.Context, container string, cmd []string) error {
+	f.interactiveCalls = append(f.interactiveCalls, execCall{container: container, cmd: cmd})
+	return f.interactiveErr
 }
