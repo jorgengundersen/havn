@@ -23,9 +23,19 @@ linters:
     # Consistency
     - revive
 
+    # Logging (code-standards.md §5)
+    - sloglint
+
   disable-all: true
 
 linters-settings:
+  sloglint:
+    no-mixed-args: true
+    attr-only: true
+    no-global: "all"
+    static-msg: true
+    key-naming-case: "snake"
+
   revive:
     rules:
       - name: blank-imports
