@@ -46,26 +46,6 @@ func TestDataJSON_ProducesValidJSON(t *testing.T) {
 	assert.Equal(t, "abc-123", result["id"])
 }
 
-func TestVerbose_WritesToStderr_NotStdout(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	out := cli.NewOutput(&stdout, &stderr, false, true)
-
-	out.Verbose("debug info here")
-
-	assert.Empty(t, stdout.String(), "verbose should not write to stdout")
-	assert.Contains(t, stderr.String(), "debug info here")
-}
-
-func TestVerbose_SilentWhenNotEnabled(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	out := cli.NewOutput(&stdout, &stderr, false, false)
-
-	out.Verbose("debug info here")
-
-	assert.Empty(t, stdout.String(), "verbose should not write to stdout")
-	assert.Empty(t, stderr.String(), "verbose should not write to stderr when disabled")
-}
-
 func TestIsJSON_ReflectsMode(t *testing.T) {
 	jsonOut := cli.NewOutput(nil, nil, true, false)
 	assert.True(t, jsonOut.IsJSON())

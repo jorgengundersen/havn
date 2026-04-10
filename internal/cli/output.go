@@ -44,10 +44,3 @@ func (o *Output) DataJSON(v any) error {
 func (o *Output) IsJSON() bool {
 	return o.json
 }
-
-// Verbose writes a debug message to stderr when verbose mode is enabled.
-func (o *Output) Verbose(msg string) {
-	if o.verbose {
-		_, _ = fmt.Fprintln(o.stderr, msg)
-	}
-}
