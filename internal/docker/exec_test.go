@@ -48,6 +48,69 @@ func TestTerminalFd_ReturnsFdForFile(t *testing.T) {
 	assert.Equal(t, int(f.Fd()), fd)
 }
 
+func TestExecOpts_FieldsExist(t *testing.T) {
+	opts := docker.ExecOpts{
+		Cmd:     []string{"test", "-d", "/nix/store"},
+		Env:     []string{"PATH=/usr/bin"},
+		Workdir: "/workspace",
+		User:    "devuser",
+	}
+
+	assert.Equal(t, []string{"test", "-d", "/nix/store"}, opts.Cmd)
+	assert.Equal(t, []string{"PATH=/usr/bin"}, opts.Env)
+	assert.Equal(t, "/workspace", opts.Workdir)
+	assert.Equal(t, "devuser", opts.User)
+}
+
+func TestExecResult_FieldsExist(t *testing.T) {
+	result := docker.ExecResult{
+		ExitCode: 42,
+		Stdout:   []byte("hello stdout"),
+		Stderr:   []byte("hello stderr"),
+	}
+
+	assert.Equal(t, 42, result.ExitCode)
+	assert.Equal(t, []byte("hello stdout"), result.Stdout)
+	assert.Equal(t, []byte("hello stderr"), result.Stderr)
+}
+
+func TestContainerExec_ReturnsErrorOnUnreachableDaemon(t *testing.T) {
+	c, err := docker.NewClientWithHost("tcp://localhost:0")
+	require.NoError(t, err)
+
+	_, err = c.ContainerExec(context.Background(), "nonexistent", docker.ExecOpts{
+		Cmd: []string{"echo", "hello"},
+	})
+
+	assert.Error(t, err)
+}
+
+func TestContainerExec_WrapsErrorWithContext(t *testing.T) {
+	c, err := docker.NewClientWithHost("tcp://localhost:0")
+	require.NoError(t, err)
+
+	_, err = c.ContainerExec(context.Background(), "nonexistent", docker.ExecOpts{
+		Cmd: []string{"echo", "hello"},
+	})
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "docker exec create:")
+}
+
+func TestContainerExec_RespectsContextCancellation(t *testing.T) {
+	c, err := docker.NewClientWithHost("tcp://localhost:0")
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	_, err = c.ContainerExec(ctx, "nonexistent", docker.ExecOpts{
+		Cmd: []string{"echo", "hello"},
+	})
+
+	assert.Error(t, err)
+}
+
 func TestContainerAttach_ReturnsErrorOnUnreachableDaemon(t *testing.T) {
 	c, err := docker.NewClientWithHost("tcp://localhost:0")
 	require.NoError(t, err)

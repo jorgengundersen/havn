@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -9,9 +10,70 @@ import (
 
 	cerrdefs "github.com/containerd/errdefs"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/pkg/stdcopy"
 	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 )
+
+// ExecOpts holds parameters for a non-interactive one-shot exec.
+type ExecOpts struct {
+	Cmd     []string // Command and arguments to execute
+	Env     []string // Environment variables (KEY=VALUE)
+	Workdir string   // Working directory inside the container
+	User    string   // User to run the command as
+}
+
+// ExecResult holds the outcome of a non-interactive exec.
+// A non-zero ExitCode is not an error — only exec-plumbing failures return errors.
+type ExecResult struct {
+	ExitCode int    // Process exit code
+	Stdout   []byte // Captured stdout bytes
+	Stderr   []byte // Captured stderr bytes
+}
+
+// ContainerExec runs a non-interactive one-shot command in the specified
+// container and captures stdout/stderr. A non-zero exit code is returned in
+// ExecResult, not as an error — only exec-plumbing failures return errors.
+// Returns *ContainerNotFoundError if the container does not exist.
+func (c *Client) ContainerExec(ctx context.Context, nameOrID string, opts ExecOpts) (ExecResult, error) {
+	execResp, err := c.docker.ContainerExecCreate(ctx, nameOrID, dockercontainer.ExecOptions{
+		Cmd:          opts.Cmd,
+		Env:          opts.Env,
+		WorkingDir:   opts.Workdir,
+		User:         opts.User,
+		Tty:          false,
+		AttachStdout: true,
+		AttachStderr: true,
+	})
+	if err != nil {
+		if cerrdefs.IsNotFound(err) {
+			return ExecResult{}, &ContainerNotFoundError{Name: nameOrID}
+		}
+		return ExecResult{}, fmt.Errorf("docker exec create: %w", err)
+	}
+
+	hijacked, err := c.docker.ContainerExecAttach(ctx, execResp.ID, dockercontainer.ExecAttachOptions{})
+	if err != nil {
+		return ExecResult{}, fmt.Errorf("docker exec attach: %w", err)
+	}
+	defer hijacked.Close()
+
+	var stdout, stderr bytes.Buffer
+	if _, err := stdcopy.StdCopy(&stdout, &stderr, hijacked.Reader); err != nil {
+		return ExecResult{}, fmt.Errorf("docker exec read: %w", err)
+	}
+
+	inspect, err := c.docker.ContainerExecInspect(ctx, execResp.ID)
+	if err != nil {
+		return ExecResult{}, fmt.Errorf("docker exec inspect: %w", err)
+	}
+
+	return ExecResult{
+		ExitCode: inspect.ExitCode,
+		Stdout:   stdout.Bytes(),
+		Stderr:   stderr.Bytes(),
+	}, nil
+}
 
 // AttachOpts holds parameters for an interactive tty exec session.
 type AttachOpts struct {
