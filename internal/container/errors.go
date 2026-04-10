@@ -2,6 +2,15 @@ package container
 
 import "fmt"
 
+// NotFoundError indicates a container does not exist.
+type NotFoundError struct {
+	Name string
+}
+
+func (e *NotFoundError) Error() string {
+	return fmt.Sprintf("container %q not found", e.Name)
+}
+
 // BuildError wraps a failure during image build.
 type BuildError struct {
 	Err error
