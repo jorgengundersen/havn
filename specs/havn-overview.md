@@ -568,6 +568,8 @@ When `havn` detects `.beads/` in a project directory and Dolt is enabled:
    - `BEADS_DOLT_SHARED_SERVER=1`
    - `BEADS_DOLT_SERVER_HOST=havn-dolt`
    - `BEADS_DOLT_SERVER_PORT=3308`
+   - `BEADS_DOLT_SERVER_USER=root`
+   - `BEADS_DOLT_SERVER_DATABASE=<database>` (from `.havn/config.toml`)
    - `BEADS_DOLT_AUTO_START=0`
 4. `bd` connects to the shared server transparently
 
