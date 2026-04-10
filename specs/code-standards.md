@@ -360,6 +360,32 @@ This ensures `havn list --json | jq` is never polluted by status messages.
 - Include structured fields for machine-parseable context:
   `slog.String("container", name)`, not interpolated strings.
 
+### Standard attributes
+
+Use these attribute names project-wide. Consistent keys let log queries
+work across packages without per-package discovery.
+
+| Attribute | Type | Description | Typical layer |
+|-----------|------|-------------|---------------|
+| `component` | `slog.String` | Package or subsystem name (e.g. `"docker"`, `"container"`, `"dolt"`) | Set once per logger, usually at construction |
+| `operation` | `slog.String` | Verb describing the action (e.g. `"start"`, `"stop"`, `"create"`, `"inspect"`) | Set per log call |
+| `container_name` | `slog.String` | havn-managed container name | Domain / wrapper |
+| `volume_name` | `slog.String` | havn-managed volume name | Domain / wrapper |
+| `network_name` | `slog.String` | havn-managed network name | Domain / wrapper |
+| `image` | `slog.String` | Container image reference | Domain / wrapper |
+| `error` | `slog.Any` | The error value — use `slog.Any("error", err)` | Handling boundary only |
+
+**Rules:**
+
+- New attributes may be added, but existing names and semantics must not
+  change once adopted.
+- Prefer these standard names over ad-hoc alternatives (`container`
+  instead of `ctr`, `name`, or `containerName`).
+- `component` is typically set via `logger.With(slog.String("component",
+  "docker"))` at construction time so every subsequent call inherits it.
+- `error` appears only at the handling boundary — never at a site that
+  also returns the error (see Rules above).
+
 ## 6. Static Analysis and Formatting
 
 _Ref: [Principles 10](architecture-principles.md)_
