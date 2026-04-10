@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/jorgengundersen/havn/internal/cli"
+	"github.com/jorgengundersen/havn/internal/config"
 	"github.com/jorgengundersen/havn/internal/dolt"
 )
 
@@ -61,6 +62,32 @@ func TestFormatError_DatabaseCreateError(t *testing.T) {
 	err := &dolt.DatabaseCreateError{Name: "myproject", Err: errors.New("access denied")}
 
 	assert.Equal(t, "Failed to create database 'myproject': access denied", cli.FormatError(err))
+}
+
+func TestTypedError_ParseErrorSatisfiesInterface(t *testing.T) {
+	var typed cli.TypedError = &config.ParseError{File: "f", Line: 1, Detail: "d"}
+
+	assert.Equal(t, "config_parse_error", typed.ErrorType())
+	assert.Equal(t, map[string]any{"file": "f", "line": 1, "detail": "d"}, typed.ErrorDetails())
+}
+
+func TestTypedError_ValidationErrorSatisfiesInterface(t *testing.T) {
+	var typed cli.TypedError = &config.ValidationError{Field: "f", Reason: "r"}
+
+	assert.Equal(t, "config_validation_error", typed.ErrorType())
+	assert.Equal(t, map[string]any{"field": "f", "reason": "r"}, typed.ErrorDetails())
+}
+
+func TestFormatError_ParseError(t *testing.T) {
+	err := &config.ParseError{File: "config.toml", Line: 5, Detail: "unexpected key"}
+
+	assert.Equal(t, "Config parse error at config.toml:5: unexpected key", cli.FormatError(err))
+}
+
+func TestFormatError_ValidationError(t *testing.T) {
+	err := &config.ValidationError{Field: "resources.cpus", Reason: "must be greater than 0"}
+
+	assert.Equal(t, "Invalid config: resources.cpus: must be greater than 0", cli.FormatError(err))
 }
 
 func TestOutput_Error_JSONMode(t *testing.T) {

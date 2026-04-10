@@ -5,8 +5,16 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jorgengundersen/havn/internal/config"
 	"github.com/jorgengundersen/havn/internal/dolt"
 )
+
+// TypedError is implemented by domain errors that expose machine-readable
+// type identifiers and structured details for JSON output.
+type TypedError interface {
+	ErrorType() string
+	ErrorDetails() map[string]any
+}
 
 // ExitError wraps an error with a specific process exit code.
 type ExitError struct {
@@ -33,6 +41,16 @@ func ExitCode(err error) int {
 
 // FormatError translates an error into a user-facing message.
 func FormatError(err error) string {
+	var parseErr *config.ParseError
+	if errors.As(err, &parseErr) {
+		return fmt.Sprintf("Config parse error at %s:%d: %s", parseErr.File, parseErr.Line, parseErr.Detail)
+	}
+
+	var valErr *config.ValidationError
+	if errors.As(err, &valErr) {
+		return fmt.Sprintf("Invalid config: %s: %s", valErr.Field, valErr.Reason)
+	}
+
 	var startErr *dolt.StartError
 	if errors.As(err, &startErr) {
 		return fmt.Sprintf("Failed to start Dolt server: %s. Run `havn doctor` to diagnose", startErr.Err)
