@@ -28,17 +28,17 @@ type Config struct {
 
 // ResourceConfig controls container resource limits.
 type ResourceConfig struct {
-	CPUs       int    `toml:"cpus"`
-	Memory     string `toml:"memory"`
-	MemorySwap string `toml:"memory_swap"`
+	CPUs       int    `toml:"cpus" json:"cpus"`
+	Memory     string `toml:"memory" json:"memory"`
+	MemorySwap string `toml:"memory_swap" json:"memory_swap"`
 }
 
 // VolumeConfig maps logical volume roles to Docker volume names.
 type VolumeConfig struct {
-	Nix   string `toml:"nix"`
-	Data  string `toml:"data"`
-	Cache string `toml:"cache"`
-	State string `toml:"state"`
+	Nix   string `toml:"nix" json:"nix"`
+	Data  string `toml:"data" json:"data"`
+	Cache string `toml:"cache" json:"cache"`
+	State string `toml:"state" json:"state"`
 }
 
 // MountConfig describes host bind mounts and SSH forwarding.
@@ -49,16 +49,16 @@ type MountConfig struct {
 
 // SSHConfig controls SSH agent and key forwarding into the container.
 type SSHConfig struct {
-	ForwardAgent   bool `toml:"forward_agent"`
-	AuthorizedKeys bool `toml:"authorized_keys"`
+	ForwardAgent   bool `toml:"forward_agent" json:"forward_agent"`
+	AuthorizedKeys bool `toml:"authorized_keys" json:"authorized_keys"`
 }
 
 // DoltConfig controls the shared Dolt SQL server.
 type DoltConfig struct {
-	Enabled  bool   `toml:"enabled"`
-	Port     int    `toml:"port"`
-	Image    string `toml:"image"`
-	Database string `toml:"database"`
+	Enabled  bool   `toml:"enabled" json:"enabled"`
+	Port     int    `toml:"port" json:"port"`
+	Image    string `toml:"image" json:"image"`
+	Database string `toml:"database" json:"database"`
 }
 
 // LoadFile parses a TOML file into a Config. A missing file returns a zero
