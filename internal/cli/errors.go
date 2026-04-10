@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jorgengundersen/havn/internal/config"
+	"github.com/jorgengundersen/havn/internal/docker"
 	"github.com/jorgengundersen/havn/internal/dolt"
 )
 
@@ -41,6 +42,11 @@ func ExitCode(err error) int {
 
 // FormatError translates an error into a user-facing message.
 func FormatError(err error) string {
+	var daemonErr *docker.DaemonUnreachableError
+	if errors.As(err, &daemonErr) {
+		return "Docker is not running. Start Docker and try again"
+	}
+
 	var parseErr *config.ParseError
 	if errors.As(err, &parseErr) {
 		return fmt.Sprintf("Config parse error at %s:%d: %s", parseErr.File, parseErr.Line, parseErr.Detail)

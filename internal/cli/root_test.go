@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/jorgengundersen/havn/internal/cli"
+	"github.com/jorgengundersen/havn/internal/docker"
 )
 
 func TestNewRoot_ReturnsCommand(t *testing.T) {
@@ -129,6 +130,16 @@ func TestNewRoot_HelpIncludesAllFlags(t *testing.T) {
 	for _, f := range flags {
 		assert.Contains(t, help, f, "help output should include %s", f)
 	}
+}
+
+func TestDeps_AcceptsDockerClient(t *testing.T) {
+	c, err := docker.NewClient()
+	require.NoError(t, err)
+
+	deps := cli.Deps{Docker: c}
+	root := cli.NewRoot(deps)
+
+	assert.NotNil(t, root)
 }
 
 func TestNewRoot_HasVersion(t *testing.T) {

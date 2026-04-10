@@ -10,6 +10,7 @@ import (
 
 	"github.com/jorgengundersen/havn/internal/cli"
 	"github.com/jorgengundersen/havn/internal/config"
+	"github.com/jorgengundersen/havn/internal/docker"
 	"github.com/jorgengundersen/havn/internal/dolt"
 )
 
@@ -88,6 +89,19 @@ func TestFormatError_ValidationError(t *testing.T) {
 	err := &config.ValidationError{Field: "resources.cpus", Reason: "must be greater than 0"}
 
 	assert.Equal(t, "Invalid config: resources.cpus: must be greater than 0", cli.FormatError(err))
+}
+
+func TestFormatError_DaemonUnreachableError(t *testing.T) {
+	err := &docker.DaemonUnreachableError{Host: "unix:///var/run/docker.sock"}
+
+	assert.Equal(t, "Docker is not running. Start Docker and try again", cli.FormatError(err))
+}
+
+func TestTypedError_DaemonUnreachableErrorSatisfiesInterface(t *testing.T) {
+	var typed cli.TypedError = &docker.DaemonUnreachableError{Host: "unix:///var/run/docker.sock"}
+
+	assert.Equal(t, "daemon_unreachable", typed.ErrorType())
+	assert.Equal(t, map[string]any{"host": "unix:///var/run/docker.sock"}, typed.ErrorDetails())
 }
 
 func TestOutput_Error_JSONMode(t *testing.T) {

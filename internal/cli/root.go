@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jorgengundersen/havn/internal/docker"
 	"github.com/jorgengundersen/havn/internal/doctor"
 	"github.com/jorgengundersen/havn/internal/volume"
 )
@@ -22,7 +23,13 @@ var ErrNotImplemented = errors.New("not implemented")
 // Execute wires production dependencies, runs the command tree, and returns
 // an exit code suitable for os.Exit.
 func Execute() int {
-	deps := Deps{}
+	dockerClient, err := docker.NewClient()
+	if err != nil {
+		out := NewOutput(os.Stdout, os.Stderr, false, false)
+		out.Error(fmt.Errorf("docker client: %w", err))
+		return 1
+	}
+	deps := Deps{Docker: dockerClient}
 	root := NewRoot(deps)
 	if err := root.Execute(); err != nil {
 		jsonMode, _ := root.PersistentFlags().GetBool("json")
@@ -36,6 +43,7 @@ func Execute() int {
 // Deps holds dependencies injected into the command tree.
 // Starts empty during skeleton phase; fields added as domain packages land.
 type Deps struct {
+	Docker        *docker.Client
 	DoctorBackend doctor.Backend
 	VolumeManager *volume.Manager
 }
