@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jorgengundersen/havn/internal/doctor"
+	"github.com/jorgengundersen/havn/internal/volume"
 )
 
 // version is set at build time via ldflags.
@@ -36,6 +37,7 @@ func Execute() int {
 // Starts empty during skeleton phase; fields added as domain packages land.
 type Deps struct {
 	DoctorBackend doctor.Backend
+	VolumeManager *volume.Manager
 }
 
 // rootOpts holds all flag values for the root command.
