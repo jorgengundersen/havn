@@ -19,10 +19,10 @@ type fakeBackend struct {
 	createErr  error
 	createOpts dolt.ContainerCreateOpts
 
-	execOutput  string
-	execErr     error
-	execCalls   []execCall
-	execFunc    func(cmd []string) (string, error) // overrides execOutput/execErr when set
+	execOutput string
+	execErr    error
+	execCalls  []execCall
+	execFunc   func(cmd []string) (string, error) // overrides execOutput/execErr when set
 
 	copyErr    error
 	copiedData []byte

@@ -64,7 +64,7 @@ func TestImport_Success(t *testing.T) {
 
 	callCount := 0
 	backend := &fakeBackend{
-		execFunc: func(cmd []string) (string, error) {
+		execFunc: func(_ []string) (string, error) {
 			callCount++
 			if callCount == 1 {
 				return "+--------------------+\n| Database           |\n+--------------------+\n| information_schema |\n+--------------------+\n", nil
@@ -122,7 +122,7 @@ func TestImport_ProjectIDMismatchWarning(t *testing.T) {
 
 	callCount := 0
 	backend := &fakeBackend{
-		execFunc: func(cmd []string) (string, error) {
+		execFunc: func(_ []string) (string, error) {
 			callCount++
 			// Calls 1 and 2: SHOW DATABASES (existence check + verification).
 			if callCount <= 2 {

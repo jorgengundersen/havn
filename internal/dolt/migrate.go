@@ -124,15 +124,9 @@ func untarToDirectory(tarData []byte, destDir string) error {
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return err
 			}
-			f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
-			if err != nil {
+			if err := extractFile(target, header.Mode, tr); err != nil {
 				return err
 			}
-			if _, err := io.Copy(f, tr); err != nil {
-				f.Close()
-				return err
-			}
-			f.Close()
 		}
 	}
 
@@ -243,14 +237,7 @@ func tarDirectory(srcDir string, prefix string) ([]byte, error) {
 			return nil
 		}
 
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		_, err = io.Copy(tw, f)
-		return err
+		return copyFileToTar(tw, path)
 	})
 	if err != nil {
 		return nil, err
@@ -261,4 +248,26 @@ func tarDirectory(srcDir string, prefix string) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+func copyFileToTar(tw *tar.Writer, path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+
+	_, err = io.Copy(tw, f)
+	return err
+}
+
+func extractFile(target string, mode int64, r io.Reader) error {
+	f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(mode))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+
+	_, err = io.Copy(f, r)
+	return err
 }
