@@ -9,8 +9,53 @@ import (
 	"os"
 	"path/filepath"
 
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/build"
 )
+
+// ImageInfo holds read-only metadata about a Docker image.
+type ImageInfo struct {
+	ID        string
+	Tag       string
+	CreatedAt string
+}
+
+// ImageInspect returns metadata about a Docker image by name or ID. Returns
+// *ImageNotFoundError if the image does not exist locally.
+func (c *Client) ImageInspect(ctx context.Context, name string) (ImageInfo, error) {
+	resp, err := c.docker.ImageInspect(ctx, name)
+	if err != nil {
+		if cerrdefs.IsNotFound(err) {
+			return ImageInfo{}, &ImageNotFoundError{Name: name}
+		}
+		return ImageInfo{}, fmt.Errorf("docker image inspect: %w", err)
+	}
+
+	tag := name
+	if len(resp.RepoTags) > 0 {
+		tag = resp.RepoTags[0]
+	}
+
+	return ImageInfo{
+		ID:        resp.ID,
+		Tag:       tag,
+		CreatedAt: resp.Created,
+	}, nil
+}
+
+// ImageExists checks whether an image exists locally. Returns (false, nil)
+// when the image is not found — not an error. Other failures (e.g., daemon
+// unreachable) are returned as errors.
+func (c *Client) ImageExists(ctx context.Context, name string) (bool, error) {
+	_, err := c.docker.ImageInspect(ctx, name)
+	if err != nil {
+		if cerrdefs.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("docker image exists: %w", err)
+	}
+	return true, nil
+}
 
 // BuildOpts holds parameters for building a Docker image.
 type BuildOpts struct {

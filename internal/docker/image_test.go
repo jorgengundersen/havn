@@ -108,3 +108,67 @@ func TestImageBuildError_EmptyTag(t *testing.T) {
 
 	assert.Equal(t, "image build failed: syntax error", err.Error())
 }
+
+func TestImageInspect_ReturnsErrorOnUnreachableDaemon(t *testing.T) {
+	c, err := docker.NewClientWithHost("tcp://localhost:0")
+	require.NoError(t, err)
+
+	_, err = c.ImageInspect(context.Background(), "nonexistent:latest")
+
+	assert.Error(t, err)
+}
+
+func TestImageInspect_WrapsErrorWithContext(t *testing.T) {
+	c, err := docker.NewClientWithHost("tcp://localhost:0")
+	require.NoError(t, err)
+
+	_, err = c.ImageInspect(context.Background(), "nonexistent:latest")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "docker image inspect")
+}
+
+func TestImageInspect_RespectsContextCancellation(t *testing.T) {
+	c, err := docker.NewClientWithHost("tcp://localhost:0")
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err = c.ImageInspect(ctx, "nonexistent:latest")
+
+	assert.Error(t, err)
+}
+
+func TestImageExists_ReturnsErrorOnUnreachableDaemon(t *testing.T) {
+	c, err := docker.NewClientWithHost("tcp://localhost:0")
+	require.NoError(t, err)
+
+	_, err = c.ImageExists(context.Background(), "nonexistent:latest")
+
+	assert.Error(t, err)
+}
+
+func TestImageExists_RespectsContextCancellation(t *testing.T) {
+	c, err := docker.NewClientWithHost("tcp://localhost:0")
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err = c.ImageExists(ctx, "nonexistent:latest")
+
+	assert.Error(t, err)
+}
+
+func TestImageInfo_FieldsExist(t *testing.T) {
+	info := docker.ImageInfo{
+		ID:        "sha256:abc123",
+		Tag:       "havn-base:latest",
+		CreatedAt: "2026-04-10T12:00:00Z",
+	}
+
+	assert.Equal(t, "sha256:abc123", info.ID)
+	assert.Equal(t, "havn-base:latest", info.Tag)
+	assert.Equal(t, "2026-04-10T12:00:00Z", info.CreatedAt)
+}
