@@ -97,6 +97,32 @@ func TestFormatError_DaemonUnreachableError(t *testing.T) {
 	assert.Equal(t, "Docker is not running. Start Docker and try again", cli.FormatError(err))
 }
 
+func TestFormatError_ContainerNotFoundError(t *testing.T) {
+	err := &docker.ContainerNotFoundError{Name: "havn-user-api"}
+
+	assert.Equal(t, `Failed to find container "havn-user-api"`, cli.FormatError(err))
+}
+
+func TestFormatError_ImageNotFoundError(t *testing.T) {
+	err := &docker.ImageNotFoundError{Name: "havn-base:latest"}
+
+	assert.Equal(t, `Image "havn-base:latest" not found — run 'havn build' first`, cli.FormatError(err))
+}
+
+func TestTypedError_ContainerNotFoundErrorSatisfiesInterface(t *testing.T) {
+	var typed cli.TypedError = &docker.ContainerNotFoundError{Name: "havn-user-api"}
+
+	assert.Equal(t, "container_not_found", typed.ErrorType())
+	assert.Equal(t, map[string]any{"name": "havn-user-api"}, typed.ErrorDetails())
+}
+
+func TestTypedError_ImageNotFoundErrorSatisfiesInterface(t *testing.T) {
+	var typed cli.TypedError = &docker.ImageNotFoundError{Name: "havn-base:latest"}
+
+	assert.Equal(t, "image_not_found", typed.ErrorType())
+	assert.Equal(t, map[string]any{"name": "havn-base:latest"}, typed.ErrorDetails())
+}
+
 func TestTypedError_DaemonUnreachableErrorSatisfiesInterface(t *testing.T) {
 	var typed cli.TypedError = &docker.DaemonUnreachableError{Host: "unix:///var/run/docker.sock"}
 

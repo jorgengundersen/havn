@@ -47,6 +47,16 @@ func FormatError(err error) string {
 		return "Docker is not running. Start Docker and try again"
 	}
 
+	var containerNotFound *docker.ContainerNotFoundError
+	if errors.As(err, &containerNotFound) {
+		return fmt.Sprintf("Failed to find container %q", containerNotFound.Name)
+	}
+
+	var imageNotFound *docker.ImageNotFoundError
+	if errors.As(err, &imageNotFound) {
+		return fmt.Sprintf("Image %q not found — run 'havn build' first", imageNotFound.Name)
+	}
+
 	var parseErr *config.ParseError
 	if errors.As(err, &parseErr) {
 		return fmt.Sprintf("Config parse error at %s:%d: %s", parseErr.File, parseErr.Line, parseErr.Detail)

@@ -1,0 +1,211 @@
+package docker
+
+import (
+	"context"
+	"fmt"
+
+	cerrdefs "github.com/containerd/errdefs"
+	dockercontainer "github.com/docker/docker/api/types/container"
+	dockermount "github.com/docker/docker/api/types/mount"
+	dockernetwork "github.com/docker/docker/api/types/network"
+)
+
+// BindMount represents a host-to-container bind mount.
+type BindMount struct {
+	Source string
+	Target string
+}
+
+// VolumeMount represents a named volume mount.
+type VolumeMount struct {
+	Name   string
+	Target string
+}
+
+// CreateOpts holds parameters for creating a container.
+type CreateOpts struct {
+	Image         string
+	Name          string
+	Network       string
+	Env           map[string]string
+	Labels        map[string]string
+	BindMounts    []BindMount
+	VolumeMounts  []VolumeMount
+	RestartPolicy string
+	TTY           bool
+	Workdir       string
+	Cmd           []string
+	Entrypoint    []string
+	User          string
+	CPUs          int
+	Memory        string
+	MemorySwap    string
+	AutoRemove    bool
+}
+
+// StopOpts holds parameters for stopping a container.
+type StopOpts struct {
+	Timeout int // seconds
+}
+
+// RemoveOpts holds parameters for removing a container.
+type RemoveOpts struct {
+	Force         bool
+	RemoveVolumes bool
+}
+
+// ContainerCreate creates a container from the given options. Returns the
+// container ID on success. Returns *ImageNotFoundError if the image does
+// not exist locally.
+func (c *Client) ContainerCreate(ctx context.Context, opts CreateOpts) (string, error) {
+	cfg := &dockercontainer.Config{
+		Image:      opts.Image,
+		Env:        EnvSlice(opts.Env),
+		Labels:     opts.Labels,
+		Tty:        opts.TTY,
+		WorkingDir: opts.Workdir,
+		Cmd:        opts.Cmd,
+		Entrypoint: opts.Entrypoint,
+		User:       opts.User,
+	}
+
+	hostCfg := &dockercontainer.HostConfig{
+		Mounts:     BuildMounts(opts.BindMounts, opts.VolumeMounts),
+		AutoRemove: opts.AutoRemove,
+		Resources: dockercontainer.Resources{
+			NanoCPUs: int64(opts.CPUs) * 1e9,
+			Memory:   ParseMemoryBytes(opts.Memory),
+		},
+	}
+	if opts.MemorySwap != "" {
+		hostCfg.MemorySwap = ParseMemoryBytes(opts.MemorySwap)
+	}
+	if opts.RestartPolicy != "" {
+		hostCfg.RestartPolicy = dockercontainer.RestartPolicy{
+			Name: dockercontainer.RestartPolicyMode(opts.RestartPolicy),
+		}
+	}
+
+	var networkCfg *dockernetwork.NetworkingConfig
+	if opts.Network != "" {
+		networkCfg = &dockernetwork.NetworkingConfig{
+			EndpointsConfig: map[string]*dockernetwork.EndpointSettings{
+				opts.Network: {},
+			},
+		}
+	}
+
+	resp, err := c.docker.ContainerCreate(ctx, cfg, hostCfg, networkCfg, nil, opts.Name)
+	if err != nil {
+		if cerrdefs.IsNotFound(err) {
+			return "", &ImageNotFoundError{Name: opts.Image}
+		}
+		return "", fmt.Errorf("docker create: %w", err)
+	}
+	return resp.ID, nil
+}
+
+// ContainerStart starts a container by name or ID. Returns
+// *ContainerNotFoundError if the container does not exist.
+func (c *Client) ContainerStart(ctx context.Context, nameOrID string) error {
+	err := c.docker.ContainerStart(ctx, nameOrID, dockercontainer.StartOptions{})
+	if err != nil {
+		if cerrdefs.IsNotFound(err) {
+			return &ContainerNotFoundError{Name: nameOrID}
+		}
+		return fmt.Errorf("docker start: %w", err)
+	}
+	return nil
+}
+
+// ContainerStop stops a container by name or ID with the given options.
+// Returns *ContainerNotFoundError if the container does not exist.
+func (c *Client) ContainerStop(ctx context.Context, nameOrID string, opts StopOpts) error {
+	timeout := opts.Timeout
+	err := c.docker.ContainerStop(ctx, nameOrID, dockercontainer.StopOptions{
+		Timeout: &timeout,
+	})
+	if err != nil {
+		if cerrdefs.IsNotFound(err) {
+			return &ContainerNotFoundError{Name: nameOrID}
+		}
+		return fmt.Errorf("docker stop: %w", err)
+	}
+	return nil
+}
+
+// ContainerRemove removes a container by name or ID. Returns
+// *ContainerNotFoundError if the container does not exist.
+func (c *Client) ContainerRemove(ctx context.Context, nameOrID string, opts RemoveOpts) error {
+	err := c.docker.ContainerRemove(ctx, nameOrID, dockercontainer.RemoveOptions{
+		Force:         opts.Force,
+		RemoveVolumes: opts.RemoveVolumes,
+	})
+	if err != nil {
+		if cerrdefs.IsNotFound(err) {
+			return &ContainerNotFoundError{Name: nameOrID}
+		}
+		return fmt.Errorf("docker remove: %w", err)
+	}
+	return nil
+}
+
+// EnvSlice converts a map of environment variables to the Docker SDK's
+// "KEY=VALUE" slice format.
+func EnvSlice(env map[string]string) []string {
+	if len(env) == 0 {
+		return nil
+	}
+	s := make([]string, 0, len(env))
+	for k, v := range env {
+		s = append(s, k+"="+v)
+	}
+	return s
+}
+
+// BuildMounts converts havn bind and volume mounts to Docker SDK mounts.
+func BuildMounts(binds []BindMount, volumes []VolumeMount) []dockermount.Mount {
+	mounts := make([]dockermount.Mount, 0, len(binds)+len(volumes))
+	for _, b := range binds {
+		mounts = append(mounts, dockermount.Mount{
+			Type:   dockermount.TypeBind,
+			Source: b.Source,
+			Target: b.Target,
+		})
+	}
+	for _, v := range volumes {
+		mounts = append(mounts, dockermount.Mount{
+			Type:   dockermount.TypeVolume,
+			Source: v.Name,
+			Target: v.Target,
+		})
+	}
+	return mounts
+}
+
+// ParseMemoryBytes converts a memory string like "4g" or "512m" to bytes.
+// Returns 0 for empty or unrecognized strings.
+func ParseMemoryBytes(s string) int64 {
+	if s == "" {
+		return 0
+	}
+	n := int64(0)
+	for i, c := range s {
+		if c >= '0' && c <= '9' {
+			n = n*10 + int64(c-'0')
+		} else {
+			suffix := s[i:]
+			switch suffix {
+			case "g", "G":
+				return n * 1024 * 1024 * 1024
+			case "m", "M":
+				return n * 1024 * 1024
+			case "k", "K":
+				return n * 1024
+			default:
+				return n
+			}
+		}
+	}
+	return n
+}

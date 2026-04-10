@@ -21,3 +21,31 @@ func TestDaemonUnreachableError_TypedError(t *testing.T) {
 	assert.Equal(t, "daemon_unreachable", err.ErrorType())
 	assert.Equal(t, map[string]any{"host": "unix:///var/run/docker.sock"}, err.ErrorDetails())
 }
+
+func TestContainerNotFoundError_ImplementsError(t *testing.T) {
+	err := &docker.ContainerNotFoundError{Name: "havn-user-api"}
+
+	var target error = err
+	assert.Equal(t, `container "havn-user-api" not found`, target.Error())
+}
+
+func TestContainerNotFoundError_TypedError(t *testing.T) {
+	err := &docker.ContainerNotFoundError{Name: "havn-user-api"}
+
+	assert.Equal(t, "container_not_found", err.ErrorType())
+	assert.Equal(t, map[string]any{"name": "havn-user-api"}, err.ErrorDetails())
+}
+
+func TestImageNotFoundError_ImplementsError(t *testing.T) {
+	err := &docker.ImageNotFoundError{Name: "havn-base:latest"}
+
+	var target error = err
+	assert.Equal(t, `image "havn-base:latest" not found`, target.Error())
+}
+
+func TestImageNotFoundError_TypedError(t *testing.T) {
+	err := &docker.ImageNotFoundError{Name: "havn-base:latest"}
+
+	assert.Equal(t, "image_not_found", err.ErrorType())
+	assert.Equal(t, map[string]any{"name": "havn-base:latest"}, err.ErrorDetails())
+}
