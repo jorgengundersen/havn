@@ -59,10 +59,11 @@ func (r *Runner) runCheck(ctx context.Context, c Check, results map[string]Statu
 	for _, prereq := range c.Prerequisites() {
 		if s, ok := results[prereq]; ok && s != StatusPass && s != StatusWarn {
 			return ReportCheck{
-				Tier:    c.Tier(),
-				Name:    c.ID(),
-				Status:  StatusSkip,
-				Message: "skipped: prerequisite " + prereq + " failed",
+				Tier:      c.Tier(),
+				Container: c.Container(),
+				Name:      c.ID(),
+				Status:    StatusSkip,
+				Message:   "skipped: prerequisite " + prereq + " failed",
 			}
 		}
 	}
@@ -84,6 +85,7 @@ func (r *Runner) runCheck(ctx context.Context, c Check, results map[string]Statu
 	case result := <-resultCh:
 		return ReportCheck{
 			Tier:           c.Tier(),
+			Container:      c.Container(),
 			Name:           c.ID(),
 			Status:         result.Status,
 			Message:        result.Message,
@@ -92,10 +94,11 @@ func (r *Runner) runCheck(ctx context.Context, c Check, results map[string]Statu
 		}
 	case <-checkCtx.Done():
 		return ReportCheck{
-			Tier:    c.Tier(),
-			Name:    c.ID(),
-			Status:  StatusError,
-			Message: "check timed out",
+			Tier:      c.Tier(),
+			Container: c.Container(),
+			Name:      c.ID(),
+			Status:    StatusError,
+			Message:   "check timed out",
 		}
 	}
 }

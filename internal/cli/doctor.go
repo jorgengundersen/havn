@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"context"
 	"errors"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -28,21 +31,75 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 			jsonMode, _ := cmd.Flags().GetBool("json")
 			verbose, _ := cmd.Flags().GetBool("verbose")
 			out := NewOutput(cmd.OutOrStdout(), cmd.ErrOrStderr(), jsonMode, verbose)
+			ctx := cmd.Context()
 
 			cfg := config.Default()
 			projectConfigPath := ".havn/config.toml"
 
 			checks := doctor.HostChecks(backend, cfg, projectConfigPath)
+
+			containers := resolveContainers(ctx, backend, opts.All)
+			cwd, _ := os.Getwd()
+			beadsExists := dirExists(filepath.Join(cwd, ".beads"))
+			for _, name := range containers {
+				cc := doctor.ContainerChecks(backend, cfg, name, cwd, beadsExists)
+				checks = append(checks, cc...)
+			}
+
 			runner := doctor.NewRunner(checks)
-			report := runner.Run(cmd.Context())
+			report := runner.Run(ctx)
 
 			return outputReport(out, report)
 		},
 	}
 
-	cmd.Flags().BoolVar(&opts.All, "all", false, "run all diagnostic checks")
+	cmd.Flags().BoolVar(&opts.All, "all", false, "check all running havn containers")
 
 	return cmd
+}
+
+func resolveContainers(ctx context.Context, backend doctor.Backend, all bool) []string {
+	labels := map[string]string{"managed-by": "havn"}
+	if all {
+		containers, err := backend.ListContainers(ctx, labels)
+		if err != nil {
+			return nil
+		}
+		return containers
+	}
+
+	// Default: find the container for the current directory.
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil
+	}
+	expectedName := deriveContainerName(cwd)
+	if expectedName == "" {
+		return nil
+	}
+
+	// Check if it's running.
+	info, found, err := backend.ContainerInspect(ctx, expectedName)
+	if err != nil || !found || !info.Running {
+		return nil
+	}
+	return []string{expectedName}
+}
+
+// deriveContainerName produces "havn-<parent>-<project>" from an absolute path.
+// e.g. ~/Repos/github.com/user/api -> havn-user-api
+func deriveContainerName(cwd string) string {
+	project := filepath.Base(cwd)
+	parent := filepath.Base(filepath.Dir(cwd))
+	if project == "" || parent == "" || project == "." || parent == "." {
+		return ""
+	}
+	return "havn-" + parent + "-" + project
+}
+
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
 
 func outputReport(out *Output, report doctor.Report) error {

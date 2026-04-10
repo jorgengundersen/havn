@@ -114,6 +114,58 @@ func TestFormatJSON_OmitsEmptyOptionalFields(t *testing.T) {
 	assert.NotContains(t, output, "recommendation")
 }
 
+func TestFormatHuman_ContainerNameInHeader(t *testing.T) {
+	report := doctor.Report{
+		Status:  doctor.StatusPass,
+		Summary: doctor.Summary{Passed: 2},
+		Checks: []doctor.ReportCheck{
+			{Tier: "host", Name: "docker_daemon", Status: doctor.StatusPass, Message: "Docker daemon running"},
+			{Tier: "container", Container: "havn-user-myproject", Name: "nix_store", Status: doctor.StatusPass, Message: "Nix store mounted"},
+		},
+	}
+
+	output := doctor.FormatHuman(report)
+
+	assert.Contains(t, output, "Container: havn-user-myproject")
+}
+
+func TestFormatJSON_ContainerFieldPresent(t *testing.T) {
+	report := doctor.Report{
+		Status:  doctor.StatusPass,
+		Summary: doctor.Summary{Passed: 1},
+		Checks: []doctor.ReportCheck{
+			{Tier: "container", Container: "havn-user-myproject", Name: "nix_store", Status: doctor.StatusPass, Message: "Nix store mounted"},
+		},
+	}
+
+	output := doctor.FormatJSON(report)
+
+	var parsed map[string]any
+	err := json.Unmarshal([]byte(output), &parsed)
+	require.NoError(t, err)
+
+	checks := parsed["checks"].([]any)
+	first := checks[0].(map[string]any)
+	assert.Equal(t, "havn-user-myproject", first["container"])
+}
+
+func TestFormatHuman_MultipleContainersGrouped(t *testing.T) {
+	report := doctor.Report{
+		Status:  doctor.StatusPass,
+		Summary: doctor.Summary{Passed: 3},
+		Checks: []doctor.ReportCheck{
+			{Tier: "host", Name: "docker_daemon", Status: doctor.StatusPass, Message: "Docker daemon running"},
+			{Tier: "container", Container: "havn-user-api", Name: "nix_store", Status: doctor.StatusPass, Message: "Nix store mounted"},
+			{Tier: "container", Container: "havn-user-web", Name: "nix_store", Status: doctor.StatusPass, Message: "Nix store mounted"},
+		},
+	}
+
+	output := doctor.FormatHuman(report)
+
+	assert.Contains(t, output, "Container: havn-user-api")
+	assert.Contains(t, output, "Container: havn-user-web")
+}
+
 func TestFormatHuman_SkippedChecks(t *testing.T) {
 	report := doctor.Report{
 		Status:  doctor.StatusError,

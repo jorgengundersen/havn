@@ -19,6 +19,8 @@ type Backend interface {
 	ContainerInspect(ctx context.Context, name string) (ContainerInfo, bool, error)
 	// ContainerExec runs a command inside a container and returns stdout.
 	ContainerExec(ctx context.Context, container string, cmd []string) (string, error)
+	// ListContainers returns names of running containers matching the given labels.
+	ListContainers(ctx context.Context, labels map[string]string) ([]string, error)
 }
 
 // RuntimeInfo holds version data from the container runtime.
@@ -36,6 +38,7 @@ type ImageInfo struct {
 // NetworkInfo holds metadata about a network.
 type NetworkInfo struct {
 	ContainerCount int
+	Containers     []string
 }
 
 // ContainerInfo holds metadata about a container.

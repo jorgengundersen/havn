@@ -15,7 +15,8 @@ import (
 
 // fakeDoctorBackend implements doctor.Backend for CLI tests.
 type fakeDoctorBackend struct {
-	pingErr error
+	pingErr        error
+	listContainers []string
 }
 
 func (f *fakeDoctorBackend) Ping(_ context.Context) error { return f.pingErr }
@@ -36,6 +37,9 @@ func (f *fakeDoctorBackend) ContainerInspect(_ context.Context, _ string) (docto
 }
 func (f *fakeDoctorBackend) ContainerExec(_ context.Context, _ string, _ []string) (string, error) {
 	return "", nil
+}
+func (f *fakeDoctorBackend) ListContainers(_ context.Context, _ map[string]string) ([]string, error) {
+	return f.listContainers, nil
 }
 
 func executeDoctorCommand(backend doctor.Backend, args ...string) (stdout, stderr string, err error) {
@@ -91,4 +95,21 @@ func TestDoctorCommand_ExitCode2OnError(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, 2, cli.ExitCode(err))
+}
+
+func TestDoctorCommand_AllFlagRunsContainerChecks(t *testing.T) {
+	backend := &fakeDoctorBackend{
+		listContainers: []string{"havn-user-myproject"},
+	}
+	stdout, _, _ := executeDoctorCommand(backend, "--all")
+
+	assert.Contains(t, stdout, "Container: havn-user-myproject")
+	assert.Contains(t, stdout, "Nix store mounted")
+}
+
+func TestDoctorCommand_NoContainersSkipsTier2(t *testing.T) {
+	backend := &fakeDoctorBackend{}
+	stdout, _, _ := executeDoctorCommand(backend, "--all")
+
+	assert.NotContains(t, stdout, "Container:")
 }

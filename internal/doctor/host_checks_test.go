@@ -14,19 +14,22 @@ import (
 
 // fakeBackend is a test double for doctor.Backend.
 type fakeBackend struct {
-	pingErr      error
-	info         doctor.RuntimeInfo
-	infoErr      error
-	images       map[string]doctor.ImageInfo
-	imageErr     error
-	networks     map[string]doctor.NetworkInfo
-	networkErr   error
-	volumes      map[string]bool
-	volumeErr    error
-	containers   map[string]doctor.ContainerInfo
-	containerErr error
-	execResults  map[string]string
-	execErr      error
+	pingErr        error
+	info           doctor.RuntimeInfo
+	infoErr        error
+	images         map[string]doctor.ImageInfo
+	imageErr       error
+	networks       map[string]doctor.NetworkInfo
+	networkErr     error
+	volumes        map[string]bool
+	volumeErr      error
+	containers     map[string]doctor.ContainerInfo
+	containerErr   error
+	execResults    map[string]string
+	execErrors     map[string]error
+	execErr        error
+	listContainers []string
+	listErr        error
 }
 
 func newFakeBackend() *fakeBackend {
@@ -36,6 +39,7 @@ func newFakeBackend() *fakeBackend {
 		volumes:     make(map[string]bool),
 		containers:  make(map[string]doctor.ContainerInfo),
 		execResults: make(map[string]string),
+		execErrors:  make(map[string]error),
 	}
 }
 
@@ -81,7 +85,14 @@ func (f *fakeBackend) ContainerExec(_ context.Context, _ string, cmd []string) (
 		return "", f.execErr
 	}
 	key := cmd[len(cmd)-1]
+	if err, ok := f.execErrors[key]; ok {
+		return "", err
+	}
 	return f.execResults[key], nil
+}
+
+func (f *fakeBackend) ListContainers(_ context.Context, _ map[string]string) ([]string, error) {
+	return f.listContainers, f.listErr
 }
 
 // --- docker_daemon check ---

@@ -10,18 +10,16 @@ import (
 func FormatHuman(r Report) string {
 	var b strings.Builder
 
-	currentTier := ""
+	currentSection := ""
 	for _, c := range r.Checks {
-		if c.Tier != currentTier {
-			if currentTier != "" {
+		section := tierSection(c)
+		if section != currentSection {
+			if currentSection != "" {
 				b.WriteString("\n")
 			}
-			if c.Tier == "host" {
-				b.WriteString("Host\n")
-			} else {
-				b.WriteString("Container\n")
-			}
-			currentTier = c.Tier
+			b.WriteString(section)
+			b.WriteString("\n")
+			currentSection = section
 		}
 
 		fmt.Fprintf(&b, "  [%s]  %s\n", c.Status, c.Message)
@@ -41,18 +39,16 @@ func FormatHuman(r Report) string {
 func FormatVerbose(r Report) string {
 	var b strings.Builder
 
-	currentTier := ""
+	currentSection := ""
 	for _, c := range r.Checks {
-		if c.Tier != currentTier {
-			if currentTier != "" {
+		section := tierSection(c)
+		if section != currentSection {
+			if currentSection != "" {
 				b.WriteString("\n")
 			}
-			if c.Tier == "host" {
-				b.WriteString("Host\n")
-			} else {
-				b.WriteString("Container\n")
-			}
-			currentTier = c.Tier
+			b.WriteString(section)
+			b.WriteString("\n")
+			currentSection = section
 		}
 
 		fmt.Fprintf(&b, "  [%s]  %s\n", c.Status, c.Message)
@@ -69,6 +65,16 @@ func FormatVerbose(r Report) string {
 	b.WriteString("\n")
 
 	return b.String()
+}
+
+func tierSection(c ReportCheck) string {
+	if c.Tier == "host" {
+		return "Host"
+	}
+	if c.Container != "" {
+		return fmt.Sprintf("Container: %s", c.Container)
+	}
+	return "Container"
 }
 
 func formatSummaryLine(s Summary) string {

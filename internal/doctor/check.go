@@ -31,6 +31,8 @@ type Check interface {
 	ID() string
 	// Tier returns "host" or "container".
 	Tier() string
+	// Container returns the container name for container-tier checks, or "" for host-tier.
+	Container() string
 	// Prerequisites returns the IDs of checks that must pass before this one runs.
 	Prerequisites() []string
 	// Timeout returns the maximum duration for this check.

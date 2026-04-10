@@ -23,6 +23,7 @@ func NewDockerDaemonCheck(backend Backend) Check {
 
 func (c *dockerDaemonCheck) ID() string              { return "docker_daemon" }
 func (c *dockerDaemonCheck) Tier() string            { return "host" }
+func (c *dockerDaemonCheck) Container() string       { return "" }
 func (c *dockerDaemonCheck) Prerequisites() []string { return nil }
 func (c *dockerDaemonCheck) Timeout() time.Duration  { return defaultTimeout }
 
@@ -69,6 +70,7 @@ func NewBaseImageCheck(backend Backend, image string) Check {
 
 func (c *baseImageCheck) ID() string              { return "base_image" }
 func (c *baseImageCheck) Tier() string            { return "host" }
+func (c *baseImageCheck) Container() string       { return "" }
 func (c *baseImageCheck) Prerequisites() []string { return []string{"docker_daemon"} }
 func (c *baseImageCheck) Timeout() time.Duration  { return defaultTimeout }
 
@@ -114,6 +116,7 @@ func NewNetworkCheck(backend Backend, network string) Check {
 
 func (c *networkCheck) ID() string              { return "network" }
 func (c *networkCheck) Tier() string            { return "host" }
+func (c *networkCheck) Container() string       { return "" }
 func (c *networkCheck) Prerequisites() []string { return []string{"docker_daemon"} }
 func (c *networkCheck) Timeout() time.Duration  { return defaultTimeout }
 
@@ -159,6 +162,7 @@ func NewVolumesCheck(backend Backend, volumes []string) Check {
 
 func (c *volumesCheck) ID() string              { return "volumes" }
 func (c *volumesCheck) Tier() string            { return "host" }
+func (c *volumesCheck) Container() string       { return "" }
 func (c *volumesCheck) Prerequisites() []string { return []string{"docker_daemon"} }
 func (c *volumesCheck) Timeout() time.Duration  { return defaultTimeout }
 
@@ -205,6 +209,7 @@ func NewGlobalConfigCheck(path string) Check {
 
 func (c *globalConfigCheck) ID() string              { return "global_config" }
 func (c *globalConfigCheck) Tier() string            { return "host" }
+func (c *globalConfigCheck) Container() string       { return "" }
 func (c *globalConfigCheck) Prerequisites() []string { return nil }
 func (c *globalConfigCheck) Timeout() time.Duration  { return defaultTimeout }
 
@@ -246,6 +251,7 @@ func NewProjectConfigCheck(path string, globalCfg config.Config) Check {
 
 func (c *projectConfigCheck) ID() string              { return "project_config" }
 func (c *projectConfigCheck) Tier() string            { return "host" }
+func (c *projectConfigCheck) Container() string       { return "" }
 func (c *projectConfigCheck) Prerequisites() []string { return nil }
 func (c *projectConfigCheck) Timeout() time.Duration  { return defaultTimeout }
 
@@ -287,6 +293,7 @@ func NewDoltServerCheck(backend Backend, doltEnabled bool) Check {
 
 func (c *doltServerCheck) ID() string              { return "dolt_server" }
 func (c *doltServerCheck) Tier() string            { return "host" }
+func (c *doltServerCheck) Container() string       { return "" }
 func (c *doltServerCheck) Prerequisites() []string { return []string{"docker_daemon"} }
 func (c *doltServerCheck) Timeout() time.Duration  { return defaultTimeout }
 
@@ -353,6 +360,7 @@ func NewDoltDatabaseCheck(backend Backend, doltEnabled bool, database string) Ch
 
 func (c *doltDatabaseCheck) ID() string              { return "dolt_database" }
 func (c *doltDatabaseCheck) Tier() string            { return "host" }
+func (c *doltDatabaseCheck) Container() string       { return "" }
 func (c *doltDatabaseCheck) Prerequisites() []string { return []string{"dolt_server"} }
 func (c *doltDatabaseCheck) Timeout() time.Duration  { return defaultTimeout }
 

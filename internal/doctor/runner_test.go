@@ -15,6 +15,7 @@ import (
 type fakeCheck struct {
 	id            string
 	tier          string
+	container     string
 	prerequisites []string
 	timeout       time.Duration
 	result        doctor.CheckResult
@@ -22,6 +23,7 @@ type fakeCheck struct {
 
 func (f *fakeCheck) ID() string                               { return f.id }
 func (f *fakeCheck) Tier() string                             { return f.tier }
+func (f *fakeCheck) Container() string                        { return f.container }
 func (f *fakeCheck) Prerequisites() []string                  { return f.prerequisites }
 func (f *fakeCheck) Timeout() time.Duration                   { return f.timeout }
 func (f *fakeCheck) Run(_ context.Context) doctor.CheckResult { return f.result }
