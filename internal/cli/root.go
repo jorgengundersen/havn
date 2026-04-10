@@ -4,6 +4,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -31,9 +32,11 @@ func Execute() int {
 	}
 	deps := Deps{Docker: dockerClient}
 	root := NewRoot(deps)
+	// Logger is wired via PersistentPreRunE after flags are parsed.
 	if err := root.Execute(); err != nil {
 		jsonMode, _ := root.PersistentFlags().GetBool("json")
-		out := NewOutput(os.Stdout, os.Stderr, jsonMode, false)
+		verboseMode, _ := root.PersistentFlags().GetBool("verbose")
+		out := NewOutput(os.Stdout, os.Stderr, jsonMode, verboseMode)
 		out.Error(err)
 		return ExitCode(err)
 	}
@@ -46,6 +49,7 @@ type Deps struct {
 	Docker        *docker.Client
 	DoctorBackend doctor.Backend
 	VolumeManager *volume.Manager
+	Logger        *slog.Logger
 }
 
 // rootOpts holds all flag values for the root command.
@@ -77,6 +81,13 @@ func NewRoot(deps Deps) *cobra.Command {
 		Version:       version,
 		SilenceErrors: true,
 		SilenceUsage:  true,
+
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+			if deps.Logger == nil {
+				deps.Logger = SetupLogger(opts.Verbose, opts.JSON)
+			}
+			return nil
+		},
 
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return fmt.Errorf("havn: %w", ErrNotImplemented)
