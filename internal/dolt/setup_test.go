@@ -46,7 +46,7 @@ func TestEnsureReady_StartsServerWhenNotRunning(t *testing.T) {
 	backend := &fakeBackend{
 		inspectFound: false,
 		createID:     "new-id",
-		execFunc: func(cmd []string) (string, error) {
+		execFunc: func(_ []string) (string, error) {
 			// Health check and CREATE DATABASE both succeed
 			return "", nil
 		},
