@@ -59,3 +59,41 @@ func (e *ImageNotFoundError) ErrorType() string {
 func (e *ImageNotFoundError) ErrorDetails() map[string]any {
 	return map[string]any{"name": e.Name}
 }
+
+// NetworkNotFoundError indicates a Docker network does not exist.
+type NetworkNotFoundError struct {
+	Name string
+}
+
+func (e *NetworkNotFoundError) Error() string {
+	return fmt.Sprintf("network %q not found", e.Name)
+}
+
+// ErrorType returns the stable snake_case identifier for this error.
+func (e *NetworkNotFoundError) ErrorType() string {
+	return "network_not_found"
+}
+
+// ErrorDetails returns structured fields for JSON error output.
+func (e *NetworkNotFoundError) ErrorDetails() map[string]any {
+	return map[string]any{"name": e.Name}
+}
+
+// VolumeNotFoundError indicates a Docker volume does not exist.
+type VolumeNotFoundError struct {
+	Name string
+}
+
+func (e *VolumeNotFoundError) Error() string {
+	return fmt.Sprintf("volume %q not found", e.Name)
+}
+
+// ErrorType returns the stable snake_case identifier for this error.
+func (e *VolumeNotFoundError) ErrorType() string {
+	return "volume_not_found"
+}
+
+// ErrorDetails returns structured fields for JSON error output.
+func (e *VolumeNotFoundError) ErrorDetails() map[string]any {
+	return map[string]any{"name": e.Name}
+}

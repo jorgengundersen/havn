@@ -123,6 +123,32 @@ func TestTypedError_ImageNotFoundErrorSatisfiesInterface(t *testing.T) {
 	assert.Equal(t, map[string]any{"name": "havn-base:latest"}, typed.ErrorDetails())
 }
 
+func TestFormatError_NetworkNotFoundError(t *testing.T) {
+	err := &docker.NetworkNotFoundError{Name: "havn-net"}
+
+	assert.Equal(t, `Network "havn-net" not found`, cli.FormatError(err))
+}
+
+func TestFormatError_VolumeNotFoundError(t *testing.T) {
+	err := &docker.VolumeNotFoundError{Name: "havn-dolt-data"}
+
+	assert.Equal(t, `Volume "havn-dolt-data" not found`, cli.FormatError(err))
+}
+
+func TestTypedError_VolumeNotFoundErrorSatisfiesInterface(t *testing.T) {
+	var typed cli.TypedError = &docker.VolumeNotFoundError{Name: "havn-dolt-data"}
+
+	assert.Equal(t, "volume_not_found", typed.ErrorType())
+	assert.Equal(t, map[string]any{"name": "havn-dolt-data"}, typed.ErrorDetails())
+}
+
+func TestTypedError_NetworkNotFoundErrorSatisfiesInterface(t *testing.T) {
+	var typed cli.TypedError = &docker.NetworkNotFoundError{Name: "havn-net"}
+
+	assert.Equal(t, "network_not_found", typed.ErrorType())
+	assert.Equal(t, map[string]any{"name": "havn-net"}, typed.ErrorDetails())
+}
+
 func TestTypedError_DaemonUnreachableErrorSatisfiesInterface(t *testing.T) {
 	var typed cli.TypedError = &docker.DaemonUnreachableError{Host: "unix:///var/run/docker.sock"}
 
@@ -152,6 +178,36 @@ func TestOutput_Error_JSONMode_TypedError(t *testing.T) {
 		"error": "Config parse error at config.toml:5: unexpected key",
 		"type": "config_parse_error",
 		"details": {"file": "config.toml", "line": 5, "detail": "unexpected key"}
+	}`, stderr.String())
+}
+
+func TestOutput_Error_JSONMode_NetworkNotFoundError(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	out := cli.NewOutput(&stdout, &stderr, true, false)
+
+	err := &docker.NetworkNotFoundError{Name: "havn-net"}
+	out.Error(err)
+
+	assert.Empty(t, stdout.String(), "error should not write to stdout")
+	assert.JSONEq(t, `{
+		"error": "Network \"havn-net\" not found",
+		"type": "network_not_found",
+		"details": {"name": "havn-net"}
+	}`, stderr.String())
+}
+
+func TestOutput_Error_JSONMode_VolumeNotFoundError(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	out := cli.NewOutput(&stdout, &stderr, true, false)
+
+	err := &docker.VolumeNotFoundError{Name: "havn-dolt-data"}
+	out.Error(err)
+
+	assert.Empty(t, stdout.String(), "error should not write to stdout")
+	assert.JSONEq(t, `{
+		"error": "Volume \"havn-dolt-data\" not found",
+		"type": "volume_not_found",
+		"details": {"name": "havn-dolt-data"}
 	}`, stderr.String())
 }
 

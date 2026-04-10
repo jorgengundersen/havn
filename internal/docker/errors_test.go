@@ -49,3 +49,31 @@ func TestImageNotFoundError_TypedError(t *testing.T) {
 	assert.Equal(t, "image_not_found", err.ErrorType())
 	assert.Equal(t, map[string]any{"name": "havn-base:latest"}, err.ErrorDetails())
 }
+
+func TestNetworkNotFoundError_ImplementsError(t *testing.T) {
+	err := &docker.NetworkNotFoundError{Name: "havn-net"}
+
+	var target error = err
+	assert.Equal(t, `network "havn-net" not found`, target.Error())
+}
+
+func TestNetworkNotFoundError_TypedError(t *testing.T) {
+	err := &docker.NetworkNotFoundError{Name: "havn-net"}
+
+	assert.Equal(t, "network_not_found", err.ErrorType())
+	assert.Equal(t, map[string]any{"name": "havn-net"}, err.ErrorDetails())
+}
+
+func TestVolumeNotFoundError_ImplementsError(t *testing.T) {
+	err := &docker.VolumeNotFoundError{Name: "havn-dolt-data"}
+
+	var target error = err
+	assert.Equal(t, `volume "havn-dolt-data" not found`, target.Error())
+}
+
+func TestVolumeNotFoundError_TypedError(t *testing.T) {
+	err := &docker.VolumeNotFoundError{Name: "havn-dolt-data"}
+
+	assert.Equal(t, "volume_not_found", err.ErrorType())
+	assert.Equal(t, map[string]any{"name": "havn-dolt-data"}, err.ErrorDetails())
+}

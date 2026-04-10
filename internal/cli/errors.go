@@ -57,6 +57,16 @@ func FormatError(err error) string {
 		return fmt.Sprintf("Image %q not found — run 'havn build' first", imageNotFound.Name)
 	}
 
+	var networkNotFound *docker.NetworkNotFoundError
+	if errors.As(err, &networkNotFound) {
+		return fmt.Sprintf("Network %q not found", networkNotFound.Name)
+	}
+
+	var volumeNotFound *docker.VolumeNotFoundError
+	if errors.As(err, &volumeNotFound) {
+		return fmt.Sprintf("Volume %q not found", volumeNotFound.Name)
+	}
+
 	var parseErr *config.ParseError
 	if errors.As(err, &parseErr) {
 		return fmt.Sprintf("Config parse error at %s:%d: %s", parseErr.File, parseErr.Line, parseErr.Detail)
