@@ -35,3 +35,47 @@ type NotManagedError struct {
 func (e *NotManagedError) Error() string {
 	return fmt.Sprintf("container %q exists but was not created by havn", e.Name)
 }
+
+// DatabaseExistsError indicates a database already exists on the shared server.
+type DatabaseExistsError struct {
+	Name string
+}
+
+func (e *DatabaseExistsError) Error() string {
+	return fmt.Sprintf("database %q already exists; use --force to overwrite", e.Name)
+}
+
+// DatabaseNotFoundError indicates a database was not found.
+type DatabaseNotFoundError struct {
+	Name string
+}
+
+func (e *DatabaseNotFoundError) Error() string {
+	return fmt.Sprintf("no existing beads database found for %q", e.Name)
+}
+
+// ImportError wraps a failure during database import.
+type ImportError struct {
+	Err error
+}
+
+func (e *ImportError) Error() string {
+	return fmt.Sprintf("import database: %s", e.Err)
+}
+
+func (e *ImportError) Unwrap() error {
+	return e.Err
+}
+
+// ExportError wraps a failure during database export.
+type ExportError struct {
+	Err error
+}
+
+func (e *ExportError) Error() string {
+	return fmt.Sprintf("export database: %s", e.Err)
+}
+
+func (e *ExportError) Unwrap() error {
+	return e.Err
+}

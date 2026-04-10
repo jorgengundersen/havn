@@ -18,6 +18,8 @@ type Backend interface {
 	ContainerExec(ctx context.Context, container string, cmd []string) (string, error)
 	// CopyToContainer copies data into a container at the given path.
 	CopyToContainer(ctx context.Context, container string, destPath string, content []byte) error
+	// CopyFromContainer copies data from a container path and returns it.
+	CopyFromContainer(ctx context.Context, container string, srcPath string) ([]byte, error)
 }
 
 // ContainerCreateOpts holds the parameters for creating a container.

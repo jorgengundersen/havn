@@ -13,54 +13,6 @@ import (
 	"github.com/jorgengundersen/havn/internal/dolt"
 )
 
-// fakeBackend implements dolt.Backend for testing.
-type fakeBackend struct {
-	inspectInfo  dolt.ContainerInfo
-	inspectFound bool
-	inspectErr   error
-
-	startErr error
-	stopErr  error
-
-	createID   string
-	createErr  error
-	createOpts dolt.ContainerCreateOpts
-
-	execOutput string
-	execErr    error
-
-	copyErr    error
-	copiedData []byte
-	copiedPath string
-}
-
-func (f *fakeBackend) ContainerCreate(_ context.Context, opts dolt.ContainerCreateOpts) (string, error) {
-	f.createOpts = opts
-	return f.createID, f.createErr
-}
-
-func (f *fakeBackend) ContainerStart(_ context.Context, _ string) error {
-	return f.startErr
-}
-
-func (f *fakeBackend) ContainerStop(_ context.Context, _ string) error {
-	return f.stopErr
-}
-
-func (f *fakeBackend) ContainerInspect(_ context.Context, _ string) (dolt.ContainerInfo, bool, error) {
-	return f.inspectInfo, f.inspectFound, f.inspectErr
-}
-
-func (f *fakeBackend) ContainerExec(_ context.Context, _ string, _ []string) (string, error) {
-	return f.execOutput, f.execErr
-}
-
-func (f *fakeBackend) CopyToContainer(_ context.Context, _ string, destPath string, content []byte) error {
-	f.copiedData = content
-	f.copiedPath = destPath
-	return f.copyErr
-}
-
 func TestStart_CreatesNewContainer(t *testing.T) {
 	backend := &fakeBackend{
 		inspectFound: false,
