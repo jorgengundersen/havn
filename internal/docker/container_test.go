@@ -140,6 +140,105 @@ func TestEnvSlice_Format(t *testing.T) {
 	assert.Equal(t, "FOO=bar", got[0])
 }
 
+func TestContainerInfo_FieldsExist(t *testing.T) {
+	info := docker.ContainerInfo{
+		ID:     "abc123",
+		Name:   "havn-user-api",
+		Image:  "havn-base:latest",
+		Status: "running",
+		Labels: map[string]string{"managed-by": "havn"},
+		Mounts: []docker.MountInfo{
+			{Source: "/host/path", Target: "/container/path", Mode: "rw"},
+		},
+		Networks: []string{"havn-net"},
+		Env:      []string{"FOO=bar"},
+	}
+
+	assert.Equal(t, "abc123", info.ID)
+	assert.Equal(t, "havn-user-api", info.Name)
+	assert.Equal(t, "havn-base:latest", info.Image)
+	assert.Equal(t, "running", info.Status)
+	assert.Equal(t, map[string]string{"managed-by": "havn"}, info.Labels)
+	assert.Len(t, info.Mounts, 1)
+	assert.Equal(t, "rw", info.Mounts[0].Mode)
+	assert.Equal(t, []string{"havn-net"}, info.Networks)
+	assert.Equal(t, []string{"FOO=bar"}, info.Env)
+}
+
+func TestContainerListFilters_FieldsExist(t *testing.T) {
+	filters := docker.ContainerListFilters{
+		Labels:     map[string]string{"managed-by": "havn"},
+		NamePrefix: "havn-",
+		Status:     "running",
+	}
+
+	assert.Equal(t, map[string]string{"managed-by": "havn"}, filters.Labels)
+	assert.Equal(t, "havn-", filters.NamePrefix)
+	assert.Equal(t, "running", filters.Status)
+}
+
+func TestContainerInspect_ReturnsErrorOnUnreachableDaemon(t *testing.T) {
+	c, err := docker.NewClientWithHost("tcp://localhost:0")
+	require.NoError(t, err)
+
+	_, err = c.ContainerInspect(context.Background(), "nonexistent")
+
+	assert.Error(t, err)
+}
+
+func TestContainerList_ReturnsErrorOnUnreachableDaemon(t *testing.T) {
+	c, err := docker.NewClientWithHost("tcp://localhost:0")
+	require.NoError(t, err)
+
+	_, err = c.ContainerList(context.Background(), docker.ContainerListFilters{})
+
+	assert.Error(t, err)
+}
+
+func TestContainerInspect_WrapsErrorWithContext(t *testing.T) {
+	c, err := docker.NewClientWithHost("tcp://localhost:0")
+	require.NoError(t, err)
+
+	_, err = c.ContainerInspect(context.Background(), "test-container")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "docker inspect")
+}
+
+func TestContainerList_WrapsErrorWithContext(t *testing.T) {
+	c, err := docker.NewClientWithHost("tcp://localhost:0")
+	require.NoError(t, err)
+
+	_, err = c.ContainerList(context.Background(), docker.ContainerListFilters{})
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "docker list")
+}
+
+func TestContainerInspect_RespectsContextCancellation(t *testing.T) {
+	c, err := docker.NewClientWithHost("tcp://localhost:0")
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err = c.ContainerInspect(ctx, "test-container")
+
+	assert.Error(t, err)
+}
+
+func TestContainerList_RespectsContextCancellation(t *testing.T) {
+	c, err := docker.NewClientWithHost("tcp://localhost:0")
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err = c.ContainerList(ctx, docker.ContainerListFilters{})
+
+	assert.Error(t, err)
+}
+
 func TestParseMemoryBytes(t *testing.T) {
 	tests := []struct {
 		name  string

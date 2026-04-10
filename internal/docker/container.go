@@ -3,9 +3,11 @@ package docker
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	cerrdefs "github.com/containerd/errdefs"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	dockerfilters "github.com/docker/docker/api/types/filters"
 	dockermount "github.com/docker/docker/api/types/mount"
 	dockernetwork "github.com/docker/docker/api/types/network"
 )
@@ -20,6 +22,32 @@ type BindMount struct {
 type VolumeMount struct {
 	Name   string
 	Target string
+}
+
+// MountInfo describes a mount attached to a container.
+type MountInfo struct {
+	Source string
+	Target string
+	Mode   string // e.g. "rw", "ro"
+}
+
+// ContainerInfo holds read-only state of a container.
+type ContainerInfo struct {
+	ID       string
+	Name     string
+	Image    string
+	Status   string // e.g. "running", "exited"
+	Labels   map[string]string
+	Mounts   []MountInfo
+	Networks []string
+	Env      []string
+}
+
+// ContainerListFilters holds filter criteria for listing containers.
+type ContainerListFilters struct {
+	Labels     map[string]string // label key=value pairs to match
+	NamePrefix string            // container name prefix filter
+	Status     string            // e.g. "running", "exited"
 }
 
 // CreateOpts holds parameters for creating a container.
@@ -148,6 +176,121 @@ func (c *Client) ContainerRemove(ctx context.Context, nameOrID string, opts Remo
 		return fmt.Errorf("docker remove: %w", err)
 	}
 	return nil
+}
+
+// ContainerList returns containers matching the given filters. Returns an
+// empty slice (not nil) when no containers match.
+func (c *Client) ContainerList(ctx context.Context, filters ContainerListFilters) ([]ContainerInfo, error) {
+	args := dockerfilters.NewArgs()
+	for k, v := range filters.Labels {
+		args.Add("label", k+"="+v)
+	}
+	if filters.NamePrefix != "" {
+		args.Add("name", filters.NamePrefix)
+	}
+	if filters.Status != "" {
+		args.Add("status", filters.Status)
+	}
+
+	containers, err := c.docker.ContainerList(ctx, dockercontainer.ListOptions{
+		All:     true,
+		Filters: args,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("docker list: %w", err)
+	}
+
+	result := make([]ContainerInfo, 0, len(containers))
+	for _, ctr := range containers {
+		name := ""
+		if len(ctr.Names) > 0 {
+			name = strings.TrimPrefix(ctr.Names[0], "/")
+		}
+
+		var mounts []MountInfo
+		for _, m := range ctr.Mounts {
+			source := m.Source
+			if source == "" {
+				source = m.Name
+			}
+			mounts = append(mounts, MountInfo{
+				Source: source,
+				Target: m.Destination,
+				Mode:   m.Mode,
+			})
+		}
+
+		var networks []string
+		if ctr.NetworkSettings != nil {
+			for netName := range ctr.NetworkSettings.Networks {
+				networks = append(networks, netName)
+			}
+		}
+
+		result = append(result, ContainerInfo{
+			ID:       ctr.ID,
+			Name:     name,
+			Image:    ctr.Image,
+			Status:   string(ctr.State),
+			Labels:   ctr.Labels,
+			Mounts:   mounts,
+			Networks: networks,
+		})
+	}
+
+	return result, nil
+}
+
+// ContainerInspect returns detailed information about a container by name or
+// ID. Returns *ContainerNotFoundError if the container does not exist.
+func (c *Client) ContainerInspect(ctx context.Context, nameOrID string) (ContainerInfo, error) {
+	resp, err := c.docker.ContainerInspect(ctx, nameOrID)
+	if err != nil {
+		if cerrdefs.IsNotFound(err) {
+			return ContainerInfo{}, &ContainerNotFoundError{Name: nameOrID}
+		}
+		return ContainerInfo{}, fmt.Errorf("docker inspect: %w", err)
+	}
+
+	info := ContainerInfo{
+		ID:    resp.ID,
+		Name:  resp.Name,
+		Image: resp.Config.Image,
+	}
+
+	// Strip leading "/" from Docker's container name.
+	if len(info.Name) > 0 && info.Name[0] == '/' {
+		info.Name = info.Name[1:]
+	}
+
+	if resp.State != nil {
+		info.Status = string(resp.State.Status)
+	}
+
+	if resp.Config != nil {
+		info.Labels = resp.Config.Labels
+		info.Env = resp.Config.Env
+	}
+
+	for _, m := range resp.Mounts {
+		source := m.Source
+		if source == "" {
+			source = m.Name
+		}
+		info.Mounts = append(info.Mounts, MountInfo{
+			Source: source,
+			Target: m.Destination,
+			Mode:   m.Mode,
+		})
+	}
+
+	if resp.NetworkSettings != nil {
+		for name := range resp.NetworkSettings.Networks {
+			info.Networks = append(info.Networks, name)
+		}
+	}
+
+	return info, nil
 }
 
 // EnvSlice converts a map of environment variables to the Docker SDK's
