@@ -57,6 +57,12 @@ func TestFormatError_NotManagedError(t *testing.T) {
 	assert.Equal(t, `container "havn-dolt" exists but was not created by havn`, cli.FormatError(err))
 }
 
+func TestFormatError_DatabaseCreateError(t *testing.T) {
+	err := &dolt.DatabaseCreateError{Name: "myproject", Err: errors.New("access denied")}
+
+	assert.Equal(t, "Failed to create database 'myproject': access denied", cli.FormatError(err))
+}
+
 func TestOutput_Error_JSONMode(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	out := cli.NewOutput(&stdout, &stderr, true, false)

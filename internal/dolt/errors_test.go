@@ -29,3 +29,17 @@ func TestHealthCheckTimeoutError_Message(t *testing.T) {
 
 	assert.EqualError(t, err, "dolt health check timed out after 30s")
 }
+
+func TestDatabaseCreateError_Message(t *testing.T) {
+	cause := fmt.Errorf("access denied")
+	err := &dolt.DatabaseCreateError{Name: "myproject", Err: cause}
+
+	assert.EqualError(t, err, `create database "myproject": access denied`)
+}
+
+func TestDatabaseCreateError_WrapsUnderlying(t *testing.T) {
+	cause := fmt.Errorf("connection refused")
+	err := &dolt.DatabaseCreateError{Name: "myproject", Err: cause}
+
+	assert.ErrorIs(t, err, cause)
+}

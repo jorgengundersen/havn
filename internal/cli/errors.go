@@ -48,6 +48,11 @@ func FormatError(err error) string {
 		return notManaged.Error()
 	}
 
+	var dbCreateErr *dolt.DatabaseCreateError
+	if errors.As(err, &dbCreateErr) {
+		return fmt.Sprintf("Failed to create database '%s': %s", dbCreateErr.Name, dbCreateErr.Err)
+	}
+
 	return err.Error()
 }
 

@@ -67,6 +67,21 @@ func (e *ImportError) Unwrap() error {
 	return e.Err
 }
 
+// DatabaseCreateError wraps a failure to create a project database on the
+// shared Dolt server.
+type DatabaseCreateError struct {
+	Name string
+	Err  error
+}
+
+func (e *DatabaseCreateError) Error() string {
+	return fmt.Sprintf("create database %q: %s", e.Name, e.Err)
+}
+
+func (e *DatabaseCreateError) Unwrap() error {
+	return e.Err
+}
+
 // ExportError wraps a failure during database export.
 type ExportError struct {
 	Err error
