@@ -1,0 +1,2 @@
+env = "valid"
+shell = [this is not valid toml

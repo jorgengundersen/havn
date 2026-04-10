@@ -1,0 +1,33 @@
+env = "github:user/custom-env"
+shell = "go"
+image = "my-image:v2"
+network = "my-net"
+ports = ["8080:8080", "3000:3000"]
+
+[resources]
+cpus = 8
+memory = "16g"
+memory_swap = "24g"
+
+[volumes]
+nix = "custom-nix"
+data = "custom-data"
+cache = "custom-cache"
+state = "custom-state"
+
+[mounts]
+config = [".gitconfig:ro", ".config/nvim/:ro"]
+
+[mounts.ssh]
+forward_agent = false
+authorized_keys = false
+
+[dolt]
+enabled = true
+port = 3307
+image = "dolthub/dolt-sql-server:v1.0"
+database = "myproject"
+
+[environment]
+MY_API_KEY = "${MY_API_KEY}"
+DEBUG = "true"
