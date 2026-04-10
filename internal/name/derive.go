@@ -1,3 +1,5 @@
+// Package name provides named resource types and pure functions for deriving
+// deterministic container names from filesystem paths.
 package name
 
 import (
