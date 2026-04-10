@@ -75,10 +75,22 @@ func FormatError(err error) string {
 }
 
 // Error writes an error to stderr, formatted based on the output mode.
-// In JSON mode: {"error": "message"}. In normal mode: "Error: message".
+// In JSON mode with a TypedError: {"error": "message", "type": "...", "details": {...}}.
+// In JSON mode without TypedError: {"error": "message"}.
+// In normal mode: "Error: message".
 func (o *Output) Error(err error) {
 	msg := FormatError(err)
 	if o.json {
+		var typed TypedError
+		if errors.As(err, &typed) {
+			payload := map[string]any{
+				"error":   msg,
+				"type":    typed.ErrorType(),
+				"details": typed.ErrorDetails(),
+			}
+			_ = json.NewEncoder(o.stderr).Encode(payload)
+			return
+		}
 		_ = json.NewEncoder(o.stderr).Encode(map[string]string{"error": msg})
 		return
 	}

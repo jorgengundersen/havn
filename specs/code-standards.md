@@ -131,6 +131,53 @@ if err := startEnv(ctx, cfg); err != nil {
 }
 ```
 
+### Structured JSON errors (TypedError)
+
+Domain error types that carry machine-readable context implement the
+`TypedError` interface (defined in `internal/cli/errors.go`):
+
+```go
+type TypedError interface {
+    ErrorType() string            // stable snake_case identifier
+    ErrorDetails() map[string]any // structured fields from the error
+}
+```
+
+`Output.Error` detects this interface via `errors.As` and emits richer
+JSON automatically. See [cli-framework.md](cli-framework.md) Section 6
+for the JSON error shape.
+
+A domain error type implements `TypedError` alongside `error`:
+
+```go
+// internal/config/errors.go
+
+type ParseError struct {
+    File   string
+    Line   int
+    Detail string
+}
+
+func (e *ParseError) Error() string {
+    return fmt.Sprintf("parse error at %s:%d: %s", e.File, e.Line, e.Detail)
+}
+
+func (e *ParseError) ErrorType() string {
+    return "config_parse_error"
+}
+
+func (e *ParseError) ErrorDetails() map[string]any {
+    return map[string]any{"file": e.File, "line": e.Line, "detail": e.Detail}
+}
+```
+
+**Rules:**
+- `ErrorType()` returns a stable snake_case identifier. Once published,
+  it never changes.
+- `ErrorDetails()` keys can grow but never shrink.
+- Not every domain error needs `TypedError` — implement it when the
+  error carries structured context useful for JSON consumers.
+
 ### Rules summary
 
 - Created at failure point with sufficient context.

@@ -100,6 +100,21 @@ func TestOutput_Error_JSONMode(t *testing.T) {
 	assert.JSONEq(t, `{"error": "something broke"}`, stderr.String())
 }
 
+func TestOutput_Error_JSONMode_TypedError(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	out := cli.NewOutput(&stdout, &stderr, true, false)
+
+	err := &config.ParseError{File: "config.toml", Line: 5, Detail: "unexpected key"}
+	out.Error(err)
+
+	assert.Empty(t, stdout.String(), "error should not write to stdout")
+	assert.JSONEq(t, `{
+		"error": "Config parse error at config.toml:5: unexpected key",
+		"type": "config_parse_error",
+		"details": {"file": "config.toml", "line": 5, "detail": "unexpected key"}
+	}`, stderr.String())
+}
+
 func TestOutput_Error_NormalMode(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	out := cli.NewOutput(&stdout, &stderr, false, false)
@@ -108,4 +123,15 @@ func TestOutput_Error_NormalMode(t *testing.T) {
 
 	assert.Empty(t, stdout.String(), "error should not write to stdout")
 	assert.Equal(t, "Error: disk full\n", stderr.String())
+}
+
+func TestOutput_Error_NormalMode_TypedError(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	out := cli.NewOutput(&stdout, &stderr, false, false)
+
+	err := &config.ValidationError{Field: "resources.cpus", Reason: "must be positive"}
+	out.Error(err)
+
+	assert.Empty(t, stdout.String(), "error should not write to stdout")
+	assert.Equal(t, "Error: Invalid config: resources.cpus: must be positive\n", stderr.String())
 }

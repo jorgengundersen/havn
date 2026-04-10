@@ -347,11 +347,37 @@ func Execute() int {
 ```
 
 **JSON mode:** when `--json` is active and a command fails, the error is
-written to stderr as a JSON object so machine consumers can parse it:
+written to stderr as a JSON object so machine consumers can parse it.
+
+When the error implements `TypedError` (see
+[code-standards.md](code-standards.md) Section 2), the JSON includes
+machine-readable type and details:
+
+```json
+{
+  "error": "Config parse error at config.toml:5: unexpected key",
+  "type": "config_parse_error",
+  "details": {"file": "config.toml", "line": 5, "detail": "unexpected key"}
+}
+```
+
+When the error does not implement `TypedError`, the fallback shape is:
 
 ```json
 {"error": "container \"havn-user-api\" not found"}
 ```
+
+**Field semantics:**
+
+| Field | Presence | Description |
+|-------|----------|-------------|
+| `error` | always | Human-readable message from `FormatError` |
+| `type` | when `TypedError` | Stable snake_case identifier (e.g. `daemon_unreachable`) |
+| `details` | when `TypedError` | Structured fields from the error |
+
+**Stability contract:** `type` identifiers are stable — once published,
+they don't change. `details` fields can grow (new keys added) but not
+shrink (existing keys are never removed or renamed).
 
 Stdout receives nothing on error, preserving stream separation. The
 consumer detects failure via exit code and reads the error from stderr.
