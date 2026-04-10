@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/jorgengundersen/havn/internal/doctor"
 )
 
 // version is set at build time via ldflags.
@@ -32,7 +34,9 @@ func Execute() int {
 
 // Deps holds dependencies injected into the command tree.
 // Starts empty during skeleton phase; fields added as domain packages land.
-type Deps struct{}
+type Deps struct {
+	DoctorBackend doctor.Backend
+}
 
 // rootOpts holds all flag values for the root command.
 type rootOpts struct {
@@ -52,7 +56,7 @@ type rootOpts struct {
 }
 
 // NewRoot creates the root cobra command with the given dependencies.
-func NewRoot(_ Deps) *cobra.Command {
+func NewRoot(deps Deps) *cobra.Command {
 	var opts rootOpts
 
 	root := &cobra.Command{
@@ -86,7 +90,7 @@ func NewRoot(_ Deps) *cobra.Command {
 	root.AddCommand(newBuildCmd())
 	root.AddCommand(newConfigCmd())
 	root.AddCommand(newVolumeCmd())
-	root.AddCommand(newDoctorCmd())
+	root.AddCommand(newDoctorCmd(deps.DoctorBackend))
 	root.AddCommand(newDoltCmd())
 
 	return root
