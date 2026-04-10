@@ -97,3 +97,26 @@ func (e *VolumeNotFoundError) ErrorType() string {
 func (e *VolumeNotFoundError) ErrorDetails() map[string]any {
 	return map[string]any{"name": e.Name}
 }
+
+// ImageBuildError indicates that a Docker image build failed.
+type ImageBuildError struct {
+	Tag    string
+	Detail string
+}
+
+func (e *ImageBuildError) Error() string {
+	if e.Tag != "" {
+		return fmt.Sprintf("image build %q failed: %s", e.Tag, e.Detail)
+	}
+	return fmt.Sprintf("image build failed: %s", e.Detail)
+}
+
+// ErrorType returns the stable snake_case identifier for this error.
+func (e *ImageBuildError) ErrorType() string {
+	return "image_build_failed"
+}
+
+// ErrorDetails returns structured fields for JSON error output.
+func (e *ImageBuildError) ErrorDetails() map[string]any {
+	return map[string]any{"tag": e.Tag, "detail": e.Detail}
+}
