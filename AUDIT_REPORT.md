@@ -369,3 +369,163 @@ No release automation:
 | CI runs all gates on every push | ❌ Missing |
 | CI failure blocks merge | ❌ Missing |
 | Integration tests gated on Docker in CI | ❌ Missing (CI absent) |
+
+---
+
+## Test Coverage and Quality
+
+_Audited: 2026-04-11 | Issue: havn-qf6.3_
+
+Assessed against specs/test-standards.md §1–§7 and specs/quality-gates.md §2.
+
+### Per-Package Coverage
+
+| Package | Coverage | Test Files | Notes |
+|---------|----------|------------|-------|
+| `name` | 100.0% | 2 | Pure functions, fully tested |
+| `volume` | 100.0% | 1 | Full coverage via fakes |
+| `cli` | 91.7% | 9 | Strong — output, errors, logger, commands |
+| `mount` | 91.5% | 1 | Resolve logic well-covered |
+| `container` | 89.3% | 4 | Good domain coverage via fakes |
+| `config` | 85.6% | 6 | Validate, resolve, flake, errors tested |
+| `dolt` | 81.9% | 8 | Manager, migrate, detect, setup, config, errors |
+| `doctor` | 81.0% | 4 | Runner, checks, formatting covered |
+| `docker` | 55.8% | 10 | Error paths tested; success paths need integration tests |
+| `cmd/havn` | 0.0% | 0 | Wiring-only entry point — expected |
+| **Total** | **78.5%** | **45** | |
+
+### Test Pattern Compliance (test-standards.md)
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Black-box testing (§1) | ✅ MET | All 47 test files use `_test` package suffix |
+| White-box exception documented (§1) | ✅ MET | `docker/image_stream_test.go` uses `package docker` with comment explaining why: stream-parsing edge cases best verified directly |
+| Table-driven tests (§4) | ✅ MET | Used across `config/`, `name/`, `container/`, `mount/`, `docker/` |
+| Testify assert/require (§4) | ✅ MET | 100% of test files use `testify`; no raw `t.Error`/`t.Fatal` |
+| `require` for preconditions (§4) | ✅ MET | `require.NoError` for setup; `assert.*` for verification |
+| `t.Helper()` in helpers (§4) | ✅ MET | Used in `dolt/migrate_test.go`, `docker/image_stream_test.go` |
+| `t.Cleanup()` / `t.TempDir()` (§4) | ✅ MET | `t.TempDir()` throughout; explicit `t.Cleanup()` in `docker/exec_test.go` |
+| Test naming `Test<Unit>_<Scenario>` (§6) | ✅ MET | All functions follow convention, e.g. `TestStart_CreatesNewContainer` |
+| Subtest names lowercase phrases (§6) | ✅ MET | e.g. `"standard path"`, `"special characters sanitized"` |
+| Error contracts tested (§5) | ✅ MET | `ErrorAs` checks for domain errors in `container/`, `dolt/`, `docker/` |
+
+### Test Doubles Compliance (test-standards.md §3)
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Fakes implement havn interfaces | ✅ MET | `fakeBackend`, `fakeRuntime`, `fakeStopBackend` all implement consumer-defined interfaces |
+| No mocking of external APIs | ✅ MET | No test doubles implement Docker SDK interfaces |
+| Fakes preferred over mocks | ✅ MET | All doubles are hand-written fakes with configurable errors and call tracking |
+| No `internal/testutil/` (shared doubles) | ⚠️ N/A | Fakes defined in test files where used — appropriate for current scale |
+
+**Fake types found:**
+
+| Package | Fake | Implements |
+|---------|------|------------|
+| `container/` | `fakeImageBackend`, `fakeStopBackend`, `fakeStartBackend`, `fakeListBackend` | Consumer-defined `container.*Backend` interfaces |
+| `dolt/` | `fakeBackend` (in `fake_backend_test.go`) | `dolt.Backend` |
+| `volume/` | `fakeBackend` | `volume.Backend` |
+| `doctor/` | `fakeCheck`, `blockingFakeCheck` | `doctor.Check` |
+| `cli/` | Various fakes per command test file | Command-specific interfaces |
+
+### Integration Test Infrastructure
+
+**Status: DEFINED BUT EMPTY**
+
+- `Makefile` has `test-integration` target: `go test -tags integration ./...`
+- `specs/test-standards.md` documents the `//go:build integration` pattern
+- **No test files carry the `integration` build tag** — zero integration tests exist
+
+This means the wrapper layer (`internal/docker/`) has no tests against a real Docker daemon. The gap is mitigated by:
+1. Domain packages are well-tested via fakes (89–100% coverage)
+2. Docker wrapper error paths are tested via unreachable daemon
+3. Error types and boundary translation are fully tested
+
+However, success-path behavior (correct Docker API translation, response mapping, filter behavior) is unverified. This is the primary coverage gap.
+
+### Docker Package Deep Dive (55.8%)
+
+The docker package is the infrastructure wrapper — it translates between havn domain types and the Docker SDK. Its 55.8% coverage is the lowest non-trivial package.
+
+**What IS tested (unit-testable without Docker):**
+
+| Area | Coverage | Approach |
+|------|----------|----------|
+| Error types (6 types, 18 methods) | 100% | Direct construction and assertion |
+| `EnvSlice`, `BuildMounts` helpers | 100% | Pure function tests |
+| `ParseMemoryBytes` | 92.3% | Table-driven with 7 cases |
+| `TerminalFd` | 100% | File descriptor detection |
+| `streamBuildOutput` (internal) | 85.7% | White-box test for JSON stream parsing |
+| `tarDir`, `copyFileToTar` (internal) | 74–86% | White-box test for tar creation |
+
+**What is tested — error paths only (no success cases):**
+
+| Function | Coverage | Gap |
+|----------|----------|-----|
+| `ContainerCreate` | 66.7% | Success path: response → ID mapping untested |
+| `ContainerStart` | 66.7% | Success path untested |
+| `ContainerStop` | 71.4% | Success path untested |
+| `ContainerRemove` | 66.7% | Success path untested |
+| `ContainerList` | 25.9% | Filter translation, response mapping untested |
+| `ContainerInspect` | 18.2% | State/port/mount mapping untested |
+| `CopyToContainer` | 66.7% | Success path untested |
+| `CopyFromContainer` | 66.7% | Success path untested |
+| `NetworkCreate` | 66.7% | Success path, `ErrNetworkAlreadyExists` idempotency untested |
+| `NetworkInspect` | 44.4% | Subnet/gateway mapping untested |
+| `NetworkList` | 40.0% | Filter behavior untested |
+| `VolumeInspect` | 66.7% | Mountpoint/label mapping untested |
+| `VolumeCreate` | 75.0% | Label propagation untested |
+| `VolumeList` | 43.8% | Filter behavior untested |
+| `ImageInspect` | 44.4% | Metadata mapping untested |
+| `ImageExists` | 66.7% | True/false return logic untested |
+| `ImageBuild` | 70.4% | Full build flow untested |
+
+**Completely untested (0%):**
+
+| Function | Reason |
+|----------|--------|
+| `handleSIGWINCH` | Signal handling — requires terminal and running container |
+| `resizeExec` | Called by `handleSIGWINCH` — same constraint |
+
+**`ContainerAttach`** has 14.8% coverage — only the initial error path is tested. The interactive I/O flow (stdin/stdout proxying, raw terminal mode, signal forwarding) is untested. This function is inherently difficult to unit test and is a strong candidate for integration/system tests.
+
+### Why 55.8% is Expected
+
+The docker package is a **wrapper** (code-standards.md §4). Its primary job is type translation and Docker API calls. Testing success paths requires a running Docker daemon, which makes them **integration tests** by definition (test-standards.md §2). The current unit tests correctly cover what can be verified without Docker:
+
+1. Error handling and boundary translation
+2. Pure helper functions
+3. Context cancellation propagation
+4. Error type implementation
+
+The missing success-path tests belong in `//go:build integration` tagged files, which don't exist yet.
+
+### Identified Gaps
+
+| Gap | Severity | Spec Reference |
+|-----|----------|---------------|
+| No integration tests for docker wrapper success paths | **High** | test-standards.md §2: "Verify that boundaries work in practice" |
+| No `testdata/` directories | **Low** | test-standards.md §1: Convention documented but no test data files needed yet |
+| No shared test doubles in `internal/testutil/` | **Low** | test-standards.md §3: Current scale doesn't require shared doubles |
+| `cmd/havn` has 0% coverage | **Low** | Wiring-only entry point; tested indirectly through `cli` package |
+| `handleSIGWINCH` / `resizeExec` untested | **Medium** | Terminal signal handling — needs integration test with PTY |
+| `ContainerAttach` mostly untested (14.8%) | **Medium** | Interactive I/O flow — strong integration test candidate |
+
+### Compliance Summary
+
+| Area | Compliance | Notes |
+|------|-----------|-------|
+| Test organization (§1) | ✅ Full | Files next to code, `_test` suffix, documented exception |
+| Test boundaries (§2) | ⚠️ Partial | Unit tests excellent; integration tests absent |
+| Test doubles (§3) | ✅ Full | Fakes implement havn interfaces, not external APIs |
+| Test patterns (§4) | ✅ Full | Table-driven, testify, helpers, cleanup all correct |
+| Contract testing (§5) | ✅ Full | Error contracts verified with `ErrorAs` |
+| Naming (§6) | ✅ Full | All functions and subtests follow conventions |
+| CI integration (§7) | ❌ Missing | No CI pipeline exists (see Infrastructure section) |
+
+### Recommendations (audit only — no code changes)
+
+1. **Create integration tests** for `internal/docker/` success paths behind `//go:build integration`. Priority functions: `ContainerList`, `ContainerInspect`, `NetworkInspect`, `VolumeList` (lowest coverage, most complex translation logic).
+2. **Add `ContainerAttach` integration test** with PTY simulation to verify interactive session flow.
+3. **Consider `internal/testutil/`** if fakes begin duplicating across packages as the codebase grows.
+4. **`cmd/havn` coverage** is not a concern — the entry point delegates immediately to `cli.Execute()` which is well-tested.
