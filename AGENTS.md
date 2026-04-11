@@ -102,11 +102,8 @@ bd close bd-42 --reason "Completed" --json
 
 ### Auto-Sync
 
-bd automatically syncs with git:
-
-- Exports to `.beads/issues.jsonl` after changes (5s debounce)
-- Imports from JSONL when newer (e.g., after `git pull`)
-- No manual export/import needed!
+bd uses an embedded Dolt database (`.beads/`) and syncs
+automatically via git hooks — no manual export/import needed.
 
 ### Important Rules
 

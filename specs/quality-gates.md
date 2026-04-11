@@ -44,7 +44,7 @@ so the beads section survives `lefthook run` and `lefthook install`.
 The pre-commit hook executes in this order:
 1. **Lefthook** — runs quality gate jobs in parallel (defined in
    `lefthook.yml`)
-2. **Beads** — runs `bd hooks run pre-commit` (JSONL sync)
+2. **Beads** — runs `bd hooks run pre-commit` (Dolt sync)
 
 A failure in either tool blocks the commit.
 
@@ -65,10 +65,10 @@ into the existing hook file. Running `bd hooks install` without
 
 | Hook | Lefthook | Beads |
 |------|----------|-------|
-| `pre-commit` | Quality gates | JSONL sync |
+| `pre-commit` | Quality gates | Dolt sync |
 | `prepare-commit-msg` | — | Agent identity trailers |
-| `post-merge` | — | JSONL import after pull |
-| `post-checkout` | — | JSONL import after checkout |
+| `post-merge` | — | Dolt sync after pull |
+| `post-checkout` | — | Dolt sync after checkout |
 | `pre-push` | — | Validation before push |
 
 ## Workflow
