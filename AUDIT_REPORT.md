@@ -932,3 +932,281 @@ stub count suggests. The critical path is:
    adding it unblocks all 8 dolt stubs.
 5. **File separate issues** for each wiring task — they are independent and
    parallelizable.
+
+---
+
+## Spec Consistency
+
+_Audited: 2026-04-11 | Issue: havn-qf6.1_
+
+Cross-referencing all 9 spec files (8 specs + `specs/README.md`) for internal
+contradictions, ambiguities, missing sections, and stale content.
+
+### Authority Map
+
+Which spec is authoritative for each area. When two specs discuss the same
+topic, the authoritative spec owns the definition; the other references it.
+
+| Area | Authoritative Spec | Also Referenced In |
+|------|-------------------|--------------------|
+| CLI commands, flags, subcommands | havn-overview.md §CLI Interface | cli-framework.md §2, §4 |
+| CLI framework (Cobra, wiring, testing) | cli-framework.md | — |
+| Config schema and fields | havn-overview.md §Configuration | shared-dolt-server.md §Configuration Reference |
+| Config precedence (flag > env > project > global > default) | havn-overview.md §Global Flags | cli-framework.md §4 |
+| Container lifecycle | havn-overview.md §Container Lifecycle | — |
+| Architecture principles | architecture-principles.md | code-standards.md, test-standards.md, cli-framework.md (all reference back) |
+| Go conventions (packages, errors, types, logging) | code-standards.md | — |
+| Testing patterns and workflow | test-standards.md | — |
+| Quality gates (Make, hooks, CI) | quality-gates.md | — |
+| Dolt server architecture and lifecycle | shared-dolt-server.md | havn-overview.md §Dolt Integration |
+| Beads env vars | havn-overview.md §Beads Integration | shared-dolt-server.md §Per-Project Config |
+| Doctor checks and output | havn-doctor.md | havn-overview.md §Diagnostics |
+| Error handling (philosophy) | architecture-principles.md §5 | code-standards.md §2, cli-framework.md §6 |
+| Output modes and stream separation | havn-overview.md §Output Modes | cli-framework.md §5, code-standards.md §5 |
+| Linter set | code-standards.md §6 | quality-gates.md §Linter Configuration |
+
+### Contradictions Found
+
+#### 1. Dolt `enabled` default in global config examples
+
+**Contradiction:** havn-overview.md and shared-dolt-server.md show different
+values for `dolt.enabled` in their global config examples.
+
+| Spec | Value | Context |
+|------|-------|---------|
+| havn-overview.md §Global Config | `enabled = false` with comment `# global default; projects opt-in` | Defining the default |
+| shared-dolt-server.md §Configuration Reference | `enabled = true` with comment `# enable shared Dolt server` | Example snippet |
+
+**Analysis:** havn-overview is authoritative for config defaults. The
+shared-dolt-server example appears to show an "enabled" configuration
+rather than the default. However, it reads as if `true` is the global
+default, which contradicts the overview. The implementation
+(`config.Default()`) sets `Enabled: false`, confirming havn-overview is
+correct.
+
+**Resolution:** shared-dolt-server §Configuration Reference should either
+show `enabled = false` with a comment explaining projects opt-in, or add
+a note that the example shows an explicitly enabled configuration.
+
+#### 2. `BEADS_DOLT_SERVER_DATABASE` omitted from lifecycle sequence
+
+**Contradiction:** shared-dolt-server.md §4 Lifecycle Management lists 5
+beads env vars in the startup sequence but omits `BEADS_DOLT_SERVER_DATABASE`.
+The same spec's §6 Per-Project Config table lists all 6. havn-overview
+§Beads Integration also lists all 6.
+
+| Source | Lists `BEADS_DOLT_SERVER_DATABASE`? |
+|--------|-------------------------------------|
+| havn-overview.md §Beads Integration | ✅ Yes |
+| shared-dolt-server.md §4 Lifecycle | ❌ No |
+| shared-dolt-server.md §6 Per-Project Config | ✅ Yes |
+
+**Analysis:** The omission in §4 is an oversight. Without this env var,
+beads cannot know which database to connect to on the shared server. The
+implementation (`dolt/setup.go`) correctly sets all 6 vars.
+
+**Resolution:** Add `BEADS_DOLT_SERVER_DATABASE=<database>` to the
+lifecycle sequence in shared-dolt-server.md §4.
+
+#### 3. `havn dolt drop` confirmation mechanism
+
+**Ambiguity:** The specs describe the drop confirmation differently:
+
+| Spec | Wording |
+|------|---------|
+| havn-overview.md §Subcommands | "requires `--yes`" |
+| shared-dolt-server.md §8 | "interactive confirmation" / "with confirmation" |
+| cli-framework.md §4 | `--yes` flag defined |
+
+**Analysis:** "Interactive confirmation" typically means a stdin prompt,
+which contradicts both the `--yes` flag design and the project's
+non-interactive agent-friendly philosophy (AGENTS.md). The `--yes` flag
+approach is correct and implemented.
+
+**Resolution:** shared-dolt-server.md §8 should say "requires `--yes`
+flag" instead of "interactive confirmation" to match the overview and
+CLI framework specs.
+
+### Internal Inconsistencies Within Specs
+
+#### 4. `gosimple` listed in code-standards but absent from `.golangci.yml`
+
+code-standards.md §6 lists `gosimple` as a separate correctness linter.
+The actual `.golangci.yml` does not list it separately.
+
+**Analysis:** Not a real contradiction. `gosimple` is part of the
+`staticcheck` suite and is automatically included when `staticcheck` is
+enabled in golangci-lint. The code-standards spec lists it separately
+for documentation purposes, which is accurate but potentially confusing.
+
+**Resolution:** Optional — add a parenthetical to code-standards noting
+that `gosimple` is bundled with `staticcheck` in golangci-lint, or
+remove the separate listing.
+
+#### 5. `sloglint` in implementation but not in code-standards §6
+
+`.golangci.yml` includes `sloglint` with 5 rules enforcing code-standards
+§5 (slog conventions). However, `sloglint` does not appear in
+code-standards §6's linter list.
+
+**Analysis:** The linter was added to enforce the slog conventions already
+defined in §5. It falls under "Add when justified" — the justification
+exists (§5 conventions), but the addition was not reflected back into §6.
+
+**Resolution:** Add `sloglint` to code-standards §6 under Consistency
+linters, noting it enforces §5's slog conventions.
+
+### Underspecified Areas
+
+#### 6. No implementation spec for Dockerfile / base image
+
+havn-overview.md §Base Image says: "_Dockerfile and build details live in
+an implementation spec._" This spec does not exist. Similarly, §Entrypoint
+and Init defers to: "_Entrypoint details, init script, and project
+structure live in an implementation spec._"
+
+**Impact:** The `havn build` command cannot be fully implemented without
+this spec. Domain code (`container.Build`) calls `backend.ImageBuild` but
+no Dockerfile or build context is defined.
+
+#### 7. `--port` flag and SSH port mapping
+
+havn-overview lists `--port <port>` with env var `HAVN_SSH_PORT` described
+as "SSH port mapping." No spec defines:
+
+- What host port is mapped to what container port
+- Whether this exposes SSH on the host
+- How it interacts with the Docker network model
+- Default behavior when `--port` is not set
+
+The overview §Entrypoint mentions sshd but defers details to the
+(non-existent) implementation spec.
+
+#### 8. `ports` field in project config
+
+havn-overview §Project Config shows:
+
+```toml
+ports = ["8080:8080", "3000:3000"]
+```
+
+This field is not in the global config, not mentioned in global flags,
+and has no further documentation. Questions left open:
+
+- How do project ports interact with `--port` (SSH)?
+- Are these host:container mappings?
+- What happens on port conflicts between projects?
+- Are they exposed to the host or only on `havn-net`?
+
+#### 9. `[environment]` section in project config
+
+havn-overview §Project Config shows:
+
+```toml
+[environment]
+MY_API_KEY = "${MY_API_KEY}"
+```
+
+No spec defines:
+
+- Variable expansion syntax (`${VAR}` passthrough from host)
+- Whether global config can also define environment variables
+- Precedence between `[environment]`, beads env vars, and container-inherent vars
+
+#### 10. `memory_swap` field
+
+The global config `[resources]` section shows `memory_swap = "12g"` but
+there is no `--memory-swap` CLI flag or `HAVN_MEMORY_SWAP` env var.
+This field can only be set via config file, breaking the design principle
+that everything is overridable via flags (architecture-principles §8:
+"Sane defaults, full override").
+
+#### 11. Config `source` field in JSON output not specified elsewhere
+
+havn-overview §`havn config show --json` defines a `source` object
+showing where each value came from (`"default"`, `"global"`, `"project"`,
+`"env"`, `"flag"`). This is only defined in the overview — no other spec
+references it, and the implementation details (how source tracking
+propagates through `config.Resolve`) are not documented.
+
+This is adequately specified for implementation but may benefit from a
+note in cli-framework.md §5 (JSON contract) since it's a non-trivial
+output shape.
+
+### Cross-Reference Integrity
+
+#### Forward references — all resolved
+
+| From | Reference | Target | Status |
+|------|-----------|--------|--------|
+| architecture-principles §1 | "dedicated CLI spec" | cli-framework.md | ✅ Exists |
+| architecture-principles §2 | "dedicated spec" (testing) | test-standards.md | ✅ Exists |
+| architecture-principles §5 | "coding standards spec" (errors) | code-standards.md §2 | ✅ Exists |
+| architecture-principles §9 | "implementation specs" (logging) | code-standards.md §5 | ✅ Exists |
+| architecture-principles §10 | "dedicated spec" (CI) | quality-gates.md | ✅ Exists |
+| code-standards §2 | "cli-framework.md Section 6" (JSON errors) | cli-framework.md §6 | ✅ Exists |
+| code-standards §4 | architecture-principles §4, §12 | architecture-principles | ✅ Exists |
+| havn-overview §Diagnostics | "havn-doctor.md" | havn-doctor.md | ✅ Exists |
+| havn-overview §Dolt | "shared-dolt-server.md" | shared-dolt-server.md | ✅ Exists |
+| cli-framework §1–§9 | architecture-principles, havn-overview, code-standards, test-standards | All 4 | ✅ Exist |
+
+#### Forward references — unresolved
+
+| From | Reference | Target | Status |
+|------|-----------|--------|--------|
+| havn-overview §Base Image | "Dockerfile and build details live in an implementation spec" | (none) | ❌ Spec not yet written |
+| havn-overview §Entrypoint | "Entrypoint details, init script, and project structure live in an implementation spec" | (none) | ❌ Spec not yet written |
+
+#### Back-references — consistent
+
+All specs that reference architecture-principles cite correct section
+numbers. code-standards, test-standards, cli-framework, and quality-gates
+form a consistent reference web with no broken links or stale section
+numbers.
+
+### specs/README.md Index Accuracy
+
+| Listed in Index | File Exists | Description Accurate |
+|-----------------|-------------|---------------------|
+| architecture-principles.md | ✅ | ✅ |
+| code-standards.md | ✅ | ✅ |
+| test-standards.md | ✅ | ✅ |
+| quality-gates.md | ✅ | ✅ |
+| cli-framework.md | ✅ | ✅ |
+| havn-overview.md | ✅ | ✅ |
+| havn-doctor.md | ✅ | ✅ |
+| shared-dolt-server.md | ✅ | ✅ |
+
+All 8 specs listed, all exist, all descriptions are accurate. No unlisted
+spec files found in `specs/`.
+
+### Consistency Summary
+
+| Category | Count | Severity |
+|----------|-------|----------|
+| Contradictions | 3 | Low — all have clear authoritative sources |
+| Internal inconsistencies | 2 | Low — documentation-level, not behavioral |
+| Underspecified areas | 6 | Mixed — items 6–7 block implementation; 8–11 are gaps |
+| Broken forward references | 2 | Expected — deferred implementation specs |
+| Broken back-references | 0 | — |
+| Index accuracy issues | 0 | — |
+
+### Recommendations (audit only — no code changes)
+
+1. **Fix shared-dolt-server.md §4** — add missing `BEADS_DOLT_SERVER_DATABASE`
+   env var to lifecycle sequence.
+2. **Fix shared-dolt-server.md §8** — change "interactive confirmation" to
+   "requires `--yes` flag" for `havn dolt drop`.
+3. **Fix shared-dolt-server.md §Configuration Reference** — clarify that
+   `dolt.enabled = true` is an example, not the default, or change to `false`
+   with an opt-in comment.
+4. **Add `sloglint` to code-standards.md §6** — document the linter that
+   enforces §5's slog conventions.
+5. **Write implementation spec for base image** — unblocks Dockerfile creation,
+   `havn build`, and full e2e startup. Covers Dockerfile, entrypoint, init
+   script, and UID/GID mapping.
+6. **Specify `ports`, `[environment]`, and `memory_swap`** — these config
+   fields appear in havn-overview examples but lack behavioral documentation.
+   Either spec them fully or remove from examples until ready.
+7. **Specify `--port` / SSH port mapping** — the flag exists but its behavior
+   is undefined beyond the name.
