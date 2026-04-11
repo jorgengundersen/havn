@@ -45,3 +45,4 @@ go.work.sum
 
 # Claude Code local settings (machine-local, not shared)
 .claude/settings.local.json
+.claude/*.lock
