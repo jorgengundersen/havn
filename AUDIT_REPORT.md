@@ -71,6 +71,148 @@ _Audited: 2026-04-11 | Issue: havn-qf6.6_
 
 ---
 
+## Code Quality and Architecture
+
+_Audited: 2026-04-11 | Issue: havn-qf6.4_
+
+Assessed against specs/code-standards.md §1–§7 and specs/architecture-principles.md §1–§12.
+
+### Package Structure (code-standards §1, principles §1, §7, §11)
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Entry point in `cmd/havn/` | ✅ MET | `cmd/havn/main.go` — wiring only, calls `cli.Execute()` |
+| Everything else under `internal/` | ✅ MET | 10 packages: `cli`, `config`, `container`, `docker`, `doctor`, `dolt`, `mount`, `name`, `volume` |
+| Domain-first package names | ✅ MET | No `utils/`, `helpers/`, `common/`, `types/`, `models/` |
+| One concern per package | ✅ MET | Each package has a single domain responsibility |
+| No `pkg/` directory | ✅ MET | Everything is internal |
+| No circular dependencies | ✅ MET | Import graph is a strict DAG |
+
+**Import layering:**
+
+```
+cmd/havn → cli → {config, docker, doctor, dolt, volume}
+                   ↓
+           domain packages: container, mount, name, volume, dolt, doctor
+                   ↓
+           infrastructure: docker (wraps Docker SDK)
+```
+
+Domain packages import only stdlib, `config`, `mount`, and `name`. Docker SDK types never appear outside `internal/docker/`.
+
+**Import ordering** enforced by `gci` in `.golangci.yml`: stdlib → third-party → internal. Consistent across all files.
+
+### Dependency Isolation (code-standards §4, principles §4, §12)
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Interfaces defined by consumer | ✅ MET | 14 interfaces across `container/`, `dolt/`, `volume/`, `doctor/`, `cli/` — all consumer-defined with explicit `// Consumer-defined per code-standards §4` comments |
+| Compile-time assertions | 🔴 MISSING | No `var _ Interface = (*Type)(nil)` in `internal/docker/` |
+| Constructor injection | ✅ MET | 24 `New*` constructors; all composed units receive deps as params |
+| Wrapper hides external client | ✅ MET | `docker.Client.docker` is unexported `*client.Client` |
+| Boundary translation | ✅ MET | All Docker SDK errors converted to domain errors at wrapper |
+
+**Consumer-defined interfaces (14 total):**
+
+- `container.Backend`, `container.StartBackend`, `container.NetworkBackend`, `container.VolumeEnsurer`, `container.MountResolver`, `container.DoltSetup`, `container.ExecBackend`, `container.ImageBackend`, `container.StopBackend` — in `internal/container/`
+- `dolt.Backend` — in `internal/dolt/backend.go`
+- `volume.Backend` — in `internal/volume/backend.go`
+- `doctor.Backend` — in `internal/doctor/backend.go`
+- `doctor.Check` — in `internal/doctor/check.go`
+- `cli.TypedError` — in `internal/cli/errors.go`
+
+**Gap — compile-time assertions:** The spec (§4) requires `var _ container.Runtime = (*Client)(nil)` for real implementations. `docker.Client` implements ~9 interfaces across its methods but has no assertions. This means interface drift (e.g., adding a param to `Backend.ContainerList`) would only fail at the call site, not at the declaration. Missing assertions for:
+
+- `container.StartBackend`, `container.Backend`, `container.StopBackend`, `container.ImageBackend`, `container.NetworkBackend`, `container.VolumeEnsurer`, `container.ExecBackend` — should be in `internal/docker/container.go` or `client.go`
+- `volume.Backend` — should be in `internal/docker/volume.go`
+- `doctor.Backend` — should be in `internal/docker/daemon.go`
+
+### Error Handling (code-standards §2, principles §5)
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Custom error types at failure points | ✅ MET | 6 error files across `cli`, `config`, `container`, `docker`, `dolt`, `mount` |
+| TypedError interface defined | ✅ MET | `internal/cli/errors.go` — `ErrorType() string` + `ErrorDetails() map[string]any` |
+| TypedError implemented | ✅ MET | 8 types: `DaemonUnreachableError`, `ContainerNotFoundError`, `ImageNotFoundError`, `NetworkNotFoundError`, `VolumeNotFoundError`, `ImageBuildError`, `ParseError`, `ValidationError` |
+| Error wrapping with `%w` | ✅ MET | 73 instances of `fmt.Errorf` with `%w` across 22 files |
+| Boundary translation in docker wrapper | ✅ MET | `cerrdefs.IsNotFound()` → domain error types at every wrapper method |
+| User-facing formatting at CLI only | ✅ MET | `cli.FormatError()` and `Output.Error()` — domain code never formats |
+| No log-and-return | ✅ MET | Zero violations found |
+| No panic for expected conditions | ✅ MET | No `panic()` in production code |
+
+**Sentinel errors (2):**
+- `cli.ErrNotImplemented` — stub commands
+- `docker.ErrNetworkAlreadyExists` — network idempotency
+
+**Observation:** `container.NotFoundError` and several dolt errors (`StartError`, `HealthCheckTimeoutError`, `DatabaseExistsError`, etc.) do not implement `TypedError`. Per spec, this is acceptable — "not every domain error needs TypedError." These carry minimal structured context beyond a name/message.
+
+### Logging and Output (code-standards §5, principles §9)
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| `log/slog` from stdlib | ✅ MET | `internal/cli/logger.go` uses `slog` |
+| Handler setup at program start | ✅ MET | `SetupLogger(verbose, jsonOutput bool) *slog.Logger` in cli package |
+| Logger via DI (not globals) | ⚠️ PARTIAL | `Deps.Logger` field exists but not yet passed to domain packages |
+| Stream separation (stderr/stdout) | ✅ MET | Logger → `os.Stderr`; data output → `o.stdout` |
+| Standard attribute names | N/A | No logging calls in domain code yet (skeleton phase) |
+| No log-and-return | ✅ MET | Zero violations |
+
+**Detail:** The logger infrastructure is correctly built — `SetupLogger` creates the right handler, `Deps` struct holds it, `cli.Execute()` wires it. However, no domain package currently receives or uses a logger. When logging is added, constructors should accept `*slog.Logger` and use the standard attribute vocabulary (`component`, `operation`, `container_name`, etc.).
+
+**`sloglint`** is configured in `.golangci.yml` and will enforce: `attr-only`, `no-global: all`, `static-msg`, `key-naming-case: snake` — ensuring compliance when logging calls are added.
+
+### Type System (code-standards §3, principles §10)
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Named types for distinct values | ✅ MET | `name.ContainerName`, `name.VolumeName`, `name.NetworkName` in `internal/name/types.go` |
+| Config structs as plain data | ✅ MET | `config.Config` with TOML tags; `Resolve()`, `Validate()` as pure functions |
+| Options structs for 3+ params | ✅ MET | `container.CreateOpts`, `docker.ExecOpts`, `container.BuildOpts`, `mount.ResolveOpts` |
+
+### Go Idioms (code-standards §7, principles §1, §6)
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| `ctx context.Context` first param | ✅ MET | All 23 docker methods + domain orchestrators; pure functions correctly omit |
+| Receiver names short & consistent | ✅ MET | `c` for `Client`, `m` for `Manager`, `s` for `Setup`, `r` for `Runner` |
+| Table-driven tests | ✅ MET | Used across `config/`, `name/`, `container/`, `mount/` test files |
+| `errgroup` for structured concurrency | ✅ MET | `container/stop.go` uses `errgroup.WithContext` for parallel stops |
+
+### Dependency Graph Assessment
+
+**External dependencies used in production code:**
+
+| Dependency | Used By | Boundary |
+|------------|---------|----------|
+| `docker/docker` SDK | `internal/docker/` only | Wrapper — types never leak |
+| `BurntSushi/toml` | `internal/config/config.go` only | Config loading boundary |
+| `spf13/cobra` | `internal/cli/` only | CLI framework boundary |
+| `stretchr/testify` | `*_test.go` only | Test assertions only |
+
+All external dependencies are confined to their boundary packages. Domain packages (`container`, `dolt`, `doctor`, `mount`, `name`, `volume`) depend only on stdlib and other internal packages.
+
+### Compliance Summary
+
+| Area | Compliance | Gaps |
+|------|-----------|------|
+| Package structure | ✅ Full | — |
+| Import graph | ✅ Full | — |
+| Dependency isolation | ⚠️ Near-full | Missing compile-time assertions in `docker/` |
+| Error handling | ✅ Full | — |
+| TypedError | ✅ Full | — |
+| Logging infrastructure | ⚠️ Partial | Logger DI ready but not yet injected into domains |
+| Type system | ✅ Full | — |
+| Go idioms | ✅ Full | — |
+| External dep containment | ✅ Full | — |
+
+### Recommendations (audit only — no code changes)
+
+1. **Add compile-time assertions** in `internal/docker/` for all consumer-defined interfaces. This is the only spec-required pattern not yet implemented.
+2. **Inject logger into domain packages** when logging calls are needed. The infrastructure is ready; constructors need a `*slog.Logger` parameter.
+3. **Consider `TypedError`** for dolt errors if JSON consumers will need to distinguish dolt-specific failures programmatically.
+
+---
+
 ## Infrastructure
 
 _Audited: 2026-04-11 | Issue: havn-qf6.5_
