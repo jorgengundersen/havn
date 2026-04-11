@@ -1,5 +1,5 @@
-- claim the issue
-- resolve the issue following @specs/code-standards.md
+- run `bd ready --json`. claim the first issue (the most important issue)
+- resolve the issue following @specs/code-standards.md and @specs/test-standards.md
 - remember red/green TDD. One test, one implementation (no batch)
 - when job is done, commit the work to trigger pre-commit hook
 - When work is successfully committed and pushed, add any important notes to the beads (if relevant and valuable), and close the issue
