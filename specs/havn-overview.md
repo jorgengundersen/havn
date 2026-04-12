@@ -389,13 +389,24 @@ reserved for building and installing havn itself.
 The `[environment]` table defines extra environment variables for the project
 container.
 
-- Literal values are passed through unchanged.
-- `${VAR}` means "read `VAR` from the host environment at startup and copy its
-  value into the container".
-- If a referenced host variable is unset, config resolution fails with a
-  validation error. havn does not silently substitute an empty string.
-- User-defined environment entries must not override havn-managed runtime
-  variables such as `SSH_AUTH_SOCK` or `BEADS_DOLT_*`.
+- Environment entries are merged by key across config files:
+  1. Global `[environment]` entries are applied first.
+  2. Project `[environment]` entries are applied second.
+  3. For duplicate keys, the project value wins.
+- Value resolution happens at container startup, after config merge:
+  - Literal values are passed through unchanged.
+  - `${VAR}` means "read `VAR` from the host environment and copy that value".
+  - `${VAR}` passthrough is exact-token only; havn does not perform partial
+    string interpolation inside larger strings.
+- If a referenced host variable is unset, startup fails with a validation
+  error. havn does not silently substitute an empty string.
+- Final runtime env assembly is deterministic:
+  1. havn mount/runtime setup env (for example `SSH_AUTH_SOCK`)
+  2. user config `[environment]` entries (after `${VAR}` resolution)
+  3. havn-managed integration env (for example `BEADS_DOLT_*`)
+- User-defined `[environment]` entries must not override havn-managed runtime
+  variables (including `SSH_AUTH_SOCK` and `BEADS_DOLT_*`). If a user sets one
+  of these reserved names, startup fails with a validation error.
 
 ### Resource override surface
 

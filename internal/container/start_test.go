@@ -474,6 +474,88 @@ func TestStartOrAttach_ConfigEnvironment_IncludedInEnv(t *testing.T) {
 	assert.Equal(t, "true", cb.createdOpts.Env["DEBUG"])
 }
 
+func TestStartOrAttach_ConfigEnvironment_PassthroughResolvesHostVar(t *testing.T) {
+	t.Setenv("MY_API_KEY", "host-secret")
+
+	ctx := context.Background()
+	cb := &fakeStartBackend{
+		inspectErr: &container.NotFoundError{Name: "havn-user-project"},
+		createID:   "new-123",
+	}
+	deps := container.StartDeps{
+		Container: cb,
+		Image:     &fakeImageBackend{existsResult: true},
+		Network:   &fakeNetworkBackend{},
+		Volume:    &fakeVolumeEnsurer{},
+		Mount:     &fakeMountResolver{result: mount.ResolveResult{Env: map[string]string{}}},
+		Exec:      &fakeExecBackend{},
+		Status:    func(string) {},
+	}
+	cfg := defaultTestConfig()
+	cfg.Environment = map[string]string{
+		"MY_API_KEY": "${MY_API_KEY}",
+	}
+
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	require.NoError(t, err)
+	assert.Equal(t, "host-secret", cb.createdOpts.Env["MY_API_KEY"])
+}
+
+func TestStartOrAttach_ConfigEnvironment_ReservedDoltVarRejected(t *testing.T) {
+	ctx := context.Background()
+	cb := &fakeStartBackend{
+		inspectErr: &container.NotFoundError{Name: "havn-user-project"},
+		createID:   "new-123",
+	}
+	deps := container.StartDeps{
+		Container: cb,
+		Image:     &fakeImageBackend{existsResult: true},
+		Network:   &fakeNetworkBackend{},
+		Volume:    &fakeVolumeEnsurer{},
+		Mount:     &fakeMountResolver{result: mount.ResolveResult{Env: map[string]string{}}},
+		Exec:      &fakeExecBackend{},
+		Status:    func(string) {},
+	}
+	cfg := defaultTestConfig()
+	cfg.Environment = map[string]string{
+		"BEADS_DOLT_SERVER_HOST": "custom-host",
+	}
+
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	var valErr *config.ValidationError
+	require.ErrorAs(t, err, &valErr)
+	assert.Equal(t, "environment.BEADS_DOLT_SERVER_HOST", valErr.Field)
+}
+
+func TestStartOrAttach_ConfigEnvironment_UnsetPassthroughVarRejected(t *testing.T) {
+	ctx := context.Background()
+	cb := &fakeStartBackend{
+		inspectErr: &container.NotFoundError{Name: "havn-user-project"},
+		createID:   "new-123",
+	}
+	deps := container.StartDeps{
+		Container: cb,
+		Image:     &fakeImageBackend{existsResult: true},
+		Network:   &fakeNetworkBackend{},
+		Volume:    &fakeVolumeEnsurer{},
+		Mount:     &fakeMountResolver{result: mount.ResolveResult{Env: map[string]string{}}},
+		Exec:      &fakeExecBackend{},
+		Status:    func(string) {},
+	}
+	cfg := defaultTestConfig()
+	cfg.Environment = map[string]string{
+		"API_KEY": "${UNSET_API_KEY}",
+	}
+
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	var valErr *config.ValidationError
+	require.ErrorAs(t, err, &valErr)
+	assert.Equal(t, "environment.API_KEY", valErr.Field)
+}
+
 func TestStartOrAttach_ShellExitCode_Propagated(t *testing.T) {
 	ctx := context.Background()
 	deps := container.StartDeps{

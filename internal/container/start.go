@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 
 	"github.com/jorgengundersen/havn/internal/config"
@@ -127,6 +128,15 @@ var sshdCmd = []string{"sudo", "/usr/sbin/sshd"}
 
 const containerUser = "devuser"
 
+var passthroughValueRe = regexp.MustCompile(`^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$`)
+
+func isReservedRuntimeEnvKey(key string) bool {
+	if key == "SSH_AUTH_SOCK" {
+		return true
+	}
+	return len(key) >= len("BEADS_DOLT_") && key[:len("BEADS_DOLT_")] == "BEADS_DOLT_"
+}
+
 func ensureInfrastructure(ctx context.Context, deps StartDeps, cfg config.Config) error {
 	// Step 4: ensure base image.
 	exists, err := deps.Image.ImageExists(ctx, cfg.Image)
@@ -178,7 +188,11 @@ func createContainer(ctx context.Context, deps StartDeps, cfg config.Config, cna
 	for k, v := range mountResult.Env {
 		env[k] = v
 	}
-	for k, v := range cfg.Environment {
+	resolvedConfigEnv, err := resolveProjectEnvironment(cfg.Environment)
+	if err != nil {
+		return "", err
+	}
+	for k, v := range resolvedConfigEnv {
 		env[k] = v
 	}
 
@@ -219,6 +233,37 @@ func createContainer(ctx context.Context, deps StartDeps, cfg config.Config, cna
 	}
 
 	return deps.Container.ContainerCreate(ctx, opts)
+}
+
+func resolveProjectEnvironment(projectEnv map[string]string) (map[string]string, error) {
+	if len(projectEnv) == 0 {
+		return nil, nil
+	}
+
+	resolved := make(map[string]string, len(projectEnv))
+	for key, value := range projectEnv {
+		if isReservedRuntimeEnvKey(key) {
+			return nil, &config.ValidationError{
+				Field:  "environment." + key,
+				Reason: "is reserved for havn-managed runtime environment",
+			}
+		}
+		if matched := passthroughValueRe.FindStringSubmatch(value); len(matched) == 2 {
+			hostVar := matched[1]
+			hostValue, ok := os.LookupEnv(hostVar)
+			if !ok {
+				return nil, &config.ValidationError{
+					Field:  "environment." + key,
+					Reason: fmt.Sprintf("references unset host variable %q", hostVar),
+				}
+			}
+			resolved[key] = hostValue
+			continue
+		}
+		resolved[key] = value
+	}
+
+	return resolved, nil
 }
 
 func deriveContainerName(projectPath string) (name.ContainerName, error) {

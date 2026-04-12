@@ -112,6 +112,15 @@ func applyConfig(cfg *Config, layer Config, label string, src Source) {
 	if len(layer.Ports) > 0 {
 		cfg.Ports = append(cfg.Ports, layer.Ports...)
 	}
+	// Environment entries merge by key; later layers override duplicates.
+	if len(layer.Environment) > 0 {
+		if cfg.Environment == nil {
+			cfg.Environment = make(map[string]string)
+		}
+		for k, v := range layer.Environment {
+			cfg.Environment[k] = v
+		}
+	}
 }
 
 // applyOverrides overlays non-nil pointer fields from an Overrides onto cfg.

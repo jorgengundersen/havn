@@ -127,6 +127,29 @@ func TestResolve_ProjectMountsAppendToGlobal(t *testing.T) {
 	assert.Equal(t, []string{".gitconfig:ro", ".config/nvim/:ro"}, cfg.Mounts.Config)
 }
 
+func TestResolve_EnvironmentMergesAndProjectOverridesDuplicates(t *testing.T) {
+	global := config.Config{
+		Environment: map[string]string{
+			"GLOBAL_ONLY": "a",
+			"SHARED":      "global",
+		},
+	}
+	project := config.Config{
+		Environment: map[string]string{
+			"PROJECT_ONLY": "b",
+			"SHARED":       "project",
+		},
+	}
+
+	cfg, _ := config.Resolve(global, project, config.Overrides{}, config.Overrides{})
+
+	assert.Equal(t, map[string]string{
+		"GLOBAL_ONLY":  "a",
+		"PROJECT_ONLY": "b",
+		"SHARED":       "project",
+	}, cfg.Environment)
+}
+
 func TestResolve_SSHPortOverrideAddsToPorts(t *testing.T) {
 	project := config.Config{
 		Ports: []string{"8080:8080"},
