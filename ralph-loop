@@ -12,5 +12,5 @@ while :; do
     continue
   fi
 
-  cat PROMPT.md | ./claude-verbose
+  opencode run --model github-copilot/gpt-5.3-codex "follow @PROMPT.md"
 done
