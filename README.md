@@ -32,3 +32,4 @@ See `specs/README.md` for the current specification set.
 ## Guides
 
 - [Dolt and beads guide](docs/dolt-beads-guide.md)
+- [CLI reference](docs/cli-reference.md)

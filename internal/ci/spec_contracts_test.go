@@ -113,3 +113,27 @@ func TestDocs_ContributingGuideCoversDeveloperWorkflow(t *testing.T) {
 	assert.Contains(t, contributing, "## Working with bd issues")
 	assert.Contains(t, contributing, "## Pull request workflow")
 }
+
+func TestDocs_CLIReferenceDocumentsCommandSurfaceAndSupportMatrix(t *testing.T) {
+	cliRefPath := filepath.Join("..", "..", "docs", "cli-reference.md")
+	cliRefContent, err := os.ReadFile(cliRefPath)
+	require.NoError(t, err)
+
+	cliRef := string(cliRefContent)
+	assert.Contains(t, cliRef, "# havn CLI reference")
+	assert.Contains(t, cliRef, "## Global flags")
+	assert.Contains(t, cliRef, "## Output modes and JSON conventions")
+	assert.Contains(t, cliRef, "## Command reference")
+	assert.Contains(t, cliRef, "## Support matrix")
+	assert.Contains(t, cliRef, "havn [path]")
+	assert.Contains(t, cliRef, "havn list")
+	assert.Contains(t, cliRef, "havn stop")
+	assert.Contains(t, cliRef, "havn build")
+	assert.Contains(t, cliRef, "havn config show")
+	assert.Contains(t, cliRef, "havn volume list")
+	assert.Contains(t, cliRef, "havn doctor")
+	assert.Contains(t, cliRef, "havn dolt start")
+	assert.Contains(t, cliRef, "havn completion")
+	assert.Contains(t, cliRef, "Implemented")
+	assert.Contains(t, cliRef, "Planned")
+}
