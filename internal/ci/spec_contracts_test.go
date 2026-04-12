@@ -46,3 +46,17 @@ func TestSpecs_PortExposureContractIsExplicitAndCoherent(t *testing.T) {
 	cli := string(cliContent)
 	assert.Contains(t, cli, "root.Flags().StringVar(&opts.Port, \"port\", \"\", \"publish container SSH on host port\")")
 }
+
+func TestSpecs_InterfaceAssertionImplementorStrategyIsExplicit(t *testing.T) {
+	codeStandardsPath := filepath.Join("..", "..", "specs", "code-standards.md")
+	codeStandardsContent, err := os.ReadFile(codeStandardsPath)
+	require.NoError(t, err)
+
+	codeStandards := string(codeStandardsContent)
+	assert.Contains(t, codeStandards, "Current Docker-adjacent implementors")
+	assert.Contains(t, codeStandards, "`container.Backend`, `container.StopBackend` -> `cli.dockerContainerBackend`")
+	assert.Contains(t, codeStandards, "`doctor.Backend` -> `cli.dockerDoctorBackend`")
+	assert.Contains(t, codeStandards, "`volume.Backend` -> `cli.dockerVolumeBackend`")
+	assert.Contains(t, codeStandards, "`dolt.Backend` -> `cli.dockerDoltBackend`")
+	assert.Contains(t, codeStandards, "The assertions belong on these adapter types")
+}

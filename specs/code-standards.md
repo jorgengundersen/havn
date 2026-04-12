@@ -275,6 +275,17 @@ others it may be a thin adapter dedicated to one consumer boundary. The rule is
 about asserting the real production implementor, not forcing every assertion
 onto a single catch-all type.
 
+Current Docker-adjacent implementors:
+
+- `container.Backend`, `container.StopBackend` -> `cli.dockerContainerBackend`
+- `doctor.Backend` -> `cli.dockerDoctorBackend`
+- `volume.Backend` -> `cli.dockerVolumeBackend`
+- `dolt.Backend` -> `cli.dockerDoltBackend`
+
+The assertions belong on these adapter types when those interfaces are
+implemented through `internal/cli` composition, rather than on
+`docker.Client` directly.
+
 ### Wrapper structure
 
 ```go
