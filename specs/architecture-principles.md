@@ -349,6 +349,9 @@ emerges -- so err on the side of less upfront.
   config files.
 - **Deterministic precedence.** When multiple sources set the same value,
   the resolution order must be documented and predictable. No surprises.
+- **Intentional config-only settings are valid.** A setting can intentionally
+  be config-only when users need stable project/global defaults but not
+  ephemeral override surfaces via env vars or flags.
 
 **Design test:** if a user asks "how do I change X?", the answer should
 always be one of: a flag, an env var, or a line in config. Never "edit this

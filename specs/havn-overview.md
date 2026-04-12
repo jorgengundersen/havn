@@ -236,10 +236,15 @@ as a JSON object. The structure mirrors the TOML config schema:
 }
 ```
 
-The `source` object shows where each effective value came from (`"default"`,
-`"global"`, `"project"`, `"env"`, `"flag"`). It mirrors the shape of the
-returned config object for the fields havn exposes, so callers can inspect
-provenance without guessing field paths.
+The `source` object is part of the stable `havn config show --json` contract.
+It shows where each effective value came from (`"default"`, `"global"`,
+`"project"`, `"env"`, `"flag"`). It mirrors the shape of the returned config
+object for the fields havn exposes, so callers can inspect provenance without
+guessing field paths.
+
+havn must include source metadata for these fields: `env`, `shell`, `image`,
+`network`, `resources.cpus`, `resources.memory`, `resources.memory_swap`,
+`dolt.enabled`, `dolt.database`, `dolt.port`, and `dolt.image`.
 
 #### `havn dolt status --json`
 
