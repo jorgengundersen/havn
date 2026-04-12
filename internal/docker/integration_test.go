@@ -174,6 +174,114 @@ func TestContainerAttach_Resize_Integration(t *testing.T) {
 	assert.Empty(t, stderr.String())
 }
 
+func TestContainerList_NamePrefixContract_Integration(t *testing.T) {
+	c := requireIntegrationDockerClient(t)
+	tag := buildIntegrationImage(t, c)
+
+	prefix := fmt.Sprintf("havn-prefix-%d", time.Now().UnixNano())
+	matchingName := prefix + "-match"
+	nonPrefixName := "x" + prefix + "-non-prefix"
+
+	createAndStartIntegrationContainerWithName(t, c, tag, matchingName)
+	createAndStartIntegrationContainerWithName(t, c, tag, nonPrefixName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	containers, err := c.ContainerList(ctx, docker.ContainerListFilters{NamePrefix: prefix})
+	require.NoError(t, err)
+
+	names := make([]string, 0, len(containers))
+	for _, container := range containers {
+		names = append(names, container.Name)
+	}
+
+	assert.Contains(t, names, matchingName)
+	assert.NotContains(t, names, nonPrefixName)
+}
+
+func TestContainerCreateStartInspect_Translation_Integration(t *testing.T) {
+	c := requireIntegrationDockerClient(t)
+	tag := buildIntegrationImage(t, c)
+
+	hostDir := t.TempDir()
+
+	containerName := fmt.Sprintf("havn-container-%d", time.Now().UnixNano())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	id, err := c.ContainerCreate(ctx, docker.CreateOpts{
+		Image: tag,
+		Name:  containerName,
+		Env: map[string]string{
+			"HAVN_SAMPLE": "value",
+		},
+		Labels: map[string]string{
+			"havn.test": "container-translation",
+		},
+		BindMounts: []docker.BindMount{{
+			Source: hostDir,
+			Target: "/workspace",
+		}},
+	})
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cleanupCancel()
+		_ = c.ContainerRemove(cleanupCtx, id, docker.RemoveOpts{Force: true, RemoveVolumes: true})
+	})
+
+	require.NoError(t, c.ContainerStart(ctx, id))
+
+	info, err := c.ContainerInspect(ctx, id)
+	require.NoError(t, err)
+	assert.Equal(t, id, info.ID)
+	assert.Equal(t, containerName, info.Name)
+	assert.Equal(t, tag, info.Image)
+	assert.Equal(t, "running", info.Status)
+	assert.Equal(t, "container-translation", info.Labels["havn.test"])
+	assert.Contains(t, info.Env, "HAVN_SAMPLE=value")
+	assert.Contains(t, info.Networks, "bridge")
+
+	mountsByTarget := make(map[string]docker.MountInfo, len(info.Mounts))
+	for _, mount := range info.Mounts {
+		mountsByTarget[mount.Target] = mount
+	}
+	assert.Equal(t, hostDir, mountsByTarget["/workspace"].Source)
+}
+
+func TestContainerStopRemove_LifecycleSuccess_Integration(t *testing.T) {
+	c := requireIntegrationDockerClient(t)
+	tag := buildIntegrationImage(t, c)
+
+	containerName := fmt.Sprintf("havn-lifecycle-%d", time.Now().UnixNano())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	id, err := c.ContainerCreate(ctx, docker.CreateOpts{
+		Image: tag,
+		Name:  containerName,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, c.ContainerStart(ctx, id))
+	require.NoError(t, c.ContainerStop(ctx, id, docker.StopOpts{Timeout: 10}))
+
+	stoppedInfo, err := c.ContainerInspect(ctx, id)
+	require.NoError(t, err)
+	assert.Equal(t, "exited", stoppedInfo.Status)
+
+	require.NoError(t, c.ContainerRemove(ctx, id, docker.RemoveOpts{Force: false, RemoveVolumes: true}))
+
+	_, err = c.ContainerInspect(ctx, id)
+	require.Error(t, err)
+	var notFoundErr *docker.ContainerNotFoundError
+	assert.ErrorAs(t, err, &notFoundErr)
+}
+
 type lockedBuffer struct {
 	buf bytes.Buffer
 	mu  sync.Mutex
@@ -310,10 +418,16 @@ func main() {
 func createAndStartIntegrationContainer(t *testing.T, c *docker.Client, imageTag string) string {
 	t.Helper()
 
+	name := fmt.Sprintf("havn-integration-%d", time.Now().UnixNano())
+	return createAndStartIntegrationContainerWithName(t, c, imageTag, name)
+}
+
+func createAndStartIntegrationContainerWithName(t *testing.T, c *docker.Client, imageTag, name string) string {
+	t.Helper()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	name := fmt.Sprintf("havn-integration-%d", time.Now().UnixNano())
 	id, err := c.ContainerCreate(ctx, docker.CreateOpts{
 		Image: imageTag,
 		Name:  name,
