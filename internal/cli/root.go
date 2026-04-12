@@ -182,7 +182,7 @@ func NewRoot(deps Deps) *cobra.Command {
 	root.Flags().StringVar(&opts.Image, "image", "", "override base image")
 
 	root.AddCommand(newListCmd(deps.ContainerList))
-	root.AddCommand(newStopCmd())
+	root.AddCommand(newStopCmd(deps.ContainerStop))
 
 	buildService := deps.BuildService
 	if buildService == nil && deps.Docker != nil {
