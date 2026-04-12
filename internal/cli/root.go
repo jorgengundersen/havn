@@ -49,6 +49,7 @@ type Deps struct {
 	Docker        *docker.Client
 	DoctorBackend doctor.Backend
 	VolumeManager *volume.Manager
+	BuildService  BuildService
 	Logger        *slog.Logger
 }
 
@@ -108,7 +109,12 @@ func NewRoot(deps Deps) *cobra.Command {
 
 	root.AddCommand(newListCmd())
 	root.AddCommand(newStopCmd())
-	root.AddCommand(newBuildCmd())
+
+	buildService := deps.BuildService
+	if buildService == nil && deps.Docker != nil {
+		buildService = dockerBuildService{docker: deps.Docker}
+	}
+	root.AddCommand(newBuildCmd(buildService))
 	root.AddCommand(newConfigCmd())
 	root.AddCommand(newVolumeCmd())
 	root.AddCommand(newDoctorCmd(deps.DoctorBackend))
