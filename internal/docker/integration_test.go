@@ -11,11 +11,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/creack/pty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 
 	"github.com/jorgengundersen/havn/internal/docker"
 )
@@ -94,6 +98,115 @@ func TestContainerExec_Integration(t *testing.T) {
 	assert.Equal(t, []byte("hello-err"), result.Stderr)
 }
 
+func TestContainerAttach_Integration(t *testing.T) {
+	c := requireIntegrationDockerClient(t)
+	tag := buildIntegrationImage(t, c)
+	containerName := createAndStartIntegrationContainer(t, c, tag)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	stdin := bytes.NewBufferString("ping\n")
+	stdout := &lockedBuffer{}
+	var stderr bytes.Buffer
+
+	exitCode, err := c.ContainerAttach(ctx, containerName, docker.AttachOpts{
+		Cmd:    []string{"/app", "attach-echo-exit"},
+		Stdin:  stdin,
+		Stdout: stdout,
+		Stderr: &stderr,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 23, exitCode)
+	assert.Contains(t, stdout.String(), "echo:ping")
+	assert.Empty(t, stderr.String())
+}
+
+func TestContainerAttach_Resize_Integration(t *testing.T) {
+	c := requireIntegrationDockerClient(t)
+	tag := buildIntegrationImage(t, c)
+	containerName := createAndStartIntegrationContainer(t, c, tag)
+
+	ptyMaster, ptySlave, err := pty.Open()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = ptyMaster.Close() })
+	t.Cleanup(func() { _ = ptySlave.Close() })
+
+	require.NoError(t, pty.Setsize(ptySlave, &pty.Winsize{Rows: 24, Cols: 80}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	stdout := &lockedBuffer{}
+	var stderr bytes.Buffer
+
+	resultCh := make(chan struct {
+		exitCode int
+		err      error
+	}, 1)
+
+	go func() {
+		exitCode, attachErr := c.ContainerAttach(ctx, containerName, docker.AttachOpts{
+			Cmd:    []string{"/app", "attach-resize"},
+			Stdin:  ptySlave,
+			Stdout: stdout,
+			Stderr: &stderr,
+		})
+		resultCh <- struct {
+			exitCode int
+			err      error
+		}{
+			exitCode: exitCode,
+			err:      attachErr,
+		}
+	}()
+
+	waitForOutput(t, stdout, "initial:", 5*time.Second)
+
+	require.NoError(t, pty.Setsize(ptySlave, &pty.Winsize{Rows: 40, Cols: 100}))
+	require.NoError(t, unix.Kill(os.Getpid(), unix.SIGWINCH))
+
+	result := <-resultCh
+	require.NoError(t, result.err)
+	assert.Equal(t, 29, result.exitCode)
+	assert.Contains(t, stdout.String(), "initial:80x24")
+	assert.Contains(t, stdout.String(), "resized:100x40")
+	assert.Empty(t, stderr.String())
+}
+
+type lockedBuffer struct {
+	buf bytes.Buffer
+	mu  sync.Mutex
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.String()
+}
+
+func waitForOutput(t *testing.T, buf *lockedBuffer, contains string, timeout time.Duration) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if strings.Contains(buf.String(), contains) {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	t.Fatalf("timeout waiting for output containing %q; output=%q", contains, buf.String())
+}
+
 func requireIntegrationDockerClient(t *testing.T) *docker.Client {
 	t.Helper()
 
@@ -121,9 +234,14 @@ func buildIntegrationImage(t *testing.T, c *docker.Client) string {
 	mainSource := []byte(`package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 func main() {
@@ -133,6 +251,27 @@ func main() {
 			_, _ = fmt.Fprint(os.Stdout, "hello-out")
 			_, _ = fmt.Fprint(os.Stderr, "hello-err")
 			os.Exit(7)
+		case "attach-echo-exit":
+			line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+			_, _ = fmt.Fprintf(os.Stdout, "echo:%s", line)
+			os.Exit(23)
+		case "attach-resize":
+			ws, _ := unix.IoctlGetWinsize(int(os.Stdout.Fd()), unix.TIOCGWINSZ)
+			_, _ = fmt.Fprintf(os.Stdout, "initial:%dx%d\n", ws.Col, ws.Row)
+
+			sigCh := make(chan os.Signal, 1)
+			signal.Notify(sigCh, syscall.SIGWINCH)
+			defer signal.Stop(sigCh)
+
+			select {
+			case <-sigCh:
+				resized, _ := unix.IoctlGetWinsize(int(os.Stdout.Fd()), unix.TIOCGWINSZ)
+				_, _ = fmt.Fprintf(os.Stdout, "resized:%dx%d\n", resized.Col, resized.Row)
+				os.Exit(29)
+			case <-time.After(5 * time.Second):
+				_, _ = fmt.Fprint(os.Stdout, "resize-timeout")
+				os.Exit(30)
+			}
 		case "serve":
 			for {
 				time.Sleep(1 * time.Second)
