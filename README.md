@@ -28,3 +28,7 @@ See `specs/README.md` for the current specification set.
 ## Troubleshooting
 
 - [Doctor troubleshooting guide](docs/doctor-troubleshooting.md)
+
+## Guides
+
+- [Dolt and beads guide](docs/dolt-beads-guide.md)
