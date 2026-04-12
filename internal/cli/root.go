@@ -181,7 +181,7 @@ func NewRoot(deps Deps) *cobra.Command {
 	root.Flags().BoolVar(&opts.NoDolt, "no-dolt", false, "skip Dolt server")
 	root.Flags().StringVar(&opts.Image, "image", "", "override base image")
 
-	root.AddCommand(newListCmd())
+	root.AddCommand(newListCmd(deps.ContainerList))
 	root.AddCommand(newStopCmd())
 
 	buildService := deps.BuildService
