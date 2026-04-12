@@ -97,3 +97,19 @@ func TestDocs_READMELinksDoctorTroubleshootingGuide(t *testing.T) {
 	readme := string(readmeContent)
 	assert.Contains(t, readme, "[Doctor troubleshooting guide](docs/doctor-troubleshooting.md)")
 }
+
+func TestDocs_ContributingGuideCoversDeveloperWorkflow(t *testing.T) {
+	contributingPath := filepath.Join("..", "..", "CONTRIBUTING.md")
+	contributingContent, err := os.ReadFile(contributingPath)
+	require.NoError(t, err)
+
+	contributing := string(contributingContent)
+	assert.Contains(t, contributing, "# Contributing to havn")
+	assert.Contains(t, contributing, "## Prerequisites")
+	assert.Contains(t, contributing, "## Local setup")
+	assert.Contains(t, contributing, "## Development workflow")
+	assert.Contains(t, contributing, "## Quality gates")
+	assert.Contains(t, contributing, "## Repository structure")
+	assert.Contains(t, contributing, "## Working with bd issues")
+	assert.Contains(t, contributing, "## Pull request workflow")
+}
