@@ -23,6 +23,15 @@ type ExitError struct {
 	Err  error
 }
 
+// ShellExitError carries the interactive shell exit code from the root command.
+type ShellExitError struct {
+	Code int
+}
+
+func (e *ShellExitError) Error() string {
+	return fmt.Sprintf("shell exited with code %d", e.Code)
+}
+
 func (e *ExitError) Error() string {
 	return e.Err.Error()
 }

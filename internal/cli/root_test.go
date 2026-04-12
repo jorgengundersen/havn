@@ -2,14 +2,32 @@ package cli_test
 
 import (
 	"bytes"
+	"context"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/jorgengundersen/havn/internal/cli"
+	"github.com/jorgengundersen/havn/internal/config"
 	"github.com/jorgengundersen/havn/internal/docker"
 )
+
+type fakeStartService struct {
+	called      bool
+	lastCfg     config.Config
+	lastProject string
+	exitCode    int
+	err         error
+}
+
+func (f *fakeStartService) StartOrAttach(_ context.Context, cfg config.Config, projectPath string, _ func(string)) (int, error) {
+	f.called = true
+	f.lastCfg = cfg
+	f.lastProject = projectPath
+	return f.exitCode, f.err
+}
 
 func TestNewRoot_ReturnsCommand(t *testing.T) {
 	root := cli.NewRoot(cli.Deps{})
@@ -23,12 +41,6 @@ func TestNewRoot_SilencesCobraOutput(t *testing.T) {
 
 	assert.True(t, root.SilenceErrors)
 	assert.True(t, root.SilenceUsage)
-}
-
-func TestExecute_ReturnsNonZero_WhenNotImplemented(t *testing.T) {
-	code := cli.Execute()
-
-	assert.Equal(t, 1, code)
 }
 
 func TestNewRoot_PersistentFlags(t *testing.T) {
@@ -83,24 +95,28 @@ func TestNewRoot_ContainerFlags_NotPersistent(t *testing.T) {
 }
 
 func TestNewRoot_PathArgDefaultsToDot(t *testing.T) {
-	root := cli.NewRoot(cli.Deps{})
+	svc := &fakeStartService{}
+	root := cli.NewRoot(cli.Deps{StartService: svc})
 	root.SetArgs([]string{})
 
 	err := root.Execute()
 
-	require.Error(t, err)
-	assert.ErrorIs(t, err, cli.ErrNotImplemented)
+	require.NoError(t, err)
+	assert.True(t, svc.called)
 	assert.Contains(t, root.Use, "[path]")
 }
 
 func TestNewRoot_AcceptsExplicitPath(t *testing.T) {
-	root := cli.NewRoot(cli.Deps{})
-	root.SetArgs([]string{"/some/path"})
+	svc := &fakeStartService{}
+	root := cli.NewRoot(cli.Deps{StartService: svc})
+	homeDir, err := os.UserHomeDir()
+	require.NoError(t, err)
+	root.SetArgs([]string{homeDir})
 
-	err := root.Execute()
+	err = root.Execute()
 
-	require.Error(t, err)
-	assert.ErrorIs(t, err, cli.ErrNotImplemented)
+	require.NoError(t, err)
+	assert.True(t, svc.called)
 }
 
 func TestNewRoot_RejectsTooManyArgs(t *testing.T) {
@@ -148,12 +164,48 @@ func TestNewRoot_HasVersion(t *testing.T) {
 	assert.NotEmpty(t, root.Version, "root command should have a version set")
 }
 
-func TestNewRoot_RunE_ReturnsNotImplemented(t *testing.T) {
+func TestNewRoot_RunE_InvokesStartService(t *testing.T) {
+	svc := &fakeStartService{}
+	root := cli.NewRoot(cli.Deps{StartService: svc})
+	root.SetArgs([]string{"."})
+
+	err := root.Execute()
+
+	require.NoError(t, err)
+	assert.True(t, svc.called)
+}
+
+func TestNewRoot_RunE_ReturnsNotImplementedWithoutStartService(t *testing.T) {
 	root := cli.NewRoot(cli.Deps{})
-	root.SetArgs([]string{})
+	root.SetArgs([]string{"."})
 
 	err := root.Execute()
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, cli.ErrNotImplemented)
+}
+
+func TestNewRoot_RunE_PropagatesShellExitCode(t *testing.T) {
+	svc := &fakeStartService{exitCode: 42}
+	root := cli.NewRoot(cli.Deps{StartService: svc})
+	root.SetArgs([]string{"."})
+
+	err := root.Execute()
+
+	require.Error(t, err)
+	var shellExit *cli.ShellExitError
+	require.ErrorAs(t, err, &shellExit)
+	assert.Equal(t, 42, shellExit.Code)
+}
+
+func TestNewRoot_RejectsPathOutsideHome(t *testing.T) {
+	svc := &fakeStartService{}
+	root := cli.NewRoot(cli.Deps{StartService: svc})
+	root.SetArgs([]string{"/tmp"})
+
+	err := root.Execute()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "under your home directory")
+	assert.False(t, svc.called)
 }

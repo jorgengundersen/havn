@@ -2,13 +2,17 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/jorgengundersen/havn/internal/config"
 	"github.com/jorgengundersen/havn/internal/container"
 	"github.com/jorgengundersen/havn/internal/docker"
 	"github.com/jorgengundersen/havn/internal/doctor"
@@ -39,6 +43,10 @@ func Execute() int {
 		jsonMode, _ := root.PersistentFlags().GetBool("json")
 		verboseMode, _ := root.PersistentFlags().GetBool("verbose")
 		out := NewOutput(os.Stdout, os.Stderr, jsonMode, verboseMode)
+		var shellExit *ShellExitError
+		if errors.As(err, &shellExit) {
+			return shellExit.Code
+		}
 		out.Error(err)
 		return ExitCode(err)
 	}
@@ -56,7 +64,14 @@ type Deps struct {
 	DoltManager   *dolt.Manager
 	DoltSetup     *dolt.Setup
 	BuildService  BuildService
+	StartService  StartService
 	Logger        *slog.Logger
+}
+
+// StartService is the CLI-facing start-or-attach dependency for the root
+// command.
+type StartService interface {
+	StartOrAttach(ctx context.Context, cfg config.Config, projectPath string, status func(msg string)) (int, error)
 }
 
 // rootOpts holds all flag values for the root command.
@@ -101,6 +116,9 @@ func NewRoot(deps Deps) *cobra.Command {
 		doltBackend := dockerDoltBackend{docker: deps.Docker}
 		deps.DoltSetup = dolt.NewSetup(deps.DoltManager, doltBackend)
 	}
+	if deps.StartService == nil && deps.Docker != nil {
+		deps.StartService = dockerStartService{docker: deps.Docker}
+	}
 
 	root := &cobra.Command{
 		Use:   "havn [flags] [path]",
@@ -118,8 +136,36 @@ func NewRoot(deps Deps) *cobra.Command {
 			return nil
 		},
 
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return fmt.Errorf("havn: %w", ErrNotImplemented)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if deps.StartService == nil {
+				return fmt.Errorf("havn: %w", ErrNotImplemented)
+			}
+
+			projectArg := "."
+			if len(args) == 1 {
+				projectArg = args[0]
+			}
+
+			projectPath, err := resolveProjectPath(projectArg)
+			if err != nil {
+				return err
+			}
+
+			cfg, err := resolveStartConfig(cmd, opts, projectPath)
+			if err != nil {
+				return err
+			}
+
+			out := commandOutput(cmd)
+			exitCode, err := deps.StartService.StartOrAttach(cmd.Context(), cfg, projectPath, out.Status)
+			if err != nil {
+				return err
+			}
+			if exitCode != 0 {
+				return &ShellExitError{Code: exitCode}
+			}
+
+			return nil
 		},
 	}
 
@@ -149,4 +195,94 @@ func NewRoot(deps Deps) *cobra.Command {
 	root.AddCommand(newDoltCmd(deps.DoltManager, deps.DoltSetup))
 
 	return root
+}
+
+func resolveProjectPath(target string) (string, error) {
+	absPath, err := filepath.Abs(target)
+	if err != nil {
+		return "", err
+	}
+	absPath = filepath.Clean(absPath)
+
+	info, err := os.Stat(absPath)
+	if err != nil || !info.IsDir() {
+		return "", fmt.Errorf("Directory not found: %s", absPath)
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	rel, err := filepath.Rel(homeDir, absPath)
+	if err != nil {
+		return "", err
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", errors.New("Project path must be under your home directory")
+	}
+
+	return absPath, nil
+}
+
+func resolveStartConfig(cmd *cobra.Command, opts rootOpts, projectPath string) (config.Config, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return config.Config{}, err
+	}
+
+	globalPath := opts.Config
+	if globalPath == "" {
+		globalPath = filepath.Join(homeDir, ".config", "havn", "config.toml")
+	}
+	projectConfigPath := filepath.Join(projectPath, ".havn", "config.toml")
+
+	global, err := config.LoadFile(globalPath)
+	if err != nil {
+		return config.Config{}, err
+	}
+	project, err := config.LoadFile(projectConfigPath)
+	if err != nil {
+		return config.Config{}, err
+	}
+
+	flagOv := config.Overrides{}
+	if cmd.Flags().Changed("shell") {
+		flagOv.Shell = &opts.Shell
+	}
+	if cmd.Flags().Changed("env") {
+		flagOv.Env = &opts.Env
+	}
+	if cmd.Flags().Changed("cpus") {
+		flagOv.CPUs = &opts.CPUs
+	}
+	if cmd.Flags().Changed("memory") {
+		flagOv.Memory = &opts.Memory
+	}
+	if cmd.Flags().Changed("image") {
+		flagOv.Image = &opts.Image
+	}
+	if cmd.Flags().Changed("port") {
+		sshPort := opts.Port + ":22"
+		flagOv.SSHPort = &sshPort
+	}
+
+	cfg, src := config.Resolve(global, project, config.EnvOverrides(), flagOv)
+
+	flakePath := filepath.Join(projectPath, ".havn", "flake.nix")
+	if _, err := os.Stat(flakePath); err == nil {
+		cfg.Env = config.ResolveFlake(cfg, src, true)
+	} else {
+		cfg.Env = config.ResolveFlake(cfg, src, false)
+	}
+
+	if opts.NoDolt {
+		cfg.Dolt.Enabled = false
+	}
+
+	if err := config.Validate(cfg); err != nil {
+		return config.Config{}, err
+	}
+
+	return cfg, nil
 }

@@ -8,13 +8,16 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/jorgengundersen/havn/internal/config"
 	"github.com/jorgengundersen/havn/internal/container"
 	"github.com/jorgengundersen/havn/internal/docker"
 	"github.com/jorgengundersen/havn/internal/doctor"
 	"github.com/jorgengundersen/havn/internal/dolt"
+	"github.com/jorgengundersen/havn/internal/mount"
 	"github.com/jorgengundersen/havn/internal/volume"
 )
 
@@ -23,6 +26,140 @@ var _ container.StopBackend = dockerContainerBackend{}
 var _ doctor.Backend = dockerDoctorBackend{}
 var _ volume.Backend = dockerVolumeBackend{}
 var _ dolt.Backend = dockerDoltBackend{}
+var _ StartService = dockerStartService{}
+var _ container.StartBackend = dockerStartBackend{}
+var _ container.NetworkBackend = dockerStartBackend{}
+var _ container.ExecBackend = dockerStartBackend{}
+var _ container.MountResolver = hostMountResolver{}
+
+type dockerStartService struct {
+	docker *docker.Client
+}
+
+func (s dockerStartService) StartOrAttach(ctx context.Context, cfg config.Config, projectPath string, status func(msg string)) (int, error) {
+	doltBackend := dockerDoltBackend{docker: s.docker}
+	deps := container.StartDeps{
+		Container: dockerStartBackend{docker: s.docker},
+		Image: dockerImageBackend{
+			docker: s.docker,
+			output: io.Discard,
+		},
+		Network: dockerStartBackend{docker: s.docker},
+		Volume:  volume.NewManager(dockerVolumeBackend{docker: s.docker}),
+		Mount:   hostMountResolver{},
+		Dolt:    dolt.NewSetup(dolt.NewManager(doltBackend), doltBackend),
+		Exec:    dockerStartBackend{docker: s.docker},
+		Status:  status,
+	}
+
+	return container.StartOrAttach(ctx, deps, cfg, projectPath)
+}
+
+type dockerStartBackend struct {
+	docker *docker.Client
+}
+
+func (b dockerStartBackend) ContainerInspect(ctx context.Context, name string) (container.State, error) {
+	info, err := b.docker.ContainerInspect(ctx, name)
+	if err != nil {
+		var notFound *docker.ContainerNotFoundError
+		if errors.As(err, &notFound) {
+			return container.State{}, &container.NotFoundError{Name: notFound.Name}
+		}
+		return container.State{}, err
+	}
+
+	return container.State{
+		ID:      info.ID,
+		Running: strings.EqualFold(info.Status, "running"),
+	}, nil
+}
+
+func (b dockerStartBackend) ContainerCreate(ctx context.Context, opts container.CreateOpts) (string, error) {
+	bindMounts := make([]docker.BindMount, 0, len(opts.Mounts))
+	volumeMounts := make([]docker.VolumeMount, 0, len(opts.Mounts))
+	for _, m := range opts.Mounts {
+		if m.Type == "volume" {
+			volumeMounts = append(volumeMounts, docker.VolumeMount{Name: m.Source, Target: m.Target})
+			continue
+		}
+		bindMounts = append(bindMounts, docker.BindMount{Source: m.Source, Target: m.Target})
+	}
+
+	return b.docker.ContainerCreate(ctx, docker.CreateOpts{
+		Image:        opts.Image,
+		Name:         opts.Name,
+		Network:      opts.Network,
+		Env:          opts.Env,
+		Labels:       opts.Labels,
+		BindMounts:   bindMounts,
+		VolumeMounts: volumeMounts,
+		Entrypoint:   opts.Entrypoint,
+		User:         opts.User,
+		CPUs:         opts.CPUs,
+		Memory:       opts.Memory,
+		MemorySwap:   opts.MemorySwap,
+		AutoRemove:   opts.AutoRemove,
+	})
+}
+
+func (b dockerStartBackend) ContainerStart(ctx context.Context, id string) error {
+	return b.docker.ContainerStart(ctx, id)
+}
+
+func (b dockerStartBackend) NetworkInspect(ctx context.Context, name string) error {
+	_, err := b.docker.NetworkInspect(ctx, name)
+	return err
+}
+
+func (b dockerStartBackend) NetworkCreate(ctx context.Context, name string) error {
+	return b.docker.NetworkCreate(ctx, docker.NetworkCreateOpts{Name: name})
+}
+
+func (b dockerStartBackend) ContainerExec(ctx context.Context, name string, cmd []string) error {
+	result, err := b.docker.ContainerExec(ctx, name, docker.ExecOpts{Cmd: cmd})
+	if err != nil {
+		return err
+	}
+	if result.ExitCode != 0 {
+		stderr := strings.TrimSpace(string(result.Stderr))
+		if stderr == "" {
+			stderr = "command failed"
+		}
+		return fmt.Errorf("container exec exited %d: %s", result.ExitCode, stderr)
+	}
+	return nil
+}
+
+func (b dockerStartBackend) ContainerExecInteractive(ctx context.Context, name string, cmd []string, workdir string) (int, error) {
+	return b.docker.ContainerAttach(ctx, name, docker.AttachOpts{
+		Cmd:     cmd,
+		Workdir: workdir,
+		Stdin:   os.Stdin,
+		Stdout:  os.Stdout,
+		Stderr:  os.Stderr,
+	})
+}
+
+type hostMountResolver struct{}
+
+func (hostMountResolver) Resolve(cfg config.Config, projectPath string) (mount.ResolveResult, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return mount.ResolveResult{}, err
+	}
+
+	return mount.Resolve(cfg, projectPath, homeDir, mount.ResolveOpts{
+		Glob:        filepath.Glob,
+		Exists:      pathExists,
+		SSHAuthSock: os.Getenv("SSH_AUTH_SOCK"),
+	})
+}
+
+func pathExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
 
 type dockerContainerBackend struct {
 	docker *docker.Client
