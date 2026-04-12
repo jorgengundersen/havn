@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -59,9 +60,14 @@ func newBuildCmd(service BuildService) *cobra.Command {
 			verbose, _ := cmd.Flags().GetBool("verbose")
 			out := NewOutput(cmd.OutOrStdout(), cmd.ErrOrStderr(), jsonMode, verbose)
 
+			imageName, err := resolveBuildImageName(cmd)
+			if err != nil {
+				return fmt.Errorf("havn build: %w", err)
+			}
+
 			out.Status("Building base image...")
 			if err := service.Build(cmd.Context(), container.BuildOpts{
-				ImageName:   config.Default().Image,
+				ImageName:   imageName,
 				ContextPath: "docker/",
 				UID:         os.Getuid(),
 				GID:         os.Getgid(),
@@ -78,4 +84,31 @@ func newBuildCmd(service BuildService) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func resolveBuildImageName(cmd *cobra.Command) (string, error) {
+	globalPath := ""
+	if explicitConfigPath, _ := cmd.Flags().GetString("config"); explicitConfigPath != "" {
+		globalPath = explicitConfigPath
+	} else {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		globalPath = filepath.Join(homeDir, ".config", "havn", "config.toml")
+	}
+
+	globalCfg, err := config.LoadFile(globalPath)
+	if err != nil {
+		return "", err
+	}
+
+	var flagOverrides config.Overrides
+	if cmd.Flags().Changed("image") {
+		flagImage, _ := cmd.Flags().GetString("image")
+		flagOverrides.Image = &flagImage
+	}
+
+	cfg, _ := config.Resolve(globalCfg, config.Config{}, config.EnvOverrides(), flagOverrides)
+	return cfg.Image, nil
 }

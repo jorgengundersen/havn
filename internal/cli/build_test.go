@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -68,4 +69,21 @@ func TestBuildCommand_JSONSuccessOutput(t *testing.T) {
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"status":"ok","message":"base image built"}`+"\n", stdoutBuf.String())
 	assert.Contains(t, stderrBuf.String(), "Building base image...")
+}
+
+func TestBuildCommand_UsesConfiguredImageFromEnv(t *testing.T) {
+	t.Setenv("HAVN_IMAGE", "havn-custom:dev")
+
+	service := &fakeBuildService{}
+	root := cli.NewRoot(cli.Deps{BuildService: service})
+	stdoutBuf := &bytes.Buffer{}
+	stderrBuf := &bytes.Buffer{}
+	root.SetOut(stdoutBuf)
+	root.SetErr(stderrBuf)
+	root.SetArgs([]string{"build", "--config", filepath.Join(t.TempDir(), "config.toml")})
+
+	err := root.Execute()
+
+	require.NoError(t, err)
+	assert.Equal(t, "havn-custom:dev", service.lastOpts.ImageName)
 }
