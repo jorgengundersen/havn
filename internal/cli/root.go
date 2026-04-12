@@ -9,8 +9,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jorgengundersen/havn/internal/container"
 	"github.com/jorgengundersen/havn/internal/docker"
 	"github.com/jorgengundersen/havn/internal/doctor"
+	"github.com/jorgengundersen/havn/internal/dolt"
 	"github.com/jorgengundersen/havn/internal/volume"
 )
 
@@ -47,8 +49,12 @@ func Execute() int {
 // Starts empty during skeleton phase; fields added as domain packages land.
 type Deps struct {
 	Docker        *docker.Client
+	ContainerList container.Backend
+	ContainerStop container.StopBackend
 	DoctorBackend doctor.Backend
 	VolumeManager *volume.Manager
+	DoltManager   *dolt.Manager
+	DoltSetup     *dolt.Setup
 	BuildService  BuildService
 	Logger        *slog.Logger
 }
@@ -73,6 +79,28 @@ type rootOpts struct {
 // NewRoot creates the root cobra command with the given dependencies.
 func NewRoot(deps Deps) *cobra.Command {
 	var opts rootOpts
+
+	if deps.ContainerList == nil && deps.Docker != nil {
+		deps.ContainerList = dockerContainerBackend{docker: deps.Docker}
+	}
+	if deps.ContainerStop == nil && deps.Docker != nil {
+		deps.ContainerStop = dockerContainerBackend{docker: deps.Docker}
+	}
+	if deps.DoctorBackend == nil && deps.Docker != nil {
+		deps.DoctorBackend = dockerDoctorBackend{docker: deps.Docker}
+	}
+	if deps.VolumeManager == nil && deps.Docker != nil {
+		deps.VolumeManager = volume.NewManager(dockerVolumeBackend{docker: deps.Docker})
+	}
+
+	if deps.DoltManager == nil && deps.Docker != nil {
+		doltBackend := dockerDoltBackend{docker: deps.Docker}
+		deps.DoltManager = dolt.NewManager(doltBackend)
+	}
+	if deps.DoltSetup == nil && deps.DoltManager != nil && deps.Docker != nil {
+		doltBackend := dockerDoltBackend{docker: deps.Docker}
+		deps.DoltSetup = dolt.NewSetup(deps.DoltManager, doltBackend)
+	}
 
 	root := &cobra.Command{
 		Use:   "havn [flags] [path]",
