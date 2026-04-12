@@ -60,3 +60,14 @@ func TestSpecs_InterfaceAssertionImplementorStrategyIsExplicit(t *testing.T) {
 	assert.Contains(t, codeStandards, "`dolt.Backend` -> `cli.dockerDoltBackend`")
 	assert.Contains(t, codeStandards, "The assertions belong on these adapter types")
 }
+
+func TestCLIAdapters_UsePointerCompileTimeAssertionsForDoctorVolumeAndDoltBackends(t *testing.T) {
+	adaptersPath := filepath.Join("..", "cli", "adapters.go")
+	adaptersContent, err := os.ReadFile(adaptersPath)
+	require.NoError(t, err)
+
+	adapters := string(adaptersContent)
+	assert.Contains(t, adapters, "var _ doctor.Backend = (*dockerDoctorBackend)(nil)")
+	assert.Contains(t, adapters, "var _ volume.Backend = (*dockerVolumeBackend)(nil)")
+	assert.Contains(t, adapters, "var _ dolt.Backend = (*dockerDoltBackend)(nil)")
+}

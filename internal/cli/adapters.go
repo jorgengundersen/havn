@@ -24,9 +24,9 @@ import (
 var _ container.Backend = dockerContainerBackend{}
 var _ container.StopBackend = dockerContainerBackend{}
 var _ container.ImageBackend = dockerImageBackend{}
-var _ doctor.Backend = dockerDoctorBackend{}
-var _ volume.Backend = dockerVolumeBackend{}
-var _ dolt.Backend = dockerDoltBackend{}
+var _ doctor.Backend = (*dockerDoctorBackend)(nil)
+var _ volume.Backend = (*dockerVolumeBackend)(nil)
+var _ dolt.Backend = (*dockerDoltBackend)(nil)
 var _ StartService = dockerStartService{}
 var _ container.StartBackend = dockerStartBackend{}
 var _ container.NetworkBackend = dockerStartBackend{}
