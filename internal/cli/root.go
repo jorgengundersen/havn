@@ -146,7 +146,7 @@ func NewRoot(deps Deps) *cobra.Command {
 	root.AddCommand(newConfigCmd())
 	root.AddCommand(newVolumeCmd())
 	root.AddCommand(newDoctorCmd(deps.DoctorBackend))
-	root.AddCommand(newDoltCmd())
+	root.AddCommand(newDoltCmd(deps.DoltManager))
 
 	return root
 }
