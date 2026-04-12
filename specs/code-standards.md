@@ -354,6 +354,25 @@ boundaries where structured logs add diagnostic value (for example Docker or
 shared-service wrappers). Do not plumb loggers through every package before
 there is a clear need.
 
+### First-pass logging boundary policy
+
+The first logger DI rollout is intentionally narrow:
+
+- **Wrapper boundary (now):** `internal/docker` is the first package that
+  receives constructor-injected loggers. This package is the runtime boundary
+  for long-lived calls to the Docker daemon, where structured diagnostics have
+  the highest value.
+- **Domain boundary (not yet):** domain packages such as `internal/container`,
+  `internal/volume`, and `internal/doctor` do not receive loggers in the first
+  pass. They continue returning typed errors and explicit results to the CLI.
+- **CLI boundary:** user-facing status output remains explicit status writes via
+  the output helper. Logger events are for diagnostics and must not replace
+  those status messages.
+
+Expand logger DI beyond this first pass only when a concrete domain workflow
+shows repeated diagnostics value that cannot be captured cleanly at the wrapper
+boundary.
+
 ### Stream separation
 
 - **stderr**: all log output, status messages, progress.
