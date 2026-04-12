@@ -3,6 +3,8 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -10,7 +12,7 @@ import (
 	"github.com/jorgengundersen/havn/internal/dolt"
 )
 
-func newDoltCmd(manager *dolt.Manager) *cobra.Command {
+func newDoltCmd(manager *dolt.Manager, setup *dolt.Setup) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dolt",
 		Short: "Manage shared Dolt server",
@@ -23,8 +25,8 @@ func newDoltCmd(manager *dolt.Manager) *cobra.Command {
 		newDoltDatabasesCmd(manager),
 		newDoltDropCmd(manager),
 		newDoltConnectCmd(manager),
-		newDoltImportCmd(),
-		newDoltExportCmd(),
+		newDoltImportCmd(manager, setup),
+		newDoltExportCmd(manager),
 	)
 
 	return cmd
@@ -204,24 +206,162 @@ func commandOutput(cmd *cobra.Command) *Output {
 	return NewOutput(cmd.OutOrStdout(), cmd.ErrOrStderr(), jsonMode, verbose)
 }
 
-func newDoltImportCmd() *cobra.Command {
-	return &cobra.Command{
+func newDoltImportCmd(manager *dolt.Manager, _ *dolt.Setup) *cobra.Command {
+	var force bool
+
+	cmd := &cobra.Command{
 		Use:   "import <path>",
 		Short: "Import local database",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return fmt.Errorf("havn dolt import: %w", ErrNotImplemented)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if manager == nil {
+				return fmt.Errorf("havn dolt import: %w", ErrNotImplemented)
+			}
+
+			projectPath, err := filepath.Abs(args[0])
+			if err != nil {
+				return fmt.Errorf("havn dolt import: %w", err)
+			}
+
+			cfg, err := loadEffectiveConfig(projectPath)
+			if err != nil {
+				return fmt.Errorf("havn dolt import: %w", err)
+			}
+
+			out := commandOutput(cmd)
+			out.Status(fmt.Sprintf("Importing Dolt database from %s...", projectPath))
+
+			if err := manager.Start(cmd.Context(), cfg); err != nil {
+				return fmt.Errorf("havn dolt import: %w", err)
+			}
+
+			result, err := manager.Import(cmd.Context(), projectPath, cfg, force)
+			if err != nil {
+				return fmt.Errorf("havn dolt import: %w", err)
+			}
+
+			for _, warning := range result.Warnings {
+				out.Status("Warning: " + warning)
+			}
+
+			if out.IsJSON() {
+				return out.DataJSON(map[string]any{
+					"status":   "ok",
+					"message":  "database imported",
+					"database": result.DatabaseName,
+					"path":     projectPath,
+					"warnings": result.Warnings,
+				})
+			}
+
+			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing database on shared server")
+
+	return cmd
 }
 
-func newDoltExportCmd() *cobra.Command {
-	return &cobra.Command{
+type doltExportOpts struct {
+	Dest string
+}
+
+func newDoltExportCmd(manager *dolt.Manager) *cobra.Command {
+	var opts doltExportOpts
+
+	cmd := &cobra.Command{
 		Use:   "export <name>",
 		Short: "Export database",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return fmt.Errorf("havn dolt export: %w", ErrNotImplemented)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if manager == nil {
+				return fmt.Errorf("havn dolt export: %w", ErrNotImplemented)
+			}
+
+			destPath, err := filepath.Abs(opts.Dest)
+			if err != nil {
+				return fmt.Errorf("havn dolt export: %w", err)
+			}
+
+			name := args[0]
+			out := commandOutput(cmd)
+			out.Status(fmt.Sprintf("Exporting Dolt database %s to %s...", name, destPath))
+
+			if err := manager.Export(cmd.Context(), name, destPath); err != nil {
+				return fmt.Errorf("havn dolt export: %w", err)
+			}
+
+			if out.IsJSON() {
+				return out.DataJSON(map[string]any{
+					"status":   "ok",
+					"message":  "database exported",
+					"database": name,
+					"dest":     destPath,
+				})
+			}
+
+			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&opts.Dest, "dest", ".", "destination project directory")
+
+	return cmd
+}
+
+func loadEffectiveConfig(projectPath string) (config.Config, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return config.Config{}, err
+	}
+
+	globalPath := filepath.Join(homeDir, ".config", "havn", "config.toml")
+	projectConfigPath := filepath.Join(projectPath, ".havn", "config.toml")
+
+	global, err := config.LoadFile(globalPath)
+	if err != nil {
+		return config.Config{}, err
+	}
+
+	project, err := config.LoadFile(projectConfigPath)
+	if err != nil {
+		return config.Config{}, err
+	}
+
+	cfg, _ := config.Resolve(global, project, config.EnvOverrides(), config.Overrides{})
+	cfg.Dolt = mergeDoltConfig(global, project)
+	return cfg, nil
+}
+
+func mergeDoltConfig(global, project config.Config) config.DoltConfig {
+	merged := config.Default().Dolt
+
+	if global.Dolt.Enabled {
+		merged.Enabled = true
+	}
+	if global.Dolt.Port != 0 {
+		merged.Port = global.Dolt.Port
+	}
+	if global.Dolt.Image != "" {
+		merged.Image = global.Dolt.Image
+	}
+	if global.Dolt.Database != "" {
+		merged.Database = global.Dolt.Database
+	}
+
+	if project.Dolt.Enabled {
+		merged.Enabled = true
+	}
+	if project.Dolt.Port != 0 {
+		merged.Port = project.Dolt.Port
+	}
+	if project.Dolt.Image != "" {
+		merged.Image = project.Dolt.Image
+	}
+	if project.Dolt.Database != "" {
+		merged.Database = project.Dolt.Database
+	}
+
+	return merged
 }

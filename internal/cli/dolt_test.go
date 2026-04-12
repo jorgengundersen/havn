@@ -1,8 +1,10 @@
 package cli_test
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
+	"os"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -20,6 +22,9 @@ type fakeDoltBackend struct {
 	stopErr         error
 	execOutput      string
 	execErr         error
+	execFunc        func(cmd []string) (string, error)
+	copyFromData    []byte
+	copyFromErr     error
 	interactiveErr  error
 	lastExec        []string
 	lastInteractive []string
@@ -45,6 +50,9 @@ func (f *fakeDoltBackend) ContainerInspect(_ context.Context, _ string) (dolt.Co
 
 func (f *fakeDoltBackend) ContainerExec(_ context.Context, _ string, cmd []string) (string, error) {
 	f.lastExec = cmd
+	if f.execFunc != nil {
+		return f.execFunc(cmd)
+	}
 	if f.execErr != nil {
 		return "", f.execErr
 	}
@@ -61,7 +69,7 @@ func (f *fakeDoltBackend) CopyToContainer(_ context.Context, _ string, _ string,
 }
 
 func (f *fakeDoltBackend) CopyFromContainer(_ context.Context, _ string, _ string) ([]byte, error) {
-	return nil, nil
+	return f.copyFromData, f.copyFromErr
 }
 
 func executeDoltWithRoot(root *cobra.Command, args ...string) (stdout, stderr string, err error) {
@@ -240,12 +248,36 @@ func TestDoltImportCommand_RequiresPath(t *testing.T) {
 	assert.NotErrorIs(t, err, cli.ErrNotImplemented)
 }
 
-func TestDoltImportCommand_ReturnsNotImplemented(t *testing.T) {
-	_, _, err := executeCommand("dolt", "import", "/some/path")
+func TestDoltImportCommand_ImportsDatabase(t *testing.T) {
+	projectDir := t.TempDir()
+	dbName := "sample"
+	require.NoError(t, os.MkdirAll(projectDir+"/.havn", 0o755))
+	require.NoError(t, os.WriteFile(projectDir+"/.havn/config.toml", []byte("[dolt]\ndatabase = \"sample\"\n"), 0o644))
+	require.NoError(t, os.MkdirAll(projectDir+"/.beads/dolt/"+dbName, 0o755))
+	require.NoError(t, os.WriteFile(projectDir+"/.beads/dolt/"+dbName+"/manifest", []byte("data"), 0o644))
 
-	require.Error(t, err)
-	assert.ErrorIs(t, err, cli.ErrNotImplemented)
-	assert.Contains(t, err.Error(), "havn dolt import:")
+	callCount := 0
+	backend := &fakeDoltBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "running-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+		execFunc: func(_ []string) (string, error) {
+			callCount++
+			if callCount == 1 {
+				return "+--------------------+\n| Database           |\n+--------------------+\n| information_schema |\n+--------------------+\n", nil
+			}
+			return "+--------------------+\n| Database           |\n+--------------------+\n| information_schema |\n| sample             |\n+--------------------+\n", nil
+		},
+	}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	stdout, stderr, err := executeDoltWithRoot(root, "dolt", "import", projectDir)
+
+	require.NoError(t, err)
+	assert.Empty(t, stdout)
+	assert.Contains(t, stderr, "Importing Dolt database")
 }
 
 func TestDoltExportCommand_RequiresName(t *testing.T) {
@@ -255,10 +287,46 @@ func TestDoltExportCommand_RequiresName(t *testing.T) {
 	assert.NotErrorIs(t, err, cli.ErrNotImplemented)
 }
 
-func TestDoltExportCommand_ReturnsNotImplemented(t *testing.T) {
-	_, _, err := executeCommand("dolt", "export", "mydb")
+func TestDoltExportCommand_ExportsDatabaseToDestination(t *testing.T) {
+	destDir := t.TempDir()
+	backend := &fakeDoltBackend{
+		execOutput:   "+--------------------+\n| Database           |\n+--------------------+\n| mydb               |\n+--------------------+\n",
+		copyFromData: buildTarArchive(t, "mydb", map[string]string{"manifest": "exported-data"}),
+	}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	stdout, stderr, err := executeDoltWithRoot(root, "dolt", "export", "mydb", "--dest", destDir)
 
-	require.Error(t, err)
-	assert.ErrorIs(t, err, cli.ErrNotImplemented)
-	assert.Contains(t, err.Error(), "havn dolt export:")
+	require.NoError(t, err)
+	assert.Empty(t, stdout)
+	assert.Contains(t, stderr, "Exporting Dolt database")
+
+	manifest, readErr := os.ReadFile(destDir + "/.beads/dolt/mydb/manifest")
+	require.NoError(t, readErr)
+	assert.Equal(t, "exported-data", string(manifest))
+}
+
+func buildTarArchive(t *testing.T, prefix string, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+
+	require.NoError(t, tw.WriteHeader(&tar.Header{
+		Typeflag: tar.TypeDir,
+		Name:     prefix + "/",
+		Mode:     0o755,
+	}))
+
+	for name, content := range files {
+		require.NoError(t, tw.WriteHeader(&tar.Header{
+			Typeflag: tar.TypeReg,
+			Name:     prefix + "/" + name,
+			Size:     int64(len(content)),
+			Mode:     0o644,
+		}))
+		_, err := tw.Write([]byte(content))
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, tw.Close())
+	return buf.Bytes()
 }
