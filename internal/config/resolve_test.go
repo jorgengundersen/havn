@@ -193,3 +193,21 @@ func TestResolve_NilOverrideFieldsDoNotOverride(t *testing.T) {
 	assert.Equal(t, "env", src["shell"])
 	assert.Equal(t, "project", src["cpus"])
 }
+
+func TestResolve_ProjectVolumeNamesOverrideDefaults(t *testing.T) {
+	project := config.Config{
+		Volumes: config.VolumeConfig{
+			Nix:   "custom-nix",
+			Data:  "custom-data",
+			Cache: "custom-cache",
+			State: "custom-state",
+		},
+	}
+
+	cfg, _ := config.Resolve(config.Config{}, project, config.Overrides{}, config.Overrides{})
+
+	assert.Equal(t, "custom-nix", cfg.Volumes.Nix)
+	assert.Equal(t, "custom-data", cfg.Volumes.Data)
+	assert.Equal(t, "custom-cache", cfg.Volumes.Cache)
+	assert.Equal(t, "custom-state", cfg.Volumes.State)
+}

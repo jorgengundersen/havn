@@ -80,6 +80,30 @@ func applyConfig(cfg *Config, layer Config, label string, src Source) {
 		cfg.Resources.MemorySwap = layer.Resources.MemorySwap
 		src["memory_swap"] = label
 	}
+	if layer.Volumes.Nix != "" {
+		cfg.Volumes.Nix = layer.Volumes.Nix
+	}
+	if layer.Volumes.Data != "" {
+		cfg.Volumes.Data = layer.Volumes.Data
+	}
+	if layer.Volumes.Cache != "" {
+		cfg.Volumes.Cache = layer.Volumes.Cache
+	}
+	if layer.Volumes.State != "" {
+		cfg.Volumes.State = layer.Volumes.State
+	}
+	if layer.Dolt.Enabled {
+		cfg.Dolt.Enabled = true
+	}
+	if layer.Dolt.Port != 0 {
+		cfg.Dolt.Port = layer.Dolt.Port
+	}
+	if layer.Dolt.Image != "" {
+		cfg.Dolt.Image = layer.Dolt.Image
+	}
+	if layer.Dolt.Database != "" {
+		cfg.Dolt.Database = layer.Dolt.Database
+	}
 	// Mount config entries append rather than replace.
 	if len(layer.Mounts.Config) > 0 {
 		cfg.Mounts.Config = append(cfg.Mounts.Config, layer.Mounts.Config...)
