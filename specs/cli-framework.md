@@ -205,6 +205,10 @@ This keeps help output clean -- `havn dolt status --help` does not show
 `--shell` or `--cpus`, which would be confusing. Only flags that are
 genuinely global (`--json`, `--verbose`, `--config`) are persistent.
 
+`--port` is SSH-only and accepts a single host port number. The CLI layer
+normalizes that value to an SSH publish mapping (`<host>:22`) before passing it
+to config resolution, where it is merged with project `ports` mappings.
+
 ### Local flags (command-specific)
 
 Flags that apply to a single command use local flags:

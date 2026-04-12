@@ -27,3 +27,22 @@ func TestSpecs_ConfigContractDocumentsStableSourceAndConfigOnlyOverrides(t *test
 	assert.Contains(t, principles, "Intentional config-only settings are valid")
 	assert.Contains(t, principles, "be config-only when users need stable project/global defaults")
 }
+
+func TestSpecs_PortExposureContractIsExplicitAndCoherent(t *testing.T) {
+	overviewPath := filepath.Join("..", "..", "specs", "havn-overview.md")
+	overviewContent, err := os.ReadFile(overviewPath)
+	require.NoError(t, err)
+
+	overview := string(overviewContent)
+	assert.Contains(t, overview, "`--port` accepts a single host port number")
+	assert.Contains(t, overview, "`ports` accepts explicit host:container mappings")
+	assert.Contains(t, overview, "`--port` and `ports` are merged into one Docker publish set")
+	assert.Contains(t, overview, "A startup request fails if any requested host port is unavailable")
+
+	cliPath := filepath.Join("..", "..", "specs", "cli-framework.md")
+	cliContent, err := os.ReadFile(cliPath)
+	require.NoError(t, err)
+
+	cli := string(cliContent)
+	assert.Contains(t, cli, "root.Flags().StringVar(&opts.Port, \"port\", \"\", \"publish container SSH on host port\")")
+}

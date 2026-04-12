@@ -382,12 +382,14 @@ reserved for building and installing havn itself.
 
 ### Port exposure model
 
-- `--port <port>` publishes host port `<port>` to container port `22` for SSH.
-- `ports = ["HOST:CONTAINER", ...]` publishes additional project service ports.
-- `--port` and `ports` are separate surfaces. `--port` is only for SSH; it does
-  not accept a general Docker mapping string.
-- If a requested host port is already in use, container startup fails with the
-  underlying Docker port-allocation error.
+- `--port` accepts a single host port number and always maps it to container
+  port `22` for SSH.
+- `ports` accepts explicit host:container mappings for additional project
+  services (for example `"8080:8080"`).
+- `--port` and `ports` are merged into one Docker publish set.
+- `--port` is SSH-only and does not accept a general Docker mapping string.
+- A startup request fails if any requested host port is unavailable, surfacing
+  the underlying Docker port-allocation error.
 
 ### Project environment resolution
 
