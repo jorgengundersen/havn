@@ -3,6 +3,8 @@ package container_test
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -247,6 +249,9 @@ func TestStartOrAttach_ImageMissing_BuildsFirst(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "havn-base:latest", imgBackend.buildOpts.Tag)
+	assert.Equal(t, "docker/", imgBackend.buildOpts.ContextPath)
+	assert.Equal(t, strconv.Itoa(os.Getuid()), imgBackend.buildOpts.BuildArgs["UID"])
+	assert.Equal(t, strconv.Itoa(os.Getgid()), imgBackend.buildOpts.BuildArgs["GID"])
 	assert.Contains(t, statusMessages, "Image havn-base:latest not found, building...")
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/jorgengundersen/havn/internal/config"
@@ -134,8 +135,13 @@ func ensureInfrastructure(ctx context.Context, deps StartDeps, cfg config.Config
 	}
 	if !exists {
 		deps.Status(fmt.Sprintf("Image %s not found, building...", cfg.Image))
-		if err := deps.Image.ImageBuild(ctx, ImageBuildOpts{Tag: cfg.Image}); err != nil {
-			return &BuildError{Err: err}
+		if err := Build(ctx, deps.Image, BuildOpts{
+			ImageName:   cfg.Image,
+			ContextPath: "docker/",
+			UID:         os.Getuid(),
+			GID:         os.Getgid(),
+		}); err != nil {
+			return err
 		}
 	}
 
