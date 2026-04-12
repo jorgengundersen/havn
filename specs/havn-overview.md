@@ -53,6 +53,10 @@ havn [flags] [path]
 3. If container is running: exec into it with the activated devShell
 4. If container does not exist: create and start it, then exec in.
 
+On successful attach, `havn [path]` exits with the exit code from the shell
+session it launched. If startup or attach fails, the normal CLI error handling
+path applies.
+
 This matches the previous `devenv .` behavior -- one command to start or attach.
 
 ### Subcommands
@@ -86,13 +90,16 @@ This matches the previous `devenv .` behavior -- one command to start or attach.
 | `--env <flake-ref>` | `HAVN_ENV` | Nix flake ref for dev environment (see flake resolution) |
 | `--cpus <n>` | `HAVN_CPUS` | CPU limit (default: 4) |
 | `--memory <size>` | `HAVN_MEMORY` | Memory limit (default: 8g) |
-| `--port <port>` | `HAVN_SSH_PORT` | SSH port mapping |
+| `--port <port>` | `HAVN_SSH_PORT` | Publish container SSH on host port `<port>` |
 | `--no-dolt` | | Skip Dolt server even if project config enables it |
 | `--image <name>` | `HAVN_IMAGE` | Override base image |
 | `--config <path>` | | Path to config file |
 
 All flags override config file values. Env vars override config file values.
 Flags override env vars. Priority: **flag > env > project config > global config > default**.
+
+`--port` is SSH-only. It publishes host port `<port>` to container port `22`.
+If unset, SSH is available only inside the container and Docker network.
 
 ### Output modes
 
@@ -154,6 +161,9 @@ a JSON result object with `status` and `message` fields when `--json` is set.
 
 Empty list → `[]`.
 
+Only running havn-managed project containers are listed. Stopped containers are
+omitted.
+
 #### `havn volume list --json`
 
 ```json
@@ -207,17 +217,29 @@ as a JSON object. The structure mirrors the TOML config schema:
     "image": "dolthub/dolt-sql-server:latest"
   },
   "source": {
+    "env": "global",
     "shell": "project",
-    "cpus": "project",
-    "memory": "project",
-    "env": "global"
+    "image": "default",
+    "network": "default",
+    "resources": {
+      "cpus": "project",
+      "memory": "project",
+      "memory_swap": "global"
+    },
+    "dolt": {
+      "enabled": "project",
+      "database": "project",
+      "port": "global",
+      "image": "global"
+    }
   }
 }
 ```
 
 The `source` object shows where each effective value came from (`"default"`,
-`"global"`, `"project"`, `"env"`, `"flag"`). This makes it straightforward
-to see which config layer is responsible for each runtime value.
+`"global"`, `"project"`, `"env"`, `"flag"`). It mirrors the shape of the
+returned config object for the fields havn exposes, so callers can inspect
+provenance without guessing field paths.
 
 #### `havn dolt status --json`
 
@@ -315,7 +337,7 @@ shell = "go"
 # Default: .havn/flake.nix if it exists, otherwise the global env setting.
 # env = "github:user/custom-env"
 
-# Additional port mappings
+# Additional host:container port mappings for project services
 ports = ["8080:8080", "3000:3000"]
 
 # Additional bind mounts specific to this project
@@ -352,6 +374,34 @@ This keeps project-specific dev environment flakes inside `.havn/`, avoiding
 conflicts with a project's own `flake.nix` (which may define build outputs,
 packages, or other non-dev concerns). The havn repo's root `flake.nix` is
 reserved for building and installing havn itself.
+
+### Port exposure model
+
+- `--port <port>` publishes host port `<port>` to container port `22` for SSH.
+- `ports = ["HOST:CONTAINER", ...]` publishes additional project service ports.
+- `--port` and `ports` are separate surfaces. `--port` is only for SSH; it does
+  not accept a general Docker mapping string.
+- If a requested host port is already in use, container startup fails with the
+  underlying Docker port-allocation error.
+
+### Project environment resolution
+
+The `[environment]` table defines extra environment variables for the project
+container.
+
+- Literal values are passed through unchanged.
+- `${VAR}` means "read `VAR` from the host environment at startup and copy its
+  value into the container".
+- If a referenced host variable is unset, config resolution fails with a
+  validation error. havn does not silently substitute an empty string.
+- User-defined environment entries must not override havn-managed runtime
+  variables such as `SSH_AUTH_SOCK` or `BEADS_DOLT_*`.
+
+### Resource override surface
+
+`memory_swap` is a config-only setting. It can be set in config files, but havn
+does not expose a `--memory-swap` flag or `HAVN_MEMORY_SWAP` env var until a
+concrete user need emerges.
 
 ## Container Lifecycle
 
@@ -435,6 +485,8 @@ project containers has no effect on the Dolt server.
 `havn build` creates a minimal base image: Ubuntu 24.04 with Nix installed,
 a `devuser` account, and sshd. No programming languages, editors, or tools
 beyond the bare minimum -- all tooling comes from `nix develop` at runtime.
+Concrete Dockerfile, build-context, and runtime details live in
+[base-image.md](base-image.md).
 
 **Why Ubuntu, not `nixos/nix`:** The official Nix image is Alpine-based
 (musl libc). Many Nix packages assume glibc, causing subtle runtime issues.
@@ -448,11 +500,10 @@ the host user. Bind-mounted files (project directory, config files) are owned
 by the host user's UID -- if the container user has a different UID, file
 operations fail or produce root-owned files on the host.
 
-`havn build` (or container creation) detects the host user's UID/GID and
-ensures the container's `devuser` matches. This avoids permission issues
-without requiring the user to configure anything.
-
-_Dockerfile and build details live in an implementation spec._
+`havn build` (and startup auto-build) detect the host user's UID/GID and pass
+them into the shared base-image build contract so the container's `devuser`
+matches. This avoids permission issues without requiring the user to configure
+anything.
 
 ## Volume and Mount Strategy
 
@@ -591,8 +642,8 @@ the main process. After container start, havn runs a post-start init
 `docker exec -it ... nix develop <ref>#<shell> -c bash`, so the user
 lands directly in the activated devShell.
 
-_Entrypoint details, init script, and project structure live in an
-implementation spec._
+Concrete runtime assumptions for `tini`, `sleep`, `sudo`, and `sshd` live in
+[base-image.md](base-image.md).
 
 ## Diagnostics
 
@@ -644,4 +695,3 @@ _Check definitions, identifiers, JSON schema, and behavior details in
   directly in the activated devShell. The container knows nothing about
   Nix activation; havn handles it from the outside. No extra dependencies,
   no files to manage inside the container.
-

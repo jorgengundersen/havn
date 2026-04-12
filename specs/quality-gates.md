@@ -82,9 +82,22 @@ types).
 
 ### CI
 
-All gates run on every push. A failure on any gate blocks merge.
+CI runs in GitHub Actions.
 
-Integration tests run separately and may be gated on Docker availability.
+The core quality-gate job should invoke `make check` so CI and local
+development share the same contract.
+
+All core gates run on every push and pull request. A failure on any core gate
+blocks merge.
+
+Integration tests run in a separate job via `make test-integration` and may be
+gated on Docker-capable runners.
+
+Integration failures should be visible as a separate CI result rather than
+folded into the core quality-gate job.
+
+When the Docker-backed integration job exists and is stable, it should also be
+required for merge.
 
 ## Tool versions
 

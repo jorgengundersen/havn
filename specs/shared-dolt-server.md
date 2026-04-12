@@ -146,6 +146,7 @@ havn .
   │   ├─ BEADS_DOLT_SERVER_HOST=havn-dolt
   │   ├─ BEADS_DOLT_SERVER_PORT=3308
   │   ├─ BEADS_DOLT_SERVER_USER=root
+  │   ├─ BEADS_DOLT_SERVER_DATABASE=<database>
   │   ├─ BEADS_DOLT_AUTO_START=0
   │   └─ BEADS_DOLT_SHARED_SERVER=1
   └─ Exec into project container
@@ -161,7 +162,7 @@ havn dolt start       # start the shared Dolt container
 havn dolt stop        # stop it
 havn dolt status      # show status, port, databases
 havn dolt databases   # list all databases on the server
-havn dolt drop <name> # drop a project database (with confirmation)
+havn dolt drop <name> # drop a project database (requires --yes)
 ```
 
 ## Design Principles
@@ -345,8 +346,8 @@ Shared server:
 # List all databases on the shared server
 havn dolt databases
 
-# Drop a specific database (interactive confirmation)
-havn dolt drop myproject
+# Drop a specific database (requires --yes)
+havn dolt drop myproject --yes
 
 # Connect to the Dolt server with a MySQL client (for debugging)
 havn dolt connect
@@ -381,7 +382,7 @@ bd dolt pull    # pull from remote
 
 ```toml
 [dolt]
-enabled = true                              # enable shared Dolt server
+enabled = false                             # global default; projects opt in
 image = "dolthub/dolt-sql-server:latest"    # Dolt Docker image
 port = 3308                                 # server port inside container
 ```
@@ -469,6 +470,7 @@ havn dolt import /path/to/myproject
   ├─ 3. Check if database already exists on shared server
   │     └─ If exists: error "database '<name>' already exists; use --force to overwrite"
   ├─ 4. Ensure havn-dolt container is running
+  │     └─ Command wiring must perform the same readiness flow used by other shared-Dolt operations
   ├─ 5. Copy database directory into the havn-dolt-data volume:
   │     └─ docker cp <project>/.beads/dolt/<dbname>/ havn-dolt:/var/lib/dolt/<dbname>/
   ├─ 6. Verify Dolt picks up the database (SHOW DATABASES)

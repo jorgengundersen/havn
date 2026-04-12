@@ -99,6 +99,12 @@ Each layer adds its context. The chain reads like a call path:
 Dependency wrappers translate external errors into havn errors. External
 error types never leak into domain code:
 
+Wrappers also own semantic normalization where havn exposes a tighter contract
+than the raw dependency. For example, if havn exposes a `NamePrefix` filter,
+the wrapper should enforce true prefix semantics consistently even if the
+underlying Docker daemon filter is broader or inconsistent across resource
+types.
+
 ```go
 // internal/docker/container.go (wrapper)
 
@@ -263,6 +269,12 @@ var _ container.Runtime = (*Client)(nil)
 This catches drift when a wrapper's method signature changes. Skip these
 for test doubles — the test suite itself verifies those.
 
+The assertion belongs on the actual concrete implementor of the consumer-defined
+interface. In some cases that is a shared wrapper type like `docker.Client`; in
+others it may be a thin adapter dedicated to one consumer boundary. The rule is
+about asserting the real production implementor, not forcing every assertion
+onto a single catch-all type.
+
 ### Wrapper structure
 
 ```go
@@ -337,12 +349,23 @@ func setupLogger(verbose, jsonOutput bool) *slog.Logger {
 Pass the logger via dependency injection (constructor parameter), not
 `slog.Default()` globals.
 
+Adopt logger DI intentionally, starting at long-lived external-system
+boundaries where structured logs add diagnostic value (for example Docker or
+shared-service wrappers). Do not plumb loggers through every package before
+there is a clear need.
+
 ### Stream separation
 
 - **stderr**: all log output, status messages, progress.
 - **stdout**: data output only (`--json` results, `havn list` output).
 
 This ensures `havn list --json | jq` is never polluted by status messages.
+
+User-facing status output and structured logs are separate channels even when
+both write to stderr. Status messages explain what havn is doing for the user;
+logs support diagnostics. Do not replace explicit status reporting with logger
+calls, and do not duplicate the same event in both channels without a clear
+reason.
 
 ### Log levels
 

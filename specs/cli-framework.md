@@ -196,7 +196,7 @@ root.Flags().StringVar(&opts.Shell, "shell", "", "devShell to activate")
 root.Flags().StringVar(&opts.Env, "env", "", "Nix flake ref for dev environment")
 root.Flags().IntVar(&opts.CPUs, "cpus", 0, "CPU limit")
 root.Flags().StringVar(&opts.Memory, "memory", "", "memory limit")
-root.Flags().StringVar(&opts.Port, "port", "", "SSH port mapping")
+root.Flags().StringVar(&opts.Port, "port", "", "publish container SSH on host port")
 root.Flags().BoolVar(&opts.NoDolt, "no-dolt", false, "skip Dolt server")
 root.Flags().StringVar(&opts.Image, "image", "", "override base image")
 ```
@@ -295,6 +295,11 @@ The exact API of the output helper will emerge from implementation (TDD).
 The constraints are: stream separation is enforced structurally (commands
 cannot accidentally write status to stdout), and the mode decision happens
 in one place (not scattered across command functions).
+
+Interactive Docker TTY attach is a separate boundary from normal CLI output.
+In TTY mode, stdout and stderr are treated as a single interactive stream by
+the Docker API. havn should not promise separate stderr capture for attached
+interactive sessions.
 
 ### JSON contract
 
@@ -418,6 +423,10 @@ type ExitError struct {
 `Execute()` checks for `ExitError` and uses its code; all other errors
 produce exit code 1. This keeps the general case simple and gives
 individual commands an escape hatch when their spec requires it.
+
+The root `havn [path]` command is the one exception to the usual success path:
+when it successfully launches an interactive shell session, it exits with that
+session's exit code rather than forcing `0`.
 
 ### Cobra's SilenceErrors and SilenceUsage
 

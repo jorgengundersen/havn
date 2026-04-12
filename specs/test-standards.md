@@ -97,6 +97,17 @@ package docker_test
 
 Run separately: `go test -tags integration ./...`
 
+When an integration suite requires Docker and the daemon is unavailable,
+tests should skip with a clear message rather than fail with low-level
+connection noise. CI policy decides whether Docker-backed integration tests are
+required in a given environment.
+
+For Docker wrapper integration tests, cover the wrapper contract rather than
+only Docker's raw behavior. If the wrapper exposes normalized semantics (for
+example consistent prefix filtering across containers, networks, and volumes),
+integration tests should verify that normalized contract against the live
+daemon.
+
 ### System tests
 
 Few, focused. End-to-end for critical paths only:
