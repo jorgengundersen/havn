@@ -21,4 +21,5 @@ func TestCIWorkflow_CoreAndIntegrationJobsConfigured(t *testing.T) {
 	assert.Contains(t, workflow, "pull_request:")
 	assert.Contains(t, workflow, "make check")
 	assert.Contains(t, workflow, "make test-integration")
+	assert.Contains(t, workflow, "docker info")
 }

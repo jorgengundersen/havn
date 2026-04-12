@@ -33,5 +33,8 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: verify-docker-daemon
+        run: docker info
+
       - name: run-integration-tests
         run: make test-integration
