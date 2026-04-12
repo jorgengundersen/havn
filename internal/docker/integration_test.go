@@ -282,6 +282,131 @@ func TestContainerStopRemove_LifecycleSuccess_Integration(t *testing.T) {
 	assert.ErrorAs(t, err, &notFoundErr)
 }
 
+func TestNetworkCreateInspectList_Contract_Integration(t *testing.T) {
+	c := requireIntegrationDockerClient(t)
+	tag := buildIntegrationImage(t, c)
+
+	prefix := fmt.Sprintf("havn-net-%d", time.Now().UnixNano())
+	matchingName := prefix + "-match"
+	nonPrefixName := "x" + prefix + "-non-prefix"
+	containerName := prefix + "-container"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	require.NoError(t, c.NetworkCreate(ctx, docker.NetworkCreateOpts{
+		Name: matchingName,
+		Labels: map[string]string{
+			"havn.test": "network-contract",
+		},
+	}))
+	t.Cleanup(func() {
+		cleanupDockerCommand(t, "network", "rm", matchingName)
+	})
+
+	require.NoError(t, c.NetworkCreate(ctx, docker.NetworkCreateOpts{
+		Name: nonPrefixName,
+		Labels: map[string]string{
+			"havn.test": "network-contract",
+		},
+	}))
+	t.Cleanup(func() {
+		cleanupDockerCommand(t, "network", "rm", nonPrefixName)
+	})
+
+	createAndStartIntegrationContainerOnNetwork(t, c, tag, containerName, matchingName)
+
+	inspected, err := c.NetworkInspect(ctx, matchingName)
+	require.NoError(t, err)
+	assert.Equal(t, matchingName, inspected.Name)
+	assert.NotEmpty(t, inspected.ID)
+	assert.NotEmpty(t, inspected.Driver)
+
+	connected := make([]string, 0, len(inspected.ConnectedContainers))
+	for _, ctr := range inspected.ConnectedContainers {
+		connected = append(connected, ctr.Name)
+	}
+	assert.Contains(t, connected, containerName)
+
+	listed, err := c.NetworkList(ctx, docker.NetworkListFilters{NamePrefix: prefix})
+	require.NoError(t, err)
+
+	listedNames := make([]string, 0, len(listed))
+	for _, nw := range listed {
+		listedNames = append(listedNames, nw.Name)
+	}
+	assert.Contains(t, listedNames, matchingName)
+	assert.NotContains(t, listedNames, nonPrefixName)
+
+	var listedMatch *docker.NetworkInfo
+	for i := range listed {
+		if listed[i].Name == matchingName {
+			listedMatch = &listed[i]
+			break
+		}
+	}
+	require.NotNil(t, listedMatch)
+
+	listedConnected := make([]string, 0, len(listedMatch.ConnectedContainers))
+	for _, ctr := range listedMatch.ConnectedContainers {
+		listedConnected = append(listedConnected, ctr.Name)
+	}
+	assert.Contains(t, listedConnected, containerName)
+}
+
+func TestVolumeCreateInspectList_Contract_Integration(t *testing.T) {
+	c := requireIntegrationDockerClient(t)
+
+	prefix := fmt.Sprintf("havn-vol-%d", time.Now().UnixNano())
+	matchingName := prefix + "-match"
+	nonPrefixName := "x" + prefix + "-non-prefix"
+	labels := map[string]string{
+		"havn.test":  "volume-contract",
+		"havn.scope": "integration",
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	require.NoError(t, c.VolumeCreate(ctx, docker.VolumeCreateOpts{
+		Name:   matchingName,
+		Labels: labels,
+	}))
+	t.Cleanup(func() {
+		cleanupDockerCommand(t, "volume", "rm", matchingName)
+	})
+
+	require.NoError(t, c.VolumeCreate(ctx, docker.VolumeCreateOpts{
+		Name:   nonPrefixName,
+		Labels: labels,
+	}))
+	t.Cleanup(func() {
+		cleanupDockerCommand(t, "volume", "rm", nonPrefixName)
+	})
+
+	inspected, err := c.VolumeInspect(ctx, matchingName)
+	require.NoError(t, err)
+	assert.Equal(t, matchingName, inspected.Name)
+	assert.NotEmpty(t, inspected.Driver)
+	assert.Equal(t, labels["havn.test"], inspected.Labels["havn.test"])
+	assert.Equal(t, labels["havn.scope"], inspected.Labels["havn.scope"])
+	assert.NotEmpty(t, inspected.Mountpoint)
+	assert.NotEmpty(t, inspected.CreatedAt)
+
+	listed, err := c.VolumeList(ctx, docker.VolumeListFilters{
+		Labels:     labels,
+		NamePrefix: prefix,
+	})
+	require.NoError(t, err)
+
+	listedNames := make([]string, 0, len(listed))
+	for _, vol := range listed {
+		listedNames = append(listedNames, vol.Name)
+	}
+	assert.Contains(t, listedNames, matchingName)
+	assert.NotContains(t, listedNames, nonPrefixName)
+}
+
 type lockedBuffer struct {
 	buf bytes.Buffer
 	mu  sync.Mutex
@@ -443,6 +568,41 @@ func createAndStartIntegrationContainerWithName(t *testing.T, c *docker.Client, 
 	require.NoError(t, c.ContainerStart(ctx, id))
 
 	return name
+}
+
+func createAndStartIntegrationContainerOnNetwork(t *testing.T, c *docker.Client, imageTag, name, network string) string {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	id, err := c.ContainerCreate(ctx, docker.CreateOpts{
+		Image:   imageTag,
+		Name:    name,
+		Network: network,
+	})
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cleanupCancel()
+		_ = c.ContainerRemove(cleanupCtx, id, docker.RemoveOpts{Force: true, RemoveVolumes: true})
+	})
+
+	require.NoError(t, c.ContainerStart(ctx, id))
+
+	return name
+}
+
+func cleanupDockerCommand(t *testing.T, resource string, args ...string) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	cmdArgs := append([]string{resource}, args...)
+	cmd := exec.CommandContext(ctx, "docker", cmdArgs...)
+	_, _ = cmd.CombinedOutput()
 }
 
 func singleFileTar(t *testing.T, name string, content string) io.Reader {
