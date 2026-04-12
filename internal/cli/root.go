@@ -133,6 +133,9 @@ func NewRoot(deps Deps) *cobra.Command {
 			if deps.Logger == nil {
 				deps.Logger = SetupLogger(opts.Verbose, opts.JSON)
 			}
+			if deps.Docker != nil {
+				deps.Docker.SetLogger(deps.Logger)
+			}
 			return nil
 		},
 

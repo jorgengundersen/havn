@@ -1,7 +1,9 @@
 package docker_test
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -36,4 +38,18 @@ func TestInfo_DaemonUnreachable(t *testing.T) {
 	var daemonErr *docker.DaemonUnreachableError
 	assert.ErrorAs(t, err, &daemonErr)
 	assert.Equal(t, "tcp://localhost:0", daemonErr.Host)
+}
+
+func TestPing_LogsStructuredOperationWithInjectedLogger(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	c, err := docker.NewClientWithHostAndLogger("tcp://localhost:0", logger)
+	require.NoError(t, err)
+
+	err = c.Ping(context.Background())
+	require.Error(t, err)
+
+	assert.Contains(t, buf.String(), `"component":"docker"`)
+	assert.Contains(t, buf.String(), `"operation":"ping"`)
 }

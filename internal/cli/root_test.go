@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bytes"
 	"context"
+	"log/slog"
 	"os"
 	"testing"
 
@@ -208,4 +209,22 @@ func TestNewRoot_RejectsPathOutsideHome(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "under your home directory")
 	assert.False(t, svc.called)
+}
+
+func TestNewRoot_PersistentPreRun_PropagatesLoggerToDockerClient(t *testing.T) {
+	var logBuf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logBuf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	dockerClient, err := docker.NewClientWithHost("tcp://localhost:0")
+	require.NoError(t, err)
+
+	root := cli.NewRoot(cli.Deps{Docker: dockerClient, Logger: logger})
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"doctor", "--all"})
+
+	_ = root.Execute()
+
+	assert.Contains(t, logBuf.String(), `"component":"docker"`)
+	assert.Contains(t, logBuf.String(), `"operation":"ping"`)
 }
