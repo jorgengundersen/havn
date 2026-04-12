@@ -196,7 +196,7 @@ rm .beads/.no-sync       # re-enable sync
 
 ```toml
 [dolt]
-enabled = true
+enabled = true              # explicit opt-in; default is false unless enabled globally
 database = "myproject"     # database name on the shared server
 ```
 
@@ -354,6 +354,9 @@ havn dolt connect
 # equivalent to: docker exec -it havn-dolt dolt sql
 ```
 
+`havn dolt drop` is non-interactive by contract: without `--yes`, the command
+fails with a validation error instead of prompting for confirmation.
+
 ### Backup and restore
 
 The `havn-dolt-data` volume can be backed up with standard Docker volume
@@ -391,7 +394,7 @@ port = 3308                                 # server port inside container
 
 ```toml
 [dolt]
-enabled = true           # use the shared Dolt server (default: inherit from global)
+enabled = true           # explicit opt-in; default is false unless enabled globally
 database = "myproject"   # database name (default: project directory name)
 ```
 
