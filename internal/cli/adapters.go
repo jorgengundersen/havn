@@ -37,18 +37,20 @@ type dockerStartService struct {
 }
 
 func (s dockerStartService) StartOrAttach(ctx context.Context, cfg config.Config, projectPath string, status func(msg string)) (int, error) {
-	doltBackend := dockerDoltBackend{docker: s.docker}
+	startBackend := dockerStartBackend(s)
+	doltBackend := dockerDoltBackend(s)
+	volumeBackend := dockerVolumeBackend(s)
 	deps := container.StartDeps{
-		Container: dockerStartBackend{docker: s.docker},
+		Container: startBackend,
 		Image: dockerImageBackend{
 			docker: s.docker,
 			output: io.Discard,
 		},
-		Network: dockerStartBackend{docker: s.docker},
-		Volume:  volume.NewManager(dockerVolumeBackend{docker: s.docker}),
+		Network: startBackend,
+		Volume:  volume.NewManager(volumeBackend),
 		Mount:   hostMountResolver{},
 		Dolt:    dolt.NewSetup(dolt.NewManager(doltBackend), doltBackend),
-		Exec:    dockerStartBackend{docker: s.docker},
+		Exec:    startBackend,
 		Status:  status,
 	}
 

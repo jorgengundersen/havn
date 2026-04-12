@@ -206,7 +206,7 @@ func resolveProjectPath(target string) (string, error) {
 
 	info, err := os.Stat(absPath)
 	if err != nil || !info.IsDir() {
-		return "", fmt.Errorf("Directory not found: %s", absPath)
+		return "", fmt.Errorf("directory not found: %s", absPath)
 	}
 
 	homeDir, err := os.UserHomeDir()
@@ -219,7 +219,7 @@ func resolveProjectPath(target string) (string, error) {
 		return "", err
 	}
 	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", errors.New("Project path must be under your home directory")
+		return "", errors.New("project path must be under your home directory")
 	}
 
 	return absPath, nil
