@@ -23,12 +23,15 @@ import (
 
 var _ container.Backend = dockerContainerBackend{}
 var _ container.StopBackend = dockerContainerBackend{}
+var _ container.ImageBackend = dockerImageBackend{}
 var _ doctor.Backend = dockerDoctorBackend{}
 var _ volume.Backend = dockerVolumeBackend{}
 var _ dolt.Backend = dockerDoltBackend{}
 var _ StartService = dockerStartService{}
 var _ container.StartBackend = dockerStartBackend{}
 var _ container.NetworkBackend = dockerStartBackend{}
+var _ container.VolumeEnsurer = (*volume.Manager)(nil)
+var _ container.DoltSetup = (*dolt.Setup)(nil)
 var _ container.ExecBackend = dockerStartBackend{}
 var _ container.MountResolver = hostMountResolver{}
 
