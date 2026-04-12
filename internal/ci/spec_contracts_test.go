@@ -71,3 +71,29 @@ func TestCLIAdapters_UsePointerCompileTimeAssertionsForDoctorVolumeAndDoltBacken
 	assert.Contains(t, adapters, "var _ volume.Backend = (*dockerVolumeBackend)(nil)")
 	assert.Contains(t, adapters, "var _ dolt.Backend = (*dockerDoltBackend)(nil)")
 }
+
+func TestDocs_DoctorTroubleshootingGuideCoversCoreOperationalFlow(t *testing.T) {
+	guidePath := filepath.Join("..", "..", "docs", "doctor-troubleshooting.md")
+	guideContent, err := os.ReadFile(guidePath)
+	require.NoError(t, err)
+
+	guide := string(guideContent)
+	assert.Contains(t, guide, "# havn doctor troubleshooting guide")
+	assert.Contains(t, guide, "`havn doctor` is the first command to run")
+	assert.Contains(t, guide, "## Flags and output modes")
+	assert.Contains(t, guide, "## Exit codes")
+	assert.Contains(t, guide, "## Troubleshooting flows")
+	assert.Contains(t, guide, "### Docker daemon check failed")
+	assert.Contains(t, guide, "### Base image check warned")
+	assert.Contains(t, guide, "### Dolt server check failed")
+	assert.Contains(t, guide, "### Beads health warned")
+}
+
+func TestDocs_READMELinksDoctorTroubleshootingGuide(t *testing.T) {
+	readmePath := filepath.Join("..", "..", "README.md")
+	readmeContent, err := os.ReadFile(readmePath)
+	require.NoError(t, err)
+
+	readme := string(readmeContent)
+	assert.Contains(t, readme, "[Doctor troubleshooting guide](docs/doctor-troubleshooting.md)")
+}
