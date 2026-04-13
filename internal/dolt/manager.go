@@ -149,20 +149,6 @@ func (m *Manager) Status(ctx context.Context) (Status, error) {
 	}, nil
 }
 
-func (m *Manager) ensureManaged(ctx context.Context) error {
-	info, found, err := m.backend.ContainerInspect(ctx, containerName)
-	if err != nil {
-		return fmt.Errorf("inspect container: %w", err)
-	}
-	if !found {
-		return nil
-	}
-	if info.Labels[managedByLabel] != managedByValue {
-		return &NotManagedError{Name: containerName}
-	}
-	return nil
-}
-
 func (m *Manager) ensureRunningManaged(ctx context.Context) error {
 	info, found, err := m.backend.ContainerInspect(ctx, containerName)
 	if err != nil {
