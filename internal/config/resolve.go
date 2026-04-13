@@ -33,13 +33,17 @@ func Resolve(global, project Config, envOverrides, flagOverrides Overrides) (Con
 func ResolveWithMetadata(global Config, globalMeta FileMetadata, project Config, projectMeta FileMetadata, envOverrides, flagOverrides Overrides) (Config, Source) {
 	cfg := Default()
 	src := Source{
-		"env":         "default",
-		"shell":       "default",
-		"image":       "default",
-		"network":     "default",
-		"cpus":        "default",
-		"memory":      "default",
-		"memory_swap": "default",
+		"env":           "default",
+		"shell":         "default",
+		"image":         "default",
+		"network":       "default",
+		"cpus":          "default",
+		"memory":        "default",
+		"memory_swap":   "default",
+		"dolt_enabled":  "default",
+		"dolt_database": "default",
+		"dolt_port":     "default",
+		"dolt_image":    "default",
 	}
 
 	// Layer 2: global config
@@ -101,15 +105,19 @@ func applyConfig(cfg *Config, layer Config, meta FileMetadata, label string, src
 	}
 	if meta.DoltEnabledSet {
 		cfg.Dolt.Enabled = layer.Dolt.Enabled
+		src["dolt_enabled"] = label
 	}
 	if layer.Dolt.Port != 0 {
 		cfg.Dolt.Port = layer.Dolt.Port
+		src["dolt_port"] = label
 	}
 	if layer.Dolt.Image != "" {
 		cfg.Dolt.Image = layer.Dolt.Image
+		src["dolt_image"] = label
 	}
 	if layer.Dolt.Database != "" {
 		cfg.Dolt.Database = layer.Dolt.Database
+		src["dolt_database"] = label
 	}
 	// Mount config entries append rather than replace.
 	if len(layer.Mounts.Config) > 0 {
