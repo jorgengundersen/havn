@@ -41,12 +41,12 @@ func newDoltStartCmd(manager *dolt.Manager) *cobra.Command {
 				return fmt.Errorf("havn dolt start: %w", ErrNotImplemented)
 			}
 
-			cwd, err := os.Getwd()
+			projectCtx, err := projectContextFromWorkingDir()
 			if err != nil {
 				return fmt.Errorf("havn dolt start: %w", err)
 			}
 
-			cfg, err := loadEffectiveConfig(filepath.Clean(cwd))
+			cfg, err := loadEffectiveConfig(projectCtx.Path)
 			if err != nil {
 				return fmt.Errorf("havn dolt start: %w", err)
 			}
@@ -228,10 +228,11 @@ func newDoltImportCmd(manager *dolt.Manager, _ *dolt.Setup) *cobra.Command {
 				return fmt.Errorf("havn dolt import: %w", ErrNotImplemented)
 			}
 
-			projectPath, err := filepath.Abs(args[0])
+			projectCtx, err := projectContextFromTarget(args[0])
 			if err != nil {
 				return fmt.Errorf("havn dolt import: %w", err)
 			}
+			projectPath := projectCtx.Path
 
 			cfg, err := loadEffectiveConfig(projectPath)
 			if err != nil {
@@ -330,43 +331,57 @@ func loadEffectiveConfig(projectPath string) (config.Config, error) {
 }
 
 func loadEffectiveConfigForCommand(projectPath, globalConfigPath string) (config.Config, error) {
-	homeDir, err := os.UserHomeDir()
+	projectCtx := projectContext{Path: filepath.Clean(projectPath)}
+
+	cfg, _, err := loadEffectiveConfigWithMetadata(projectCtx, globalConfigPath, config.Overrides{})
 	if err != nil {
 		return config.Config{}, err
+	}
+
+	return cfg, nil
+}
+
+func loadEffectiveConfigWithMetadata(projectCtx projectContext, globalConfigPath string, flagOv config.Overrides) (config.Config, config.Source, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return config.Config{}, nil, err
 	}
 
 	globalPath := globalConfigPath
 	if globalPath == "" {
 		globalPath = filepath.Join(homeDir, ".config", "havn", "config.toml")
 	}
-	projectConfigPath := filepath.Join(projectPath, ".havn", "config.toml")
-	flakePath := filepath.Join(projectPath, ".havn", "flake.nix")
+	projectConfigPath := projectCtx.ProjectConfigPath()
+	flakePath := projectCtx.ProjectFlakePath()
 
 	global, globalMeta, err := config.LoadFileWithMetadata(globalPath)
 	if err != nil {
-		return config.Config{}, err
+		return config.Config{}, nil, err
 	}
 
 	project, projectMeta, err := config.LoadFileWithMetadata(projectConfigPath)
 	if err != nil {
-		return config.Config{}, err
+		return config.Config{}, nil, err
 	}
 
-	cfg, src := config.ResolveWithMetadata(global, globalMeta, project, projectMeta, config.EnvOverrides(), config.Overrides{})
+	cfg, src := config.ResolveWithMetadata(global, globalMeta, project, projectMeta, config.EnvOverrides(), flagOv)
 
 	if _, err := os.Stat(flakePath); err == nil {
 		cfg.Env = config.ResolveFlake(cfg, src, true)
+		if src["env"] == "default" || src["env"] == "global" {
+			src["env"] = "project"
+		}
 	} else {
 		cfg.Env = config.ResolveFlake(cfg, src, false)
 	}
 
 	if cfg.Dolt.Enabled && cfg.Dolt.Database == "" {
-		cfg.Dolt.Database = filepath.Base(projectPath)
+		cfg.Dolt.Database = projectCtx.DefaultDoltDatabase()
 	}
 
 	if err := config.Validate(cfg); err != nil {
-		return config.Config{}, err
+		return config.Config{}, nil, err
 	}
 
-	return cfg, nil
+	return cfg, src, nil
 }

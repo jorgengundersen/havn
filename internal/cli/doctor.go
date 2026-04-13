@@ -13,7 +13,6 @@ import (
 	"github.com/jorgengundersen/havn/internal/container"
 	"github.com/jorgengundersen/havn/internal/doctor"
 	"github.com/jorgengundersen/havn/internal/mount"
-	"github.com/jorgengundersen/havn/internal/name"
 )
 
 var (
@@ -43,11 +42,17 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 			globalConfigPath, _ := cmd.Flags().GetString("config")
 			out := NewOutput(cmd.OutOrStdout(), cmd.ErrOrStderr(), jsonMode, verbose)
 			ctx := cmd.Context()
-			cwd, _ := os.Getwd()
+			projectCtx, err := projectContextFromWorkingDirForStartup()
+			if err != nil {
+				return err
+			}
 
-			projectPath := filepath.Clean(cwd)
+			projectPath := projectCtx.Path
 			var effectiveValidationErr error
-			cfg, err := loadEffectiveConfigForCommand(projectPath, globalConfigPath)
+			cfg, err := loadEffectiveConfig(projectPath)
+			if globalConfigPath != "" {
+				cfg, err = loadEffectiveConfigForCommand(projectPath, globalConfigPath)
+			}
 			if err != nil {
 				var validationErr *config.ValidationError
 				if errors.As(err, &validationErr) {
@@ -55,7 +60,7 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 				}
 				cfg = config.Default()
 			}
-			projectConfigPath := filepath.Join(projectPath, ".havn", "config.toml")
+			projectConfigPath := projectCtx.ProjectConfigPath()
 
 			checks := doctor.HostChecks(backend, cfg, globalConfigPath, projectConfigPath, effectiveValidationErr)
 
@@ -140,7 +145,7 @@ func resolveContainerTargets(ctx context.Context, backend doctor.Backend, all bo
 		return targets
 	}
 
-	expectedName, err := deriveContainerName(currentProjectPath)
+	expectedName, err := (projectContext{Path: currentProjectPath}).ContainerName()
 	if err != nil {
 		return nil
 	}
@@ -161,18 +166,6 @@ func resolveContainerTargets(ctx context.Context, backend doctor.Backend, all bo
 		Project:    cleanProjectPath,
 		BeadsExist: dirExists(filepath.Join(cleanProjectPath, ".beads")),
 	}}
-}
-
-func deriveContainerName(projectPath string) (string, error) {
-	parent, project, err := name.SplitProjectPath(projectPath)
-	if err != nil {
-		return "", err
-	}
-	cname, err := name.DeriveContainerName(parent, project)
-	if err != nil {
-		return "", err
-	}
-	return string(cname), nil
 }
 
 func dirExists(path string) bool {

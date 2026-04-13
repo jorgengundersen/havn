@@ -2,8 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -56,48 +54,13 @@ func runConfigShow(cmd *cobra.Command, _ []string) error {
 	verbose, _ := cmd.Flags().GetBool("verbose")
 	out := NewOutput(cmd.OutOrStdout(), cmd.ErrOrStderr(), jsonMode, verbose)
 	globalPath, _ := cmd.Flags().GetString("config")
-
-	if globalPath == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("config show: %w", err)
-		}
-		globalPath = filepath.Join(homeDir, ".config", "havn", "config.toml")
-	}
-
-	cwd, err := os.Getwd()
+	projectCtx, err := projectContextFromWorkingDir()
 	if err != nil {
 		return fmt.Errorf("config show: %w", err)
 	}
 
-	projectPath := filepath.Join(cwd, ".havn", "config.toml")
-	flakePath := filepath.Join(cwd, ".havn", "flake.nix")
-
-	global, globalMeta, err := config.LoadFileWithMetadata(globalPath)
+	cfg, src, err := loadEffectiveConfigWithMetadata(projectCtx, globalPath, config.Overrides{})
 	if err != nil {
-		return fmt.Errorf("config show: %w", err)
-	}
-	project, projectMeta, err := config.LoadFileWithMetadata(projectPath)
-	if err != nil {
-		return fmt.Errorf("config show: %w", err)
-	}
-
-	envOv := config.EnvOverrides()
-	cfg, src := config.ResolveWithMetadata(global, globalMeta, project, projectMeta, envOv, config.Overrides{})
-	if _, err := os.Stat(flakePath); err == nil {
-		cfg.Env = config.ResolveFlake(cfg, src, true)
-		if src["env"] == "default" || src["env"] == "global" {
-			src["env"] = "project"
-		}
-	} else {
-		cfg.Env = config.ResolveFlake(cfg, src, false)
-	}
-
-	if cfg.Dolt.Enabled && cfg.Dolt.Database == "" {
-		cfg.Dolt.Database = filepath.Base(cwd)
-	}
-
-	if err := config.Validate(cfg); err != nil {
 		return fmt.Errorf("config show: %w", err)
 	}
 

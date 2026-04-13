@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -159,18 +157,18 @@ func NewRoot(deps Deps) *cobra.Command {
 				projectArg = args[0]
 			}
 
-			projectPath, err := resolveProjectPath(projectArg)
+			projectCtx, err := projectContextFromStartupTarget(projectArg)
 			if err != nil {
 				return err
 			}
 
-			cfg, err := resolveStartConfig(cmd, opts, projectPath)
+			cfg, err := resolveStartConfig(cmd, opts, projectCtx)
 			if err != nil {
 				return err
 			}
 
 			out := commandOutput(cmd)
-			exitCode, err := deps.StartService.StartOrAttach(cmd.Context(), cfg, projectPath, out.Status)
+			exitCode, err := deps.StartService.StartOrAttach(cmd.Context(), cfg, projectCtx.Path, out.Status)
 			if err != nil {
 				return err
 			}
@@ -210,54 +208,8 @@ func NewRoot(deps Deps) *cobra.Command {
 	return root
 }
 
-func resolveProjectPath(target string) (string, error) {
-	absPath, err := filepath.Abs(target)
-	if err != nil {
-		return "", err
-	}
-	absPath = filepath.Clean(absPath)
-
-	info, err := os.Stat(absPath)
-	if err != nil || !info.IsDir() {
-		return "", fmt.Errorf("directory not found: %s", absPath)
-	}
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-
-	rel, err := filepath.Rel(homeDir, absPath)
-	if err != nil {
-		return "", err
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", errors.New("project path must be under your home directory")
-	}
-
-	return absPath, nil
-}
-
-func resolveStartConfig(cmd *cobra.Command, opts rootOpts, projectPath string) (config.Config, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return config.Config{}, err
-	}
-
+func resolveStartConfig(cmd *cobra.Command, opts rootOpts, projectCtx projectContext) (config.Config, error) {
 	globalPath := opts.Config
-	if globalPath == "" {
-		globalPath = filepath.Join(homeDir, ".config", "havn", "config.toml")
-	}
-	projectConfigPath := filepath.Join(projectPath, ".havn", "config.toml")
-
-	global, globalMeta, err := config.LoadFileWithMetadata(globalPath)
-	if err != nil {
-		return config.Config{}, err
-	}
-	project, projectMeta, err := config.LoadFileWithMetadata(projectConfigPath)
-	if err != nil {
-		return config.Config{}, err
-	}
 
 	flagOv := config.Overrides{}
 	if cmd.Flags().Changed("shell") {
@@ -279,25 +231,13 @@ func resolveStartConfig(cmd *cobra.Command, opts rootOpts, projectPath string) (
 		flagOv.SSHPort = &opts.Port
 	}
 
-	cfg, src := config.ResolveWithMetadata(global, globalMeta, project, projectMeta, config.EnvOverrides(), flagOv)
-
-	flakePath := filepath.Join(projectPath, ".havn", "flake.nix")
-	if _, err := os.Stat(flakePath); err == nil {
-		cfg.Env = config.ResolveFlake(cfg, src, true)
-	} else {
-		cfg.Env = config.ResolveFlake(cfg, src, false)
+	cfg, _, err := loadEffectiveConfigWithMetadata(projectCtx, globalPath, flagOv)
+	if err != nil {
+		return config.Config{}, err
 	}
 
 	if opts.NoDolt {
 		cfg.Dolt.Enabled = false
-	}
-
-	if cfg.Dolt.Enabled && cfg.Dolt.Database == "" {
-		cfg.Dolt.Database = filepath.Base(projectPath)
-	}
-
-	if err := config.Validate(cfg); err != nil {
-		return config.Config{}, err
 	}
 
 	return cfg, nil

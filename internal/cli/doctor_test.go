@@ -118,7 +118,17 @@ func TestDoctorCommand_ExitCode2OnError(t *testing.T) {
 }
 
 func TestDoctorCommand_UsesConfigFlagForGlobalConfigCheck(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectDir := filepath.Join(homeDir, "project")
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectDir))
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
 
 	badGlobalPath := filepath.Join(t.TempDir(), "bad-global.toml")
 	require.NoError(t, os.WriteFile(badGlobalPath, []byte("[broken"), 0o644))
