@@ -5,11 +5,14 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jorgengundersen/havn/internal/config"
+	"github.com/jorgengundersen/havn/internal/container"
 	"github.com/jorgengundersen/havn/internal/doctor"
+	"github.com/jorgengundersen/havn/internal/name"
 )
 
 var (
@@ -19,6 +22,12 @@ var (
 
 type doctorOpts struct {
 	All bool
+}
+
+type doctorContainerTarget struct {
+	Name       string
+	Project    string
+	BeadsExist bool
 }
 
 func newDoctorCmd(backend doctor.Backend) *cobra.Command {
@@ -32,23 +41,31 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 			verbose, _ := cmd.Flags().GetBool("verbose")
 			out := NewOutput(cmd.OutOrStdout(), cmd.ErrOrStderr(), jsonMode, verbose)
 			ctx := cmd.Context()
+			cwd, _ := os.Getwd()
 
-			cfg := config.Default()
-			projectConfigPath := ".havn/config.toml"
+			projectPath := filepath.Clean(cwd)
+			cfg, err := loadEffectiveConfig(projectPath)
+			if err != nil {
+				cfg = config.Default()
+			}
+			projectConfigPath := filepath.Join(projectPath, ".havn", "config.toml")
 
 			checks := doctor.HostChecks(backend, cfg, projectConfigPath)
 
-			containers := resolveContainers(ctx, backend, opts.All)
-			cwd, _ := os.Getwd()
-			beadsExists := dirExists(filepath.Join(cwd, ".beads"))
-			for _, name := range containers {
-				cc := doctor.ContainerChecks(backend, cfg, name, cwd, beadsExists)
+			targets := resolveContainerTargets(ctx, backend, opts.All, projectPath)
+			for _, target := range targets {
+				targetCfg, err := loadEffectiveConfig(target.Project)
+				if err != nil {
+					targetCfg = cfg
+				}
+
+				cc := doctor.ContainerChecks(backend, targetCfg, target.Name, target.Project, target.BeadsExist)
 				checks = append(checks, cc...)
 			}
 
 			runner := doctor.NewRunner(checks)
 			report := runner.Run(ctx)
-			report = addContainerTierSkipIfNeeded(report, containers)
+			report = addContainerTierSkipIfNeeded(report, targets)
 
 			return outputReport(out, report)
 		},
@@ -59,43 +76,70 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 	return cmd
 }
 
-func resolveContainers(ctx context.Context, backend doctor.Backend, all bool) []string {
+func resolveContainerTargets(ctx context.Context, backend doctor.Backend, all bool, currentProjectPath string) []doctorContainerTarget {
 	labels := map[string]string{"managed-by": "havn"}
 	if all {
 		containers, err := backend.ListContainers(ctx, labels)
 		if err != nil {
 			return nil
 		}
-		return containers
+
+		targets := make([]doctorContainerTarget, 0, len(containers))
+		for _, containerName := range containers {
+			info, found, err := backend.ContainerInspect(ctx, containerName)
+			if err != nil || !found || !info.Running {
+				continue
+			}
+
+			projectPath := strings.TrimSpace(info.Labels[container.LabelPath])
+			if projectPath == "" {
+				continue
+			}
+
+			cleanProjectPath := filepath.Clean(projectPath)
+			targets = append(targets, doctorContainerTarget{
+				Name:       containerName,
+				Project:    cleanProjectPath,
+				BeadsExist: dirExists(filepath.Join(cleanProjectPath, ".beads")),
+			})
+		}
+
+		return targets
 	}
 
-	// Default: find the container for the current directory.
-	cwd, err := os.Getwd()
+	expectedName, err := deriveContainerName(currentProjectPath)
 	if err != nil {
 		return nil
 	}
-	expectedName := deriveContainerName(cwd)
-	if expectedName == "" {
-		return nil
-	}
 
-	// Check if it's running.
 	info, found, err := backend.ContainerInspect(ctx, expectedName)
 	if err != nil || !found || !info.Running {
 		return nil
 	}
-	return []string{expectedName}
+
+	projectPath := strings.TrimSpace(info.Labels[container.LabelPath])
+	if projectPath == "" {
+		projectPath = currentProjectPath
+	}
+	cleanProjectPath := filepath.Clean(projectPath)
+
+	return []doctorContainerTarget{{
+		Name:       expectedName,
+		Project:    cleanProjectPath,
+		BeadsExist: dirExists(filepath.Join(cleanProjectPath, ".beads")),
+	}}
 }
 
-// deriveContainerName produces "havn-<parent>-<project>" from an absolute path.
-// e.g. ~/Repos/github.com/user/api -> havn-user-api
-func deriveContainerName(cwd string) string {
-	project := filepath.Base(cwd)
-	parent := filepath.Base(filepath.Dir(cwd))
-	if project == "" || parent == "" || project == "." || parent == "." {
-		return ""
+func deriveContainerName(projectPath string) (string, error) {
+	parent, project, err := name.SplitProjectPath(projectPath)
+	if err != nil {
+		return "", err
 	}
-	return "havn-" + parent + "-" + project
+	cname, err := name.DeriveContainerName(parent, project)
+	if err != nil {
+		return "", err
+	}
+	return string(cname), nil
 }
 
 func dirExists(path string) bool {
@@ -115,8 +159,8 @@ func outputReport(out *Output, report doctor.Report) error {
 	return exitCodeFromReport(report)
 }
 
-func addContainerTierSkipIfNeeded(report doctor.Report, containers []string) doctor.Report {
-	if len(containers) > 0 {
+func addContainerTierSkipIfNeeded(report doctor.Report, targets []doctorContainerTarget) doctor.Report {
+	if len(targets) > 0 {
 		return report
 	}
 

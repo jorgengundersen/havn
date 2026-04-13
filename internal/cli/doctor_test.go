@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,6 +19,8 @@ import (
 type fakeDoctorBackend struct {
 	pingErr        error
 	listContainers []string
+	containerInfos map[string]doctor.ContainerInfo
+	execErrs       map[string]error
 }
 
 func (f *fakeDoctorBackend) Ping(_ context.Context) error { return f.pingErr }
@@ -32,10 +36,22 @@ func (f *fakeDoctorBackend) NetworkInspect(_ context.Context, _ string) (doctor.
 func (f *fakeDoctorBackend) VolumeInspect(_ context.Context, _ string) (bool, error) {
 	return true, nil
 }
-func (f *fakeDoctorBackend) ContainerInspect(_ context.Context, _ string) (doctor.ContainerInfo, bool, error) {
-	return doctor.ContainerInfo{}, false, nil
+func (f *fakeDoctorBackend) ContainerInspect(_ context.Context, name string) (doctor.ContainerInfo, bool, error) {
+	if f.containerInfos == nil {
+		return doctor.ContainerInfo{}, false, nil
+	}
+	info, ok := f.containerInfos[name]
+	if !ok {
+		return doctor.ContainerInfo{}, false, nil
+	}
+	return info, true, nil
 }
-func (f *fakeDoctorBackend) ContainerExec(_ context.Context, _ string, _ []string) (string, error) {
+func (f *fakeDoctorBackend) ContainerExec(_ context.Context, _ string, cmd []string) (string, error) {
+	if f.execErrs != nil {
+		if err, ok := f.execErrs[strings.Join(cmd, " ")]; ok {
+			return "", err
+		}
+	}
 	return "", nil
 }
 func (f *fakeDoctorBackend) ListContainers(_ context.Context, _ map[string]string) ([]string, error) {
@@ -100,11 +116,64 @@ func TestDoctorCommand_ExitCode2OnError(t *testing.T) {
 func TestDoctorCommand_AllFlagRunsContainerChecks(t *testing.T) {
 	backend := &fakeDoctorBackend{
 		listContainers: []string{"havn-user-myproject"},
+		containerInfos: map[string]doctor.ContainerInfo{
+			"havn-user-myproject": {
+				Running: true,
+				Labels:  map[string]string{"havn.path": "/home/devuser/myproject"},
+			},
+		},
 	}
 	stdout, _, _ := executeDoctorCommand(backend, "--all")
 
 	assert.Contains(t, stdout, "Container: havn-user-myproject")
 	assert.Contains(t, stdout, "Nix store mounted")
+}
+
+func TestDoctorCommand_AllFlagSkipsNonProjectContainers(t *testing.T) {
+	backend := &fakeDoctorBackend{
+		listContainers: []string{"havn-dolt", "havn-user-myproject", "havn-user-missing-path"},
+		containerInfos: map[string]doctor.ContainerInfo{
+			"havn-dolt": {
+				Running: true,
+				Labels:  map[string]string{},
+			},
+			"havn-user-myproject": {
+				Running: true,
+				Labels:  map[string]string{"havn.path": "/home/devuser/myproject"},
+			},
+			"havn-user-missing-path": {
+				Running: true,
+				Labels:  map[string]string{},
+			},
+		},
+	}
+
+	stdout, _, _ := executeDoctorCommand(backend, "--all")
+
+	assert.Contains(t, stdout, "Container: havn-user-myproject")
+	assert.NotContains(t, stdout, "Container: havn-dolt")
+	assert.NotContains(t, stdout, "Container: havn-user-missing-path")
+}
+
+func TestDoctorCommand_AllFlagUsesPerContainerProjectPath(t *testing.T) {
+	backend := &fakeDoctorBackend{
+		listContainers: []string{"havn-user-myproject"},
+		containerInfos: map[string]doctor.ContainerInfo{
+			"havn-user-myproject": {
+				Running: true,
+				Labels:  map[string]string{"havn.path": "/home/devuser/myproject"},
+			},
+		},
+		execErrs: map[string]error{
+			"test -w /home/devuser/myproject":                             nil,
+			"test -w /home/devuser/Repos/github.com/jorgengundersen/havn": errors.New("used cwd path"),
+		},
+	}
+
+	stdout, _, _ := executeDoctorCommand(backend, "--all", "--verbose")
+
+	assert.Contains(t, stdout, "Project directory writable")
+	assert.Contains(t, stdout, "/home/devuser/myproject")
 }
 
 func TestDoctorCommand_NoContainersSkipsTier2(t *testing.T) {
