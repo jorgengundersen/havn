@@ -125,6 +125,7 @@ type configMountsCheck struct {
 	mounts    []ConfigMountExpectation
 }
 
+// ConfigMountExpectation describes a config mount path and expected mode.
 type ConfigMountExpectation struct {
 	Target   string
 	ReadOnly bool
