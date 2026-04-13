@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,12 +50,13 @@ func (s dockerStartService) StartOrAttach(ctx context.Context, cfg config.Config
 			docker: s.docker,
 			output: io.Discard,
 		},
-		Network: startBackend,
-		Volume:  volume.NewManager(volumeBackend),
-		Mount:   hostMountResolver{},
-		Dolt:    dolt.NewSetup(dolt.NewManager(doltBackend), doltBackend),
-		Exec:    startBackend,
-		Status:  status,
+		Network:     startBackend,
+		Volume:      volume.NewManager(volumeBackend),
+		Mount:       hostMountResolver{},
+		Dolt:        dolt.NewSetup(dolt.NewManager(doltBackend), doltBackend),
+		Exec:        startBackend,
+		PortChecker: hostPortChecker{},
+		Status:      status,
 	}
 
 	return container.StartOrAttach(ctx, deps, cfg, projectPath)
@@ -88,13 +90,14 @@ func (b dockerStartBackend) ContainerCreate(ctx context.Context, opts container.
 			volumeMounts = append(volumeMounts, docker.VolumeMount{Name: m.Source, Target: m.Target})
 			continue
 		}
-		bindMounts = append(bindMounts, docker.BindMount{Source: m.Source, Target: m.Target})
+		bindMounts = append(bindMounts, docker.BindMount{Source: m.Source, Target: m.Target, ReadOnly: m.ReadOnly})
 	}
 
 	return b.docker.ContainerCreate(ctx, docker.CreateOpts{
 		Image:        opts.Image,
 		Name:         opts.Name,
 		Network:      opts.Network,
+		Ports:        opts.Ports,
 		Env:          opts.Env,
 		Labels:       opts.Labels,
 		BindMounts:   bindMounts,
@@ -106,6 +109,35 @@ func (b dockerStartBackend) ContainerCreate(ctx context.Context, opts container.
 		MemorySwap:   opts.MemorySwap,
 		AutoRemove:   opts.AutoRemove,
 	})
+}
+
+type hostPortChecker struct{}
+
+func (hostPortChecker) EnsureAvailable(ports []string) error {
+	for _, mapping := range ports {
+		hostPort, ok := hostPortFromMapping(mapping)
+		if !ok {
+			continue
+		}
+		ln, err := net.Listen("tcp", net.JoinHostPort("", hostPort))
+		if err != nil {
+			return fmt.Errorf("requested host port %s is unavailable: %w", hostPort, err)
+		}
+		_ = ln.Close()
+	}
+	return nil
+}
+
+func hostPortFromMapping(mapping string) (string, bool) {
+	parts := strings.SplitN(mapping, ":", 2)
+	if len(parts) != 2 || parts[0] == "" {
+		return "", false
+	}
+	hostPort := parts[0]
+	if slash := strings.IndexRune(hostPort, '/'); slash >= 0 {
+		hostPort = hostPort[:slash]
+	}
+	return hostPort, hostPort != ""
 }
 
 func (b dockerStartBackend) ContainerStart(ctx context.Context, id string) error {

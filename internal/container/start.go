@@ -58,6 +58,7 @@ type CreateOpts struct {
 	Name       string
 	Image      string
 	Network    string
+	Ports      []string
 	Mounts     []mount.Spec
 	Env        map[string]string
 	Labels     map[string]string
@@ -69,16 +70,22 @@ type CreateOpts struct {
 	AutoRemove bool
 }
 
+// PortChecker validates host-port availability for requested publishes.
+type PortChecker interface {
+	EnsureAvailable(ports []string) error
+}
+
 // StartDeps aggregates all dependencies for StartOrAttach.
 type StartDeps struct {
-	Container StartBackend
-	Image     ImageBackend
-	Network   NetworkBackend
-	Volume    VolumeEnsurer
-	Mount     MountResolver
-	Dolt      DoltSetup // nil to skip Dolt setup
-	Exec      ExecBackend
-	Status    func(msg string)
+	Container   StartBackend
+	Image       ImageBackend
+	Network     NetworkBackend
+	Volume      VolumeEnsurer
+	Mount       MountResolver
+	Dolt        DoltSetup // nil to skip Dolt setup
+	Exec        ExecBackend
+	PortChecker PortChecker
+	Status      func(msg string)
 }
 
 // StartOrAttach implements the startup orchestration (steps 3-10).
@@ -219,6 +226,7 @@ func createContainer(ctx context.Context, deps StartDeps, cfg config.Config, cna
 		Name:       cname,
 		Image:      cfg.Image,
 		Network:    cfg.Network,
+		Ports:      cfg.Ports,
 		Mounts:     mountResult.Mounts,
 		Env:        env,
 		Labels:     labels,
@@ -228,6 +236,12 @@ func createContainer(ctx context.Context, deps StartDeps, cfg config.Config, cna
 		Memory:     cfg.Resources.Memory,
 		MemorySwap: cfg.Resources.MemorySwap,
 		AutoRemove: true,
+	}
+
+	if deps.PortChecker != nil {
+		if err := deps.PortChecker.EnsureAvailable(opts.Ports); err != nil {
+			return "", err
+		}
 	}
 
 	return deps.Container.ContainerCreate(ctx, opts)

@@ -221,8 +221,9 @@ func TestContainerCreateStartInspect_Translation_Integration(t *testing.T) {
 			"havn.test": "container-translation",
 		},
 		BindMounts: []docker.BindMount{{
-			Source: hostDir,
-			Target: "/workspace",
+			Source:   hostDir,
+			Target:   "/workspace",
+			ReadOnly: false,
 		}},
 	})
 	require.NoError(t, err)

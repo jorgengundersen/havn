@@ -102,6 +102,16 @@ type fakeExecBackend struct {
 	interactiveWorkdir  string
 }
 
+type fakePortChecker struct {
+	checkedPorts []string
+	err          error
+}
+
+func (f *fakePortChecker) EnsureAvailable(ports []string) error {
+	f.checkedPorts = append([]string(nil), ports...)
+	return f.err
+}
+
 type execCall struct {
 	name string
 	cmd  []string
@@ -593,6 +603,58 @@ func TestStartOrAttach_ConfigEnvironment_UnsetPassthroughVarRejected(t *testing.
 	var valErr *config.ValidationError
 	require.ErrorAs(t, err, &valErr)
 	assert.Equal(t, "environment.API_KEY", valErr.Field)
+}
+
+func TestStartOrAttach_HostPortCheckUsesEffectivePorts(t *testing.T) {
+	ctx := context.Background()
+	checker := &fakePortChecker{}
+	cb := &fakeStartBackend{
+		inspectErr: &container.NotFoundError{Name: "havn-user-project"},
+		createID:   "new-123",
+	}
+	deps := container.StartDeps{
+		Container:   cb,
+		Image:       &fakeImageBackend{existsResult: true},
+		Network:     &fakeNetworkBackend{},
+		Volume:      &fakeVolumeEnsurer{},
+		Mount:       &fakeMountResolver{result: mount.ResolveResult{Env: map[string]string{}}},
+		Exec:        &fakeExecBackend{},
+		PortChecker: checker,
+		Status:      func(string) {},
+	}
+	cfg := defaultTestConfig()
+	cfg.Ports = []string{"2222:22", "8080:8080"}
+
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"2222:22", "8080:8080"}, checker.checkedPorts)
+}
+
+func TestStartOrAttach_HostPortCheckFailure_AbortsStartup(t *testing.T) {
+	ctx := context.Background()
+	checker := &fakePortChecker{err: fmt.Errorf("host port 8080 is not available")}
+	cb := &fakeStartBackend{
+		inspectErr: &container.NotFoundError{Name: "havn-user-project"},
+		createID:   "new-123",
+	}
+	deps := container.StartDeps{
+		Container:   cb,
+		Image:       &fakeImageBackend{existsResult: true},
+		Network:     &fakeNetworkBackend{},
+		Volume:      &fakeVolumeEnsurer{},
+		Mount:       &fakeMountResolver{result: mount.ResolveResult{Env: map[string]string{}}},
+		Exec:        &fakeExecBackend{},
+		PortChecker: checker,
+		Status:      func(string) {},
+	}
+	cfg := defaultTestConfig()
+	cfg.Ports = []string{"8080:8080"}
+
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	assert.ErrorContains(t, err, "host port 8080 is not available")
+	assert.Empty(t, cb.createdOpts.Name)
 }
 
 func TestStartOrAttach_ShellExitCode_Propagated(t *testing.T) {

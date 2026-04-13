@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	cerrdefs "github.com/containerd/errdefs"
@@ -10,12 +11,14 @@ import (
 	dockerfilters "github.com/docker/docker/api/types/filters"
 	dockermount "github.com/docker/docker/api/types/mount"
 	dockernetwork "github.com/docker/docker/api/types/network"
+	"github.com/docker/go-connections/nat"
 )
 
 // BindMount represents a host-to-container bind mount.
 type BindMount struct {
-	Source string
-	Target string
+	Source   string
+	Target   string
+	ReadOnly bool
 }
 
 // VolumeMount represents a named volume mount.
@@ -55,6 +58,7 @@ type CreateOpts struct {
 	Image         string
 	Name          string
 	Network       string
+	Ports         []string
 	Env           map[string]string
 	Labels        map[string]string
 	BindMounts    []BindMount
@@ -104,6 +108,15 @@ func (c *Client) ContainerCreate(ctx context.Context, opts CreateOpts) (string, 
 			NanoCPUs: int64(opts.CPUs) * 1e9,
 			Memory:   ParseMemoryBytes(opts.Memory),
 		},
+	}
+
+	exposedPorts, portBindings, err := BuildPortBindings(opts.Ports)
+	if err != nil {
+		return "", err
+	}
+	if len(exposedPorts) > 0 {
+		cfg.ExposedPorts = exposedPorts
+		hostCfg.PortBindings = portBindings
 	}
 	if opts.MemorySwap != "" {
 		hostCfg.MemorySwap = ParseMemoryBytes(opts.MemorySwap)
@@ -311,9 +324,10 @@ func BuildMounts(binds []BindMount, volumes []VolumeMount) []dockermount.Mount {
 	mounts := make([]dockermount.Mount, 0, len(binds)+len(volumes))
 	for _, b := range binds {
 		mounts = append(mounts, dockermount.Mount{
-			Type:   dockermount.TypeBind,
-			Source: b.Source,
-			Target: b.Target,
+			Type:     dockermount.TypeBind,
+			Source:   b.Source,
+			Target:   b.Target,
+			ReadOnly: b.ReadOnly,
 		})
 	}
 	for _, v := range volumes {
@@ -324,6 +338,62 @@ func BuildMounts(binds []BindMount, volumes []VolumeMount) []dockermount.Mount {
 		})
 	}
 	return mounts
+}
+
+// BuildPortBindings converts host:container(/proto) mappings into Docker types.
+func BuildPortBindings(ports []string) (nat.PortSet, nat.PortMap, error) {
+	if len(ports) == 0 {
+		return nil, nil, nil
+	}
+
+	exposed := make(nat.PortSet, len(ports))
+	bindings := make(nat.PortMap, len(ports))
+	for _, mapping := range ports {
+		hostPort, containerPort, protocol, ok := parsePortMapping(mapping)
+		if !ok {
+			return nil, nil, fmt.Errorf("invalid port mapping %q", mapping)
+		}
+		port := nat.Port(containerPort + "/" + protocol)
+		exposed[port] = struct{}{}
+		bindings[port] = append(bindings[port], nat.PortBinding{HostIP: "", HostPort: hostPort})
+	}
+
+	return exposed, bindings, nil
+}
+
+func parsePortMapping(mapping string) (hostPort, containerPort, protocol string, ok bool) {
+	parts := strings.SplitN(mapping, ":", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", "", false
+	}
+
+	hostPort = parts[0]
+	containerPart := parts[1]
+	protocol = "tcp"
+	if slash := strings.IndexRune(containerPart, '/'); slash >= 0 {
+		containerPort = containerPart[:slash]
+		if containerPort == "" {
+			return "", "", "", false
+		}
+		protocol = containerPart[slash+1:]
+		if protocol == "" {
+			return "", "", "", false
+		}
+	} else {
+		containerPort = containerPart
+	}
+
+	if _, err := strconv.Atoi(hostPort); err != nil {
+		return "", "", "", false
+	}
+	if _, err := strconv.Atoi(containerPort); err != nil {
+		return "", "", "", false
+	}
+	if protocol != "tcp" && protocol != "udp" {
+		return "", "", "", false
+	}
+
+	return hostPort, containerPort, protocol, true
 }
 
 // ParseMemoryBytes converts a memory string like "4g" or "512m" to bytes.

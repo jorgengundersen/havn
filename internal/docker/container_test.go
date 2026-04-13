@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/docker/go-connections/nat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,8 +18,9 @@ func TestCreateOpts_FieldsExist(t *testing.T) {
 		Network:       "havn-net",
 		Env:           map[string]string{"FOO": "bar"},
 		Labels:        map[string]string{"managed-by": "havn"},
-		BindMounts:    []docker.BindMount{{Source: "/host", Target: "/container"}},
+		BindMounts:    []docker.BindMount{{Source: "/host", Target: "/container", ReadOnly: true}},
 		VolumeMounts:  []docker.VolumeMount{{Name: "data", Target: "/data"}},
+		Ports:         []string{"8080:80", "2222:22/tcp"},
 		RestartPolicy: "unless-stopped",
 		TTY:           true,
 		Workdir:       "/workspace",
@@ -35,6 +37,7 @@ func TestCreateOpts_FieldsExist(t *testing.T) {
 	assert.Equal(t, "havn-user-api", opts.Name)
 	assert.Equal(t, "havn-net", opts.Network)
 	assert.Equal(t, map[string]string{"managed-by": "havn"}, opts.Labels)
+	assert.Equal(t, []string{"8080:80", "2222:22/tcp"}, opts.Ports)
 	assert.Equal(t, "unless-stopped", opts.RestartPolicy)
 	assert.True(t, opts.TTY)
 	assert.Equal(t, "/workspace", opts.Workdir)
@@ -119,12 +122,13 @@ func TestEnvSlice(t *testing.T) {
 }
 
 func TestBuildMounts_CombinesBindsAndVolumes(t *testing.T) {
-	binds := []docker.BindMount{{Source: "/host", Target: "/container"}}
+	binds := []docker.BindMount{{Source: "/host", Target: "/container", ReadOnly: true}}
 	volumes := []docker.VolumeMount{{Name: "data", Target: "/data"}}
 
 	got := docker.BuildMounts(binds, volumes)
 
 	assert.Len(t, got, 2)
+	assert.True(t, got[0].ReadOnly)
 }
 
 func TestBuildMounts_EmptyInputs(t *testing.T) {
@@ -260,4 +264,24 @@ func TestParseMemoryBytes(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestBuildPortBindings(t *testing.T) {
+	exposed, bindings, err := docker.BuildPortBindings([]string{"8080:80", "8443:443/tcp", "5353:53/udp"})
+
+	require.NoError(t, err)
+	assert.Len(t, exposed, 3)
+	assert.Contains(t, bindings, nat.Port("80/tcp"))
+	assert.Contains(t, bindings, nat.Port("443/tcp"))
+	assert.Contains(t, bindings, nat.Port("53/udp"))
+	binding, ok := bindings[nat.Port("80/tcp")]
+	require.True(t, ok)
+	assert.Equal(t, "8080", binding[0].HostPort)
+}
+
+func TestBuildPortBindings_InvalidMapping(t *testing.T) {
+	_, _, err := docker.BuildPortBindings([]string{"bad"})
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid port mapping")
 }
