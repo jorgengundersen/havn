@@ -96,10 +96,10 @@ This is a product map, not the detailed CLI contract.
 | `havn list` | Implemented | `specs/cli-framework.md` |
 | `havn stop` | Implemented | `specs/cli-framework.md` |
 | `havn build` | Implemented | `specs/cli-framework.md` + `specs/base-image.md` |
-| `havn config show` | Implemented, contract still tightening | `specs/configuration.md` |
+| `havn config show` | Partial | `specs/configuration.md` |
 | `havn volume list` | Implemented | `specs/cli-framework.md` |
-| `havn doctor` | Implemented, contract still tightening | `specs/havn-doctor.md` |
-| `havn dolt ...` | Implemented, contract still tightening | `specs/shared-dolt-server.md` |
+| `havn doctor` | Partial | `specs/havn-doctor.md` |
+| `havn dolt ...` | Partial | `specs/shared-dolt-server.md` |
 | `havn completion ...` | Planned | `specs/cli-framework.md` |
 
 ## Runtime Model

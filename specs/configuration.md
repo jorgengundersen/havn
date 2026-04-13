@@ -151,6 +151,9 @@ Lower-precedence entries appear first, then higher-precedence entries.
 effective publish entry that maps `<host>:22`. That derived SSH publish entry is
 merged with any configured `ports` entries into the final Docker publish set.
 
+Startup fails if any requested host port in the final Docker publish set is not
+available on the host.
+
 ### Maps
 
 `[environment]` merges by key:

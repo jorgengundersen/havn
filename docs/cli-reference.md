@@ -81,9 +81,10 @@ flag.
 - `havn dolt import <path> [--force]`
 - `havn dolt export <name> [--dest <path>]`
 
-### Utility commands
+### Planned utility commands
 
-- `havn completion <bash|zsh|fish|powershell>`
+- `havn completion <bash|zsh|fish|powershell>`: planned, not part of the
+  shipped command tree today
 
 ## Support matrix
 
