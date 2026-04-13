@@ -122,6 +122,10 @@ func (m *Manager) pollHealth(ctx context.Context) error {
 
 // Stop stops the Dolt server container.
 func (m *Manager) Stop(ctx context.Context) error {
+	if err := m.ensureRunningManaged(ctx); err != nil {
+		return err
+	}
+
 	return m.backend.ContainerStop(ctx, containerName)
 }
 
@@ -143,4 +147,32 @@ func (m *Manager) Status(ctx context.Context) (Status, error) {
 		Network:       info.Network,
 		ManagedByHavn: info.Labels[managedByLabel] == managedByValue,
 	}, nil
+}
+
+func (m *Manager) ensureManaged(ctx context.Context) error {
+	info, found, err := m.backend.ContainerInspect(ctx, containerName)
+	if err != nil {
+		return fmt.Errorf("inspect container: %w", err)
+	}
+	if !found {
+		return nil
+	}
+	if info.Labels[managedByLabel] != managedByValue {
+		return &NotManagedError{Name: containerName}
+	}
+	return nil
+}
+
+func (m *Manager) ensureRunningManaged(ctx context.Context) error {
+	info, found, err := m.backend.ContainerInspect(ctx, containerName)
+	if err != nil {
+		return fmt.Errorf("inspect container: %w", err)
+	}
+	if found && info.Labels[managedByLabel] != managedByValue {
+		return &NotManagedError{Name: containerName}
+	}
+	if !found || !info.Running {
+		return &ServerNotRunningError{Name: containerName}
+	}
+	return nil
 }

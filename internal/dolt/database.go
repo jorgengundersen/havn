@@ -16,6 +16,10 @@ var systemDatabases = map[string]bool{
 // Databases returns the names of user-created databases on the shared Dolt
 // server, excluding system databases.
 func (m *Manager) Databases(ctx context.Context) ([]string, error) {
+	if err := m.ensureRunningManaged(ctx); err != nil {
+		return nil, err
+	}
+
 	output, err := m.backend.ContainerExec(ctx, containerName, []string{
 		"dolt", "sql", "-q", "SHOW DATABASES",
 	})
@@ -29,6 +33,10 @@ func (m *Manager) Databases(ctx context.Context) ([]string, error) {
 // Drop executes DROP DATABASE on the shared Dolt server.
 // No confirmation logic here — the CLI layer enforces --yes.
 func (m *Manager) Drop(ctx context.Context, name string) error {
+	if err := m.ensureRunningManaged(ctx); err != nil {
+		return err
+	}
+
 	if err := validateDatabaseIdentifier(name); err != nil {
 		return err
 	}
@@ -45,6 +53,10 @@ func (m *Manager) Drop(ctx context.Context, name string) error {
 
 // Connect opens an interactive SQL shell on the shared Dolt server.
 func (m *Manager) Connect(ctx context.Context) error {
+	if err := m.ensureRunningManaged(ctx); err != nil {
+		return err
+	}
+
 	return m.backend.ContainerExecInteractive(ctx, containerName, []string{"dolt", "sql"})
 }
 

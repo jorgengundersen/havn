@@ -102,6 +102,11 @@ func FormatError(err error) string {
 		return notManaged.Error()
 	}
 
+	var notRunning *dolt.ServerNotRunningError
+	if errors.As(err, &notRunning) {
+		return "Dolt server is not running. Run `havn dolt start`"
+	}
+
 	var dbCreateErr *dolt.DatabaseCreateError
 	if errors.As(err, &dbCreateErr) {
 		return fmt.Sprintf("Failed to create database '%s': %s", dbCreateErr.Name, dbCreateErr.Err)

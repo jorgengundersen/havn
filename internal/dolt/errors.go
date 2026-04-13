@@ -36,6 +36,16 @@ func (e *NotManagedError) Error() string {
 	return fmt.Sprintf("container %q exists but was not created by havn", e.Name)
 }
 
+// ServerNotRunningError indicates the shared Dolt server container is absent
+// or not running for commands that require a live server.
+type ServerNotRunningError struct {
+	Name string
+}
+
+func (e *ServerNotRunningError) Error() string {
+	return fmt.Sprintf("container %q is not running", e.Name)
+}
+
 // DatabaseExistsError indicates a database already exists on the shared server.
 type DatabaseExistsError struct {
 	Name string

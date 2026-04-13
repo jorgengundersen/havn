@@ -42,6 +42,12 @@ func TestImport_DatabaseExistsNoForce(t *testing.T) {
 	require.NoError(t, os.MkdirAll(dbDir, 0o755))
 
 	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
 		execOutput: "+--------------------+\n| Database           |\n+--------------------+\n| mydb               |\n+--------------------+\n",
 	}
 	mgr := dolt.NewManager(backend)
@@ -64,6 +70,12 @@ func TestImport_Success(t *testing.T) {
 
 	callCount := 0
 	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
 		execFunc: func(_ []string) (string, error) {
 			callCount++
 			if callCount == 1 {
@@ -95,6 +107,12 @@ func TestImport_ForceOverwriteExisting(t *testing.T) {
 	require.NoError(t, os.WriteFile(dbDir+"/manifest", []byte("data"), 0o644))
 
 	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
 		execOutput: "+--------------------+\n| Database           |\n+--------------------+\n| mydb               |\n+--------------------+\n",
 	}
 	mgr := dolt.NewManager(backend)
@@ -124,6 +142,12 @@ func TestImport_ProjectIDMismatchWarning(t *testing.T) {
 
 	callCount := 0
 	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
 		execFunc: func(_ []string) (string, error) {
 			callCount++
 			// Calls 1 and 2: SHOW DATABASES (existence check + verification).
@@ -158,6 +182,12 @@ func TestExport_Success(t *testing.T) {
 	})
 
 	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
 		// SHOW DATABASES returns the database — it exists.
 		execOutput:   "+--------------------+\n| Database           |\n+--------------------+\n| mydb               |\n+--------------------+\n",
 		copyFromData: tarData,
@@ -175,6 +205,12 @@ func TestExport_Success(t *testing.T) {
 
 func TestExport_DatabaseNotOnServer(t *testing.T) {
 	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
 		execOutput: "+--------------------+\n| Database           |\n+--------------------+\n| information_schema |\n+--------------------+\n",
 	}
 	mgr := dolt.NewManager(backend)
@@ -190,6 +226,12 @@ func TestExport_DestinationVerificationFailsWhenDatabaseMissing(t *testing.T) {
 	destDir := t.TempDir()
 
 	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
 		execOutput:   "+--------------------+\n| Database           |\n+--------------------+\n| mydb               |\n+--------------------+\n",
 		copyFromData: buildTestTar(t, "otherdb", map[string]string{"manifest": "exported-data"}),
 	}
@@ -208,7 +250,14 @@ func TestImport_InvalidDatabaseIdentifier(t *testing.T) {
 	require.NoError(t, os.MkdirAll(dbDir, 0o755))
 	require.NoError(t, os.WriteFile(dbDir+"/manifest", []byte("data"), 0o644))
 
-	backend := &fakeBackend{}
+	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+	}
 	mgr := dolt.NewManager(backend)
 	cfg := config.Config{
 		Dolt: config.DoltConfig{Database: badName},
@@ -223,13 +272,108 @@ func TestImport_InvalidDatabaseIdentifier(t *testing.T) {
 }
 
 func TestExport_InvalidDatabaseIdentifier(t *testing.T) {
-	backend := &fakeBackend{}
+	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+	}
 	mgr := dolt.NewManager(backend)
 
 	err := mgr.Export(context.Background(), "mydb`; DROP DATABASE prod; --", t.TempDir())
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid database identifier")
+	assert.Empty(t, backend.execCalls)
+}
+
+func TestImport_UnmanagedContainerConflict(t *testing.T) {
+	projectDir := t.TempDir()
+	dbDir := projectDir + "/.beads/dolt/mydb"
+	require.NoError(t, os.MkdirAll(dbDir, 0o755))
+	require.NoError(t, os.WriteFile(dbDir+"/manifest", []byte("data"), 0o644))
+
+	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "foreign-id",
+			Running: true,
+			Labels:  map[string]string{},
+		},
+	}
+	mgr := dolt.NewManager(backend)
+	cfg := config.Config{Dolt: config.DoltConfig{Database: "mydb"}}
+
+	_, err := mgr.Import(context.Background(), projectDir, cfg, false)
+
+	var notManaged *dolt.NotManagedError
+	assert.ErrorAs(t, err, &notManaged)
+	assert.Equal(t, "havn-dolt", notManaged.Name)
+	assert.Empty(t, backend.copiedData)
+}
+
+func TestExport_UnmanagedContainerConflict(t *testing.T) {
+	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "foreign-id",
+			Running: true,
+			Labels:  map[string]string{},
+		},
+	}
+	mgr := dolt.NewManager(backend)
+
+	err := mgr.Export(context.Background(), "mydb", t.TempDir())
+
+	var notManaged *dolt.NotManagedError
+	assert.ErrorAs(t, err, &notManaged)
+	assert.Equal(t, "havn-dolt", notManaged.Name)
+	assert.Empty(t, backend.execCalls)
+}
+
+func TestImport_ServerNotRunning(t *testing.T) {
+	projectDir := t.TempDir()
+	dbDir := projectDir + "/.beads/dolt/mydb"
+	require.NoError(t, os.MkdirAll(dbDir, 0o755))
+	require.NoError(t, os.WriteFile(dbDir+"/manifest", []byte("data"), 0o644))
+
+	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: false,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+	}
+	mgr := dolt.NewManager(backend)
+	cfg := config.Config{Dolt: config.DoltConfig{Database: "mydb"}}
+
+	_, err := mgr.Import(context.Background(), projectDir, cfg, false)
+
+	var notRunning *dolt.ServerNotRunningError
+	assert.ErrorAs(t, err, &notRunning)
+	assert.Equal(t, "havn-dolt", notRunning.Name)
+	assert.Empty(t, backend.copiedData)
+}
+
+func TestExport_ServerNotRunning(t *testing.T) {
+	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: false,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+	}
+	mgr := dolt.NewManager(backend)
+
+	err := mgr.Export(context.Background(), "mydb", t.TempDir())
+
+	var notRunning *dolt.ServerNotRunningError
+	assert.ErrorAs(t, err, &notRunning)
+	assert.Equal(t, "havn-dolt", notRunning.Name)
 	assert.Empty(t, backend.execCalls)
 }
 

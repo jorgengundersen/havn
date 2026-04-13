@@ -59,6 +59,12 @@ func TestFormatError_NotManagedError(t *testing.T) {
 	assert.Equal(t, `container "havn-dolt" exists but was not created by havn`, cli.FormatError(err))
 }
 
+func TestFormatError_ServerNotRunningError(t *testing.T) {
+	err := &dolt.ServerNotRunningError{Name: "havn-dolt"}
+
+	assert.Equal(t, "Dolt server is not running. Run `havn dolt start`", cli.FormatError(err))
+}
+
 func TestFormatError_DatabaseCreateError(t *testing.T) {
 	err := &dolt.DatabaseCreateError{Name: "myproject", Err: errors.New("access denied")}
 

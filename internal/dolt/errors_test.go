@@ -16,6 +16,12 @@ func TestNotManagedError_Message(t *testing.T) {
 	assert.EqualError(t, err, `container "havn-dolt" exists but was not created by havn`)
 }
 
+func TestServerNotRunningError_Message(t *testing.T) {
+	err := &dolt.ServerNotRunningError{Name: "havn-dolt"}
+
+	assert.EqualError(t, err, `container "havn-dolt" is not running`)
+}
+
 func TestStartError_WrapsUnderlying(t *testing.T) {
 	cause := fmt.Errorf("connection refused")
 	err := &dolt.StartError{Err: cause}

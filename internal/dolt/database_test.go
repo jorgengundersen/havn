@@ -12,6 +12,12 @@ import (
 
 func TestDatabases_FiltersSystemDatabases(t *testing.T) {
 	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
 		execOutput: "+--------------------+\n" +
 			"| Database           |\n" +
 			"+--------------------+\n" +
@@ -31,6 +37,12 @@ func TestDatabases_FiltersSystemDatabases(t *testing.T) {
 
 func TestDatabases_OnlySystemDatabases(t *testing.T) {
 	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
 		execOutput: "+--------------------+\n" +
 			"| Database           |\n" +
 			"+--------------------+\n" +
@@ -48,6 +60,12 @@ func TestDatabases_OnlySystemDatabases(t *testing.T) {
 
 func TestDatabases_ExecError(t *testing.T) {
 	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
 		execErr: assert.AnError,
 	}
 	mgr := dolt.NewManager(backend)
@@ -58,7 +76,14 @@ func TestDatabases_ExecError(t *testing.T) {
 }
 
 func TestDrop_ExecutesDropDatabase(t *testing.T) {
-	backend := &fakeBackend{}
+	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+	}
 	mgr := dolt.NewManager(backend)
 
 	err := mgr.Drop(context.Background(), "myproject")
@@ -70,6 +95,12 @@ func TestDrop_ExecutesDropDatabase(t *testing.T) {
 
 func TestDrop_ExecError(t *testing.T) {
 	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
 		execErr: assert.AnError,
 	}
 	mgr := dolt.NewManager(backend)
@@ -80,7 +111,14 @@ func TestDrop_ExecError(t *testing.T) {
 }
 
 func TestConnect_CallsInteractiveExec(t *testing.T) {
-	backend := &fakeBackend{}
+	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+	}
 	mgr := dolt.NewManager(backend)
 
 	err := mgr.Connect(context.Background())
@@ -92,6 +130,12 @@ func TestConnect_CallsInteractiveExec(t *testing.T) {
 
 func TestConnect_ExecError(t *testing.T) {
 	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
 		interactiveErr: assert.AnError,
 	}
 	mgr := dolt.NewManager(backend)
@@ -102,7 +146,14 @@ func TestConnect_ExecError(t *testing.T) {
 }
 
 func TestDrop_InvalidDatabaseIdentifier(t *testing.T) {
-	backend := &fakeBackend{}
+	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+	}
 	mgr := dolt.NewManager(backend)
 
 	err := mgr.Drop(context.Background(), "mydb`; DROP DATABASE prod; --")
@@ -110,4 +161,40 @@ func TestDrop_InvalidDatabaseIdentifier(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid database identifier")
 	assert.Empty(t, backend.execCalls)
+}
+
+func TestDatabases_UnmanagedContainerConflict(t *testing.T) {
+	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "foreign-id",
+			Running: true,
+			Labels:  map[string]string{},
+		},
+	}
+	mgr := dolt.NewManager(backend)
+
+	_, err := mgr.Databases(context.Background())
+
+	var notManaged *dolt.NotManagedError
+	assert.ErrorAs(t, err, &notManaged)
+	assert.Equal(t, "havn-dolt", notManaged.Name)
+}
+
+func TestDatabases_ServerNotRunning(t *testing.T) {
+	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: false,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+	}
+	mgr := dolt.NewManager(backend)
+
+	_, err := mgr.Databases(context.Background())
+
+	var notRunning *dolt.ServerNotRunningError
+	assert.ErrorAs(t, err, &notRunning)
+	assert.Equal(t, "havn-dolt", notRunning.Name)
 }

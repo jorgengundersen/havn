@@ -28,6 +28,10 @@ type ImportResult struct {
 // (or derives it from the project directory name), locates the database at
 // <projectPath>/.beads/dolt/<dbname>/, and copies it into the container.
 func (m *Manager) Import(ctx context.Context, projectPath string, cfg config.Config, force bool) (ImportResult, error) {
+	if err := m.ensureRunningManaged(ctx); err != nil {
+		return ImportResult{}, err
+	}
+
 	dbName := cfg.Dolt.Database
 	if dbName == "" {
 		dbName = filepath.Base(projectPath)
@@ -77,6 +81,10 @@ func (m *Manager) Import(ctx context.Context, projectPath string, cfg config.Con
 // Export copies a Dolt database from the shared server's data volume to
 // <destPath>/.beads/dolt/<dbName>/.
 func (m *Manager) Export(ctx context.Context, dbName string, destPath string) error {
+	if err := m.ensureRunningManaged(ctx); err != nil {
+		return err
+	}
+
 	if err := validateDatabaseIdentifier(dbName); err != nil {
 		return err
 	}

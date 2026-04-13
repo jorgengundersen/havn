@@ -154,12 +154,55 @@ func TestStart_ExistingManagedRunning(t *testing.T) {
 }
 
 func TestStop_Success(t *testing.T) {
-	backend := &fakeBackend{}
+	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+	}
 	mgr := dolt.NewManager(backend)
 
 	err := mgr.Stop(context.Background())
 
 	assert.NoError(t, err)
+}
+
+func TestStop_ExistingNotManaged(t *testing.T) {
+	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "foreign-id",
+			Running: true,
+			Labels:  map[string]string{},
+		},
+	}
+	mgr := dolt.NewManager(backend)
+
+	err := mgr.Stop(context.Background())
+
+	var notManaged *dolt.NotManagedError
+	assert.ErrorAs(t, err, &notManaged)
+	assert.Equal(t, "havn-dolt", notManaged.Name)
+}
+
+func TestStop_ServerNotRunning(t *testing.T) {
+	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: false,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+	}
+	mgr := dolt.NewManager(backend)
+
+	err := mgr.Stop(context.Background())
+
+	var notRunning *dolt.ServerNotRunningError
+	assert.ErrorAs(t, err, &notRunning)
+	assert.Equal(t, "havn-dolt", notRunning.Name)
 }
 
 func TestStatus_Running(t *testing.T) {

@@ -159,7 +159,10 @@ func TestDoltStopCommand_ReturnsNotImplemented(t *testing.T) {
 }
 
 func TestDoltStopCommand_StopsSharedDoltServer(t *testing.T) {
-	backend := &fakeDoltBackend{}
+	backend := &fakeDoltBackend{
+		inspectFound: true,
+		inspectInfo:  dolt.ContainerInfo{ID: "running-id", Running: true, Labels: map[string]string{"managed-by": "havn"}},
+	}
 	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
 	stdout, stderr, err := executeDoltWithRoot(root, "dolt", "stop")
 
@@ -167,6 +170,15 @@ func TestDoltStopCommand_StopsSharedDoltServer(t *testing.T) {
 	assert.Empty(t, stdout)
 	assert.Equal(t, "havn-dolt", backend.lastStoppedName)
 	assert.Contains(t, stderr, "Stopping shared Dolt server")
+}
+
+func TestDoltStopCommand_WhenServerNotRunning_ReturnsGuidance(t *testing.T) {
+	backend := &fakeDoltBackend{}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	_, _, err := executeDoltWithRoot(root, "dolt", "stop")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "container \"havn-dolt\" is not running")
 }
 
 func TestDoltStatusCommand_ReturnsNotImplemented(t *testing.T) {
@@ -205,13 +217,24 @@ func TestDoltDatabasesCommand_ReturnsNotImplemented(t *testing.T) {
 
 func TestDoltDatabasesCommand_PrintsJSONDatabaseList(t *testing.T) {
 	backend := &fakeDoltBackend{
-		execOutput: "+--------------------+\n| Database           |\n+--------------------+\n| api                |\n| web                |\n+--------------------+\n",
+		inspectFound: true,
+		inspectInfo:  dolt.ContainerInfo{ID: "running-id", Running: true, Labels: map[string]string{"managed-by": "havn"}},
+		execOutput:   "+--------------------+\n| Database           |\n+--------------------+\n| api                |\n| web                |\n+--------------------+\n",
 	}
 	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
 	stdout, _, err := executeDoltWithRoot(root, "--json", "dolt", "databases")
 
 	require.NoError(t, err)
 	assert.JSONEq(t, `["api","web"]`+"\n", stdout)
+}
+
+func TestDoltDatabasesCommand_WhenServerNotRunning_ReturnsGuidance(t *testing.T) {
+	backend := &fakeDoltBackend{}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	_, _, err := executeDoltWithRoot(root, "dolt", "databases")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "container \"havn-dolt\" is not running")
 }
 
 func TestDoltDropCommand_ReturnsNotImplemented(t *testing.T) {
@@ -249,7 +272,10 @@ func TestDoltDropCommand_RequiresYesFlag(t *testing.T) {
 }
 
 func TestDoltDropCommand_DropsDatabaseWhenConfirmed(t *testing.T) {
-	backend := &fakeDoltBackend{}
+	backend := &fakeDoltBackend{
+		inspectFound: true,
+		inspectInfo:  dolt.ContainerInfo{ID: "running-id", Running: true, Labels: map[string]string{"managed-by": "havn"}},
+	}
 	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
 	stdout, stderr, err := executeDoltWithRoot(root, "dolt", "drop", "mydb", "--yes")
 
@@ -268,7 +294,10 @@ func TestDoltConnectCommand_ReturnsNotImplemented(t *testing.T) {
 }
 
 func TestDoltConnectCommand_OpensInteractiveShell(t *testing.T) {
-	backend := &fakeDoltBackend{}
+	backend := &fakeDoltBackend{
+		inspectFound: true,
+		inspectInfo:  dolt.ContainerInfo{ID: "running-id", Running: true, Labels: map[string]string{"managed-by": "havn"}},
+	}
 	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
 	stdout, stderr, err := executeDoltWithRoot(root, "dolt", "connect")
 
@@ -276,6 +305,15 @@ func TestDoltConnectCommand_OpensInteractiveShell(t *testing.T) {
 	assert.Empty(t, stdout)
 	assert.Equal(t, []string{"dolt", "sql"}, backend.lastInteractive)
 	assert.Contains(t, stderr, "Connecting to shared Dolt SQL shell")
+}
+
+func TestDoltConnectCommand_WhenServerNotRunning_ReturnsGuidance(t *testing.T) {
+	backend := &fakeDoltBackend{}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	_, _, err := executeDoltWithRoot(root, "dolt", "connect")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "container \"havn-dolt\" is not running")
 }
 
 func TestDoltImportCommand_RequiresPath(t *testing.T) {
@@ -320,6 +358,24 @@ func TestDoltImportCommand_ImportsDatabase(t *testing.T) {
 	assert.Contains(t, stderr, "Importing Dolt database")
 }
 
+func TestDoltImportCommand_WhenServerNotRunning_ReturnsGuidance(t *testing.T) {
+	projectDir := t.TempDir()
+	dbName := "sample"
+	require.NoError(t, os.MkdirAll(projectDir+"/.havn", 0o755))
+	require.NoError(t, os.WriteFile(projectDir+"/.havn/config.toml", []byte("[dolt]\ndatabase = \"sample\"\n"), 0o644))
+	require.NoError(t, os.MkdirAll(projectDir+"/.beads/dolt/"+dbName, 0o755))
+	require.NoError(t, os.WriteFile(projectDir+"/.beads/dolt/"+dbName+"/manifest", []byte("data"), 0o644))
+
+	backend := &fakeDoltBackend{
+		inspectFound: false,
+	}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	_, _, err := executeDoltWithRoot(root, "dolt", "import", projectDir)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "container \"havn-dolt\" is not running")
+}
+
 func TestDoltImportCommand_ForceMakesOverwriteExplicit(t *testing.T) {
 	projectDir := t.TempDir()
 	dbName := "sample"
@@ -354,6 +410,8 @@ func TestDoltExportCommand_RequiresName(t *testing.T) {
 func TestDoltExportCommand_ExportsDatabaseToDestination(t *testing.T) {
 	destDir := t.TempDir()
 	backend := &fakeDoltBackend{
+		inspectFound: true,
+		inspectInfo:  dolt.ContainerInfo{ID: "running-id", Running: true, Labels: map[string]string{"managed-by": "havn"}},
 		execOutput:   "+--------------------+\n| Database           |\n+--------------------+\n| mydb               |\n+--------------------+\n",
 		copyFromData: buildTarArchive(t, "mydb", map[string]string{"manifest": "exported-data"}),
 	}
@@ -367,6 +425,16 @@ func TestDoltExportCommand_ExportsDatabaseToDestination(t *testing.T) {
 	manifest, readErr := os.ReadFile(destDir + "/.beads/dolt/mydb/manifest")
 	require.NoError(t, readErr)
 	assert.Equal(t, "exported-data", string(manifest))
+}
+
+func TestDoltExportCommand_WhenServerNotRunning_ReturnsGuidance(t *testing.T) {
+	destDir := t.TempDir()
+	backend := &fakeDoltBackend{}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	_, _, err := executeDoltWithRoot(root, "dolt", "export", "mydb", "--dest", destDir)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "container \"havn-dolt\" is not running")
 }
 
 func buildTarArchive(t *testing.T, prefix string, files map[string]string) []byte {
