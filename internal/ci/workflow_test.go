@@ -22,4 +22,6 @@ func TestCIWorkflow_CoreAndIntegrationJobsConfigured(t *testing.T) {
 	assert.Contains(t, workflow, "make check")
 	assert.Contains(t, workflow, "make test-integration")
 	assert.Contains(t, workflow, "docker info")
+	assert.Contains(t, workflow, "boundary-confidence")
+	assert.Contains(t, workflow, "make test-boundary-confidence")
 }

@@ -1,4 +1,4 @@
-.PHONY: build test lint fmt check install clean
+.PHONY: build test test-integration test-boundary-confidence lint fmt check install clean
 
 build:
 	go build -o bin/havn ./cmd/havn
@@ -8,6 +8,10 @@ test:
 
 test-integration:
 	go test -tags integration ./...
+
+test-boundary-confidence:
+	go test ./internal/cli -run 'TestHAVNBinary_CLIContractAtProcessBoundary|TestDoctorCommand_'
+	go test -tags integration ./internal/dolt -run TestSharedDoltLifecycleAndReadiness_Integration
 
 lint:
 	go tool golangci-lint run

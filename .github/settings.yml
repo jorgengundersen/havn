@@ -6,3 +6,4 @@ branches:
         contexts:
           - quality-gates
           - integration-tests
+          - boundary-confidence

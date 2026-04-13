@@ -18,6 +18,7 @@ Only Go is required. All tool dependencies are pinned in `go.mod` via the
 | `make lint` | `go tool golangci-lint run` | Static analysis (see `.golangci.yml`) |
 | `make test` | `go test ./...` | Unit tests |
 | `make test-integration` | `go test -tags integration ./...` | Integration tests (may need Docker) |
+| `make test-boundary-confidence` | CLI binary contract + doctor CLI behavior + shared Dolt integration subset | Boundary-confidence suites for shipped behavior |
 | `make build` | `go build -o bin/havn ./cmd/havn` | Compile binary to `bin/` |
 | `make install` | `go install ./cmd/havn/` | Install to `$GOBIN` / `$GOPATH/bin` |
 | `make check` | fmt + lint + test + build | Full quality gate |
@@ -96,8 +97,16 @@ gated on Docker-capable runners.
 Integration failures should be visible as a separate CI result rather than
 folded into the core quality-gate job.
 
+Boundary-confidence suites should run in a dedicated CI job via
+`make test-boundary-confidence` so shipped CLI boundary contracts, doctor
+effective-state behavior, and shared-Dolt readiness paths are continuously
+validated as an explicit merge signal.
+
 When the Docker-backed integration job exists and is stable, it should also be
 required for merge.
+
+When the boundary-confidence job is stable, it should also be required for
+merge.
 
 ## Tool versions
 
