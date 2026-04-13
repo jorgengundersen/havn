@@ -62,7 +62,8 @@ Run these targets before opening a PR:
 
 Commits trigger hooks. A failing hook blocks the commit.
 
-`integration-tests` and `boundary-confidence` are required merge checks on `main`.
+`quality-gates`, `integration-tests`, and `boundary-confidence` are required merge checks on `main`.
+At minimum, `integration-tests` and `boundary-confidence` are required merge checks on `main`.
 
 ## Repository structure
 

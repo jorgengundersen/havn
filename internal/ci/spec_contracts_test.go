@@ -252,3 +252,19 @@ func TestSpecs_BuildAndTestMergeGateRequirementsMatchEnforcement(t *testing.T) {
 	qualityGates := string(qualityGatesContent)
 	assert.Contains(t, qualityGates, "`integration-tests` and `boundary-confidence` are required merge checks")
 }
+
+func TestDocs_RequiredMergeChecksListIncludesCoreAndDedicatedSuites(t *testing.T) {
+	qualityGatesPath := filepath.Join("..", "..", "specs", "quality-gates.md")
+	qualityGatesContent, err := os.ReadFile(qualityGatesPath)
+	require.NoError(t, err)
+
+	qualityGates := string(qualityGatesContent)
+	assert.Contains(t, qualityGates, "`quality-gates`, `integration-tests`, and `boundary-confidence` are required merge checks")
+
+	contributingPath := filepath.Join("..", "..", "CONTRIBUTING.md")
+	contributingContent, err := os.ReadFile(contributingPath)
+	require.NoError(t, err)
+
+	contributing := string(contributingContent)
+	assert.Contains(t, contributing, "`quality-gates`, `integration-tests`, and `boundary-confidence` are required merge checks on `main`")
+}

@@ -103,8 +103,8 @@ Boundary-confidence suites should run in a dedicated CI job via
 effective-state behavior, and shared-Dolt readiness paths are continuously
 validated as an explicit merge signal.
 
-`integration-tests` and `boundary-confidence` are required merge checks for
-`main`, matching `.github/settings.yml` branch protection.
+`quality-gates`, `integration-tests`, and `boundary-confidence` are required merge checks for `main`, matching `.github/settings.yml` branch protection.
+At minimum, `integration-tests` and `boundary-confidence` are required merge checks.
 
 ## Tool versions
 
