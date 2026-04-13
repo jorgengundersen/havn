@@ -1,4 +1,4 @@
-.PHONY: build test test-integration test-boundary-confidence lint fmt check install clean
+.PHONY: build test test-integration test-boundary-confidence lint fmt fmt-check check install clean
 
 build:
 	go build -o bin/havn ./cmd/havn
@@ -20,10 +20,14 @@ fmt:
 	gofmt -w .
 	go tool gci write --section standard --section default --section "prefix(github.com/jorgengundersen/havn)" .
 
+fmt-check:
+	@out="$$(gofmt -l .)"; [ -z "$$out" ] || { echo "gofmt check failed - run 'make fmt'"; exit 1; }
+	@out="$$(go tool gci list --section standard --section default --section 'prefix(github.com/jorgengundersen/havn)' .)"; [ -z "$$out" ] || { echo "gci import order check failed - run 'make fmt'"; exit 1; }
+
 install:
 	go install ./cmd/havn/
 
-check: fmt lint test build
+check: fmt-check lint test build
 
 clean:
 	rm -rf bin/

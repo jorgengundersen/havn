@@ -5,7 +5,7 @@ pre-commit:
   jobs:
     - name: fmt
       glob: "*.go"
-      run: gofmt -l . | grep . && echo "gofmt failed — run 'make fmt'" && exit 1 || true
+      run: make fmt-check
     - name: lint
       glob: "*.go"
       run: go tool golangci-lint run

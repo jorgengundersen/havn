@@ -209,3 +209,29 @@ func TestSpecs_SpecGovernanceHasSingleCanonicalSource(t *testing.T) {
 	assert.NotContains(t, agents, "## Shared Vocabulary")
 	assert.NotContains(t, agents, "## Cross-Spec Invariants")
 }
+
+func TestQualityGates_FormattingContractValidatesCommittedTreeConsistently(t *testing.T) {
+	makefilePath := filepath.Join("..", "..", "Makefile")
+	makefileContent, err := os.ReadFile(makefilePath)
+	require.NoError(t, err)
+
+	makefile := string(makefileContent)
+	assert.Contains(t, makefile, "fmt-check:")
+	assert.Contains(t, makefile, "check: fmt-check lint test build")
+
+	hookPath := filepath.Join("..", "..", "lefthook.yml")
+	hookContent, err := os.ReadFile(hookPath)
+	require.NoError(t, err)
+
+	hook := string(hookContent)
+	assert.Contains(t, hook, "run: make fmt-check")
+	assert.NotContains(t, hook, "gofmt -l . | grep .")
+
+	qualityGatesPath := filepath.Join("..", "..", "specs", "quality-gates.md")
+	qualityGatesContent, err := os.ReadFile(qualityGatesPath)
+	require.NoError(t, err)
+
+	qualityGates := string(qualityGatesContent)
+	assert.Contains(t, qualityGates, "`make fmt-check`")
+	assert.Contains(t, qualityGates, "Validate formatting without rewriting files")
+}
