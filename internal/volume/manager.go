@@ -33,17 +33,14 @@ func (m *Manager) List(ctx context.Context, cfg config.Config) ([]Entry, error) 
 
 // EnsureExists creates a volume if it does not already exist. Idempotent.
 func (m *Manager) EnsureExists(ctx context.Context, name string) error {
-	err := m.backend.VolumeInspect(ctx, name)
-	if err == nil {
-		return nil
-	}
-
-	var notFound *NotFoundError
-	if !errors.As(err, &notFound) {
-		return fmt.Errorf("inspect volume %q: %w", name, err)
-	}
-	if err := m.backend.VolumeCreate(ctx, name); err != nil {
-		return fmt.Errorf("ensure volume %q: %w", name, err)
+	if err := m.backend.VolumeInspect(ctx, name); err != nil {
+		var notFound *NotFoundError
+		if !errors.As(err, &notFound) {
+			return fmt.Errorf("inspect volume %q: %w", name, err)
+		}
+		if err := m.backend.VolumeCreate(ctx, name); err != nil {
+			return fmt.Errorf("ensure volume %q: %w", name, err)
+		}
 	}
 	return nil
 }
