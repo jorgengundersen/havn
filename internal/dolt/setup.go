@@ -3,6 +3,7 @@ package dolt
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/jorgengundersen/havn/internal/config"
@@ -40,6 +41,27 @@ func (s *Setup) EnsureReady(ctx context.Context, cfg config.Config) (map[string]
 		"BEADS_DOLT_SHARED_SERVER":   "1",
 		"BEADS_DOLT_SERVER_DATABASE": cfg.Dolt.Database,
 	}, nil
+}
+
+// MigrationNotice checks for a local beads database that can be migrated and
+// returns a user-facing migration message when applicable.
+func (s *Setup) MigrationNotice(ctx context.Context, cfg config.Config, projectPath string) (string, error) {
+	hint, err := s.DetectMigration(ctx, cfg, projectPath, pathExists)
+	if err != nil {
+		return "", err
+	}
+	if hint == nil {
+		return "", nil
+	}
+	return fmt.Sprintf("Found local beads database at %s for %q; migrate with: havn dolt import %s", hint.LocalPath, hint.DatabaseName, projectPath), nil
+}
+
+func pathExists(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
 }
 
 func (s *Setup) ensureDatabase(ctx context.Context, name string) error {

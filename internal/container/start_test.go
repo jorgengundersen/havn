@@ -78,12 +78,17 @@ func (f *fakeMountResolver) Resolve(_ config.Config, _ string) (mount.ResolveRes
 }
 
 type fakeDoltSetup struct {
-	env map[string]string
-	err error
+	env    map[string]string
+	err    error
+	notice string
 }
 
 func (f *fakeDoltSetup) EnsureReady(_ context.Context, _ config.Config) (map[string]string, error) {
 	return f.env, f.err
+}
+
+func (f *fakeDoltSetup) MigrationNotice(_ context.Context, _ config.Config, _ string) (string, error) {
+	return f.notice, f.err
 }
 
 type fakeExecBackend struct {
@@ -312,6 +317,40 @@ func TestStartOrAttach_DoltEnabled(t *testing.T) {
 	assert.Equal(t, "havn-dolt", cb.createdOpts.Env["BEADS_DOLT_SERVER_HOST"])
 	assert.Equal(t, "3308", cb.createdOpts.Env["BEADS_DOLT_SERVER_PORT"])
 	assert.Equal(t, "true", cb.createdOpts.Labels["havn.dolt"])
+}
+
+func TestStartOrAttach_DoltEnabled_WithMigrationNotice_ShowsStatus(t *testing.T) {
+	ctx := context.Background()
+	cb := &fakeStartBackend{
+		inspectErr: &container.NotFoundError{Name: "havn-user-project"},
+		createID:   "new-123",
+	}
+	var statusMessages []string
+	doltSetup := &fakeDoltSetup{
+		env: map[string]string{
+			"BEADS_DOLT_SERVER_HOST": "havn-dolt",
+			"BEADS_DOLT_SERVER_PORT": "3308",
+		},
+		notice: "Found local beads database at .beads/dolt/mydb for \"mydb\"; migrate with: havn dolt import /home/devuser/Repos/github.com/user/project",
+	}
+	deps := container.StartDeps{
+		Container: cb,
+		Image:     &fakeImageBackend{existsResult: true},
+		Network:   &fakeNetworkBackend{},
+		Volume:    &fakeVolumeEnsurer{},
+		Mount:     &fakeMountResolver{result: mount.ResolveResult{Env: map[string]string{}}},
+		Dolt:      doltSetup,
+		Exec:      &fakeExecBackend{},
+		Status:    func(msg string) { statusMessages = append(statusMessages, msg) },
+	}
+	cfg := defaultTestConfig()
+	cfg.Dolt.Enabled = true
+	cfg.Dolt.Database = "mydb"
+
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	require.NoError(t, err)
+	assert.Contains(t, statusMessages, doltSetup.notice)
 }
 
 func TestStartOrAttach_DoltDisabled_SkipsSetup(t *testing.T) {

@@ -45,6 +45,7 @@ type MountResolver interface {
 // DoltSetup ensures the Dolt server and project database are ready.
 type DoltSetup interface {
 	EnsureReady(ctx context.Context, cfg config.Config) (map[string]string, error)
+	MigrationNotice(ctx context.Context, cfg config.Config, projectPath string) (string, error)
 }
 
 // ExecBackend runs commands inside containers.
@@ -201,6 +202,13 @@ func createContainer(ctx context.Context, deps StartDeps, cfg config.Config, cna
 		doltEnv, err := deps.Dolt.EnsureReady(ctx, cfg)
 		if err != nil {
 			return "", err
+		}
+		notice, err := deps.Dolt.MigrationNotice(ctx, cfg, projectPath)
+		if err != nil {
+			return "", err
+		}
+		if notice != "" {
+			deps.Status(notice)
 		}
 		for k, v := range doltEnv {
 			env[k] = v

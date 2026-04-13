@@ -2,6 +2,7 @@ package dolt_test
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -198,4 +199,28 @@ func TestEnsureReady_InvalidDatabaseIdentifier(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid database identifier")
 	require.Len(t, backend.execCalls, 1)
 	assert.Equal(t, []string{"dolt", "sql", "-q", "SELECT 1"}, backend.execCalls[0].cmd)
+}
+
+func TestMigrationNotice_WhenLocalDatabaseExists_ReturnsImportHint(t *testing.T) {
+	backend := &fakeBackend{
+		inspectInfo:  dolt.ContainerInfo{ID: "abc123", Running: true, Labels: map[string]string{"managed-by": "havn"}},
+		inspectFound: true,
+		execOutput:   showDatabasesOutput("information_schema", "mysql"),
+	}
+	mgr := dolt.NewManager(backend)
+	setup := dolt.NewSetup(mgr, backend)
+	cfg := config.Config{
+		Dolt: config.DoltConfig{
+			Enabled:  true,
+			Database: "myproject",
+		},
+	}
+	projectPath := t.TempDir()
+	require.NoError(t, os.MkdirAll(projectPath+"/.beads/dolt/myproject/.dolt", 0o755))
+
+	notice, err := setup.MigrationNotice(context.Background(), cfg, projectPath)
+
+	require.NoError(t, err)
+	assert.Contains(t, notice, "Found local beads database at .beads/dolt/myproject")
+	assert.Contains(t, notice, "havn dolt import "+projectPath)
 }
