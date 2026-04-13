@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -99,21 +98,12 @@ func newBuildCmd(service BuildService) *cobra.Command {
 }
 
 func resolveBuildImageName(cmd *cobra.Command) (string, error) {
-	globalPath := ""
-	if explicitConfigPath, _ := cmd.Flags().GetString("config"); explicitConfigPath != "" {
-		globalPath = explicitConfigPath
-	} else {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		globalPath = filepath.Join(homeDir, ".config", "havn", "config.toml")
-	}
-
-	globalCfg, err := config.LoadFile(globalPath)
+	projectCtx, err := projectContextFromWorkingDir()
 	if err != nil {
 		return "", err
 	}
+
+	globalPath, _ := cmd.Flags().GetString("config")
 
 	var flagOverrides config.Overrides
 	if cmd.Flags().Changed("image") {
@@ -121,6 +111,11 @@ func resolveBuildImageName(cmd *cobra.Command) (string, error) {
 		flagOverrides.Image = &flagImage
 	}
 
-	cfg, _ := config.Resolve(globalCfg, config.Config{}, config.EnvOverrides(), flagOverrides)
+	orchestrator := newEffectiveConfigOrchestrator(globalPath)
+	cfg, err := orchestrator.Resolve(projectCtx, flagOverrides)
+	if err != nil {
+		return "", err
+	}
+
 	return cfg.Image, nil
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -101,4 +102,31 @@ func TestBuildCommand_ImageFlagOverridesEnv(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "havn-flag:latest", service.lastOpts.ImageName)
+}
+
+func TestBuildCommand_UsesProjectConfigImage(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectDir := filepath.Join(homeDir, "workspace", "sample")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectDir, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectDir, ".havn", "config.toml"), []byte("image = \"havn-project:dev\"\n"), 0o644))
+
+	originalWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectDir))
+	t.Cleanup(func() {
+		require.NoError(t, os.Chdir(originalWD))
+	})
+
+	service := &fakeBuildService{}
+	root := cli.NewRoot(cli.Deps{BuildService: service})
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"build"})
+
+	err = root.Execute()
+
+	require.NoError(t, err)
+	assert.Equal(t, "havn-project:dev", service.lastOpts.ImageName)
 }
