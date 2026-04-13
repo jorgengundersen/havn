@@ -26,6 +26,46 @@ This synthesis covers:
 
 The underlying slices used spec-to-code and docs-to-code comparison across the published contract set, user-facing docs, CLI wiring, runtime adapters, container lifecycle code, Dolt integration, doctor checks, tests, and CI configuration. Evidence was taken from repository sources and implementation paths, with line-number citations where available, and limited code verification where docs/specs made explicit claims about current behavior.
 
+## Tiered working-version readiness assessment
+
+This section answers the practical question "can I start using `havn` for myself yet?" and then grades readiness upward.
+
+### Tier definitions
+
+- **Tier 0 — Minimum personal-use readiness:** You can reliably use `havn` yourself for a basic dev loop (start/attach, shell entry, stable project container identity) without hitting known contract gaps in common paths.
+- **Tier 1 — Comfortable day-to-day personal-use readiness:** Personal use remains reliable across common non-trivial workflows (ports, config overlays, doctor verification, normal stop/list flows) without requiring workarounds.
+- **Tier 2 — Collaborator/team-use readiness:** Multiple contributors can share expectations and troubleshoot consistently, with stable CLI contracts, accurate diagnostics, and safe shared-state behavior.
+- **Tier 3 — Broader release readiness:** The project can be recommended beyond close collaborators with high confidence in safety, correctness, docs/spec fidelity, and boundary-level test coverage.
+
+### Current tier status
+
+- **Tier 0 (minimum personal-use): PARTIAL / not yet satisfied as a dependable baseline.**
+  The core start/attach workflow is mostly present, but key runtime and safety-affecting contract gaps still appear in common paths (for example dropped mount read-only intent, incomplete port-to-runtime propagation, and misleading doctor/effective-config behavior), which makes baseline personal use inconsistent across projects and configurations (`internal/container/start.go:103`, `internal/cli/adapters.go:91`, `internal/docker/container.go:53`, `internal/cli/doctor.go:36`, `internal/doctor/container_checks.go:139`).
+- **Tier 1 (comfortable personal-use): NOT satisfied.**
+  Non-trivial day-to-day workflows are still unreliable, especially around config fidelity and lifecycle/inspection commands (`internal/cli/config.go:62`, `internal/container/list.go:20`, `internal/cli/stop.go:50`).
+- **Tier 2 (collaborator/team-use): NOT satisfied.**
+  Divergent docs/contracts, doctor fidelity gaps, and uneven shared-Dolt safety make cross-user trust and troubleshooting inconsistent (`docs/cli-reference.md:82`, `specs/cli-framework.md:178`, `internal/cli/doctor.go:105`, `internal/dolt/migrate.go:53`).
+- **Tier 3 (broader release): NOT satisfied.**
+  Broader release confidence is blocked by unresolved safety/fidelity issues and insufficient boundary-confidence at the shipped CLI surface (`internal/dolt/manager.go:78`, `internal/dolt/migrate.go:166`, `internal/cli/root_test.go:33`).
+
+### Explicit answer: minimum personal-use readiness
+
+`havn` is **not yet ready for minimum personal use as a dependable default**. It is close in core shape, and some narrow project setups can work today, but the current known runtime-fidelity and safety gaps are still significant enough that "it works for me" depends too much on project specifics and operator workarounds.
+
+### Next tier and concrete blockers
+
+Current practical position is just below **Tier 0**. The next tier to satisfy is **Tier 0 (minimum personal-use readiness)**.
+
+Blockers to move from current state to Tier 0:
+
+1. **Make resolved config authoritative at runtime** (ports, boolean/default merge correctness, and effective-config parity between startup and inspection) (`internal/config/resolve.go:148`, `internal/cli/adapters.go:94`, `internal/cli/config.go:62`).
+2. **Preserve mount safety semantics end-to-end** (propagate and enforce read-only mount intent through adapter and Docker layers) (`internal/mount/resolve.go:134`, `internal/cli/adapters.go:91`, `internal/docker/container.go:313`).
+3. **Align doctor with effective runtime state** (shared config resolution/name derivation and correct check implementations for mounts/SSH/config validation) (`internal/cli/doctor.go:36`, `internal/cli/doctor.go:89`, `internal/doctor/container_checks.go:179`, `internal/doctor/host_checks.go:258`).
+4. **Fix shared-Dolt startup/data-safety correctness on default paths** (startup sequencing, DB defaulting, and safe import/export behavior) (`internal/dolt/manager.go:77`, `internal/dolt/setup.go:31`, `internal/dolt/migrate.go:53`, `internal/dolt/migrate.go:166`).
+5. **Tighten user-visible contract consistency** between authoritative specs and derivative docs for currently shipped behavior (`specs/configuration.md`, `specs/cli-framework.md`, `specs/havn-doctor.md`, `docs/cli-reference.md:82`).
+
+Once Tier 0 is satisfied, the next advancement target becomes **Tier 1 (comfortable day-to-day personal-use readiness)**, primarily by hardening stop/list/config/doctor behavior under normal non-trivial workflows and adding stronger end-to-end boundary confidence.
+
 ## Findings by domain
 
 ### 1. Contract ownership and documentation drift
