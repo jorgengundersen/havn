@@ -118,7 +118,12 @@ func TestProjectMountCheck_Metadata(t *testing.T) {
 
 func TestConfigMountsCheck_AllPresent(t *testing.T) {
 	backend := newFakeBackend()
-	mounts := []string{"~/.gitconfig", "~/.ssh/config"}
+	mounts := []doctor.ConfigMountExpectation{
+		{Target: "/home/devuser/.gitconfig", ReadOnly: true},
+		{Target: "/home/devuser/.ssh/config", ReadOnly: true},
+	}
+	backend.execErrors["test -w /home/devuser/.gitconfig"] = errors.New("read-only")
+	backend.execErrors["test -w /home/devuser/.ssh/config"] = errors.New("read-only")
 	check := doctor.NewConfigMountsCheck(backend, "havn-user-myproject", mounts)
 
 	result := check.Run(context.Background())
@@ -128,14 +133,18 @@ func TestConfigMountsCheck_AllPresent(t *testing.T) {
 
 func TestConfigMountsCheck_SomeMissing(t *testing.T) {
 	backend := newFakeBackend()
-	backend.execErrors["~/.ssh/config"] = errors.New("not found")
-	mounts := []string{"~/.gitconfig", "~/.ssh/config"}
+	backend.execErrors["/home/devuser/.ssh/config"] = errors.New("not found")
+	mounts := []doctor.ConfigMountExpectation{
+		{Target: "/home/devuser/.gitconfig", ReadOnly: true},
+		{Target: "/home/devuser/.ssh/config", ReadOnly: true},
+	}
+	backend.execErrors["test -w /home/devuser/.gitconfig"] = errors.New("read-only")
 	check := doctor.NewConfigMountsCheck(backend, "havn-user-myproject", mounts)
 
 	result := check.Run(context.Background())
 
 	assert.Equal(t, doctor.StatusWarn, result.Status)
-	assert.Contains(t, result.Detail, "~/.ssh/config")
+	assert.Contains(t, result.Detail, "/home/devuser/.ssh/config")
 }
 
 func TestConfigMountsCheck_Empty(t *testing.T) {
@@ -159,7 +168,7 @@ func TestConfigMountsCheck_Metadata(t *testing.T) {
 
 func TestSSHAgentCheck_Pass(t *testing.T) {
 	backend := newFakeBackend()
-	check := doctor.NewSSHAgentCheck(backend, "havn-user-myproject")
+	check := doctor.NewSSHAgentCheck(backend, "havn-user-myproject", "/ssh-agent")
 
 	result := check.Run(context.Background())
 
@@ -168,8 +177,7 @@ func TestSSHAgentCheck_Pass(t *testing.T) {
 
 func TestSSHAgentCheck_SocketMissing(t *testing.T) {
 	backend := newFakeBackend()
-	backend.execErrors["$SSH_AUTH_SOCK"] = errors.New("no socket")
-	check := doctor.NewSSHAgentCheck(backend, "havn-user-myproject")
+	check := doctor.NewSSHAgentCheck(backend, "havn-user-myproject", "")
 
 	result := check.Run(context.Background())
 
@@ -180,15 +188,25 @@ func TestSSHAgentCheck_SocketMissing(t *testing.T) {
 func TestSSHAgentCheck_AddFails(t *testing.T) {
 	backend := newFakeBackend()
 	backend.execErrors["-l"] = errors.New("agent refused")
-	check := doctor.NewSSHAgentCheck(backend, "havn-user-myproject")
+	check := doctor.NewSSHAgentCheck(backend, "havn-user-myproject", "/ssh-agent")
 
 	result := check.Run(context.Background())
 
 	assert.Equal(t, doctor.StatusWarn, result.Status)
 }
 
+func TestSSHAgentCheck_UsesResolvedSocketPath(t *testing.T) {
+	backend := newFakeBackend()
+	backend.execErrors["$SSH_AUTH_SOCK"] = errors.New("literal placeholder should not be used")
+	check := doctor.NewSSHAgentCheck(backend, "havn-user-myproject", "/ssh-agent")
+
+	result := check.Run(context.Background())
+
+	assert.Equal(t, doctor.StatusPass, result.Status)
+}
+
 func TestSSHAgentCheck_Metadata(t *testing.T) {
-	check := doctor.NewSSHAgentCheck(newFakeBackend(), "c")
+	check := doctor.NewSSHAgentCheck(newFakeBackend(), "c", "/ssh-agent")
 
 	assert.Equal(t, "ssh_agent", check.ID())
 	assert.Equal(t, "container", check.Tier())

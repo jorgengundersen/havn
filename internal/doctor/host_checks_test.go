@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -83,9 +84,16 @@ func (f *fakeBackend) ContainerExec(_ context.Context, _ string, cmd []string) (
 	if f.execErr != nil {
 		return "", f.execErr
 	}
+	full := strings.Join(cmd, " ")
+	if err, ok := f.execErrors[full]; ok {
+		return "", err
+	}
 	key := cmd[len(cmd)-1]
 	if err, ok := f.execErrors[key]; ok {
 		return "", err
+	}
+	if result, ok := f.execResults[full]; ok {
+		return result, nil
 	}
 	return f.execResults[key], nil
 }

@@ -224,3 +224,39 @@ func TestDoctorCommand_NoContainersReportsInformationalSkipInJSON(t *testing.T) 
 
 	assert.True(t, found, "expected informational container-tier skip check")
 }
+
+func TestDoctorCommand_UsesResolvedConfigMountTargets(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectPath := filepath.Join(homeDir, "project")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectPath, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "config.toml"), []byte("[mounts]\nconfig = [\".gitconfig:ro\"]\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(homeDir, ".gitconfig"), []byte("[user]\n\tname = test\n"), 0o644))
+
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectPath))
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	backend := &fakeDoctorBackend{
+		listContainers: []string{"havn-user-myproject"},
+		containerInfos: map[string]doctor.ContainerInfo{
+			"havn-user-myproject": {
+				Running: true,
+				Labels:  map[string]string{"havn.path": projectPath},
+			},
+		},
+		execErrs: map[string]error{
+			"test -r .gitconfig:ro":            errors.New("used unresolved config mount"),
+			"test -w /home/devuser/.gitconfig": errors.New("read-only expected"),
+		},
+	}
+
+	stdout, _, _ := executeDoctorCommand(backend, "--all")
+
+	assert.Contains(t, stdout, "Config mounts present")
+	assert.NotContains(t, stdout, "Config mounts missing")
+}

@@ -12,6 +12,7 @@ import (
 	"github.com/jorgengundersen/havn/internal/config"
 	"github.com/jorgengundersen/havn/internal/container"
 	"github.com/jorgengundersen/havn/internal/doctor"
+	"github.com/jorgengundersen/havn/internal/mount"
 	"github.com/jorgengundersen/havn/internal/name"
 )
 
@@ -65,7 +66,20 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 					targetCfg = cfg
 				}
 
-				cc := doctor.ContainerChecks(backend, targetCfg, target.Name, target.Project, target.BeadsExist)
+				mountResult, err := resolveMountsForDoctor(targetCfg, target.Project)
+				if err != nil {
+					mountResult = mount.ResolveResult{}
+				}
+
+				cc := doctor.ContainerChecks(
+					backend,
+					targetCfg,
+					target.Name,
+					target.Project,
+					mountResult.Env["SSH_AUTH_SOCK"],
+					mountResult.ConfigMounts,
+					target.BeadsExist,
+				)
 				checks = append(checks, cc...)
 			}
 
@@ -80,6 +94,19 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 	cmd.Flags().BoolVar(&opts.All, "all", false, "check all running havn containers")
 
 	return cmd
+}
+
+func resolveMountsForDoctor(cfg config.Config, projectPath string) (mount.ResolveResult, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return mount.ResolveResult{}, err
+	}
+
+	return mount.Resolve(cfg, projectPath, homeDir, mount.ResolveOpts{
+		Glob:        filepath.Glob,
+		Exists:      pathExists,
+		SSHAuthSock: os.Getenv("SSH_AUTH_SOCK"),
+	})
 }
 
 func resolveContainerTargets(ctx context.Context, backend doctor.Backend, all bool, currentProjectPath string) []doctorContainerTarget {

@@ -47,8 +47,9 @@ func Resolve(cfg config.Config, projectPath, homeDir string, opts ResolveOpts) (
 	)
 
 	return ResolveResult{
-		Mounts: mounts,
-		Env:    env,
+		Mounts:       mounts,
+		ConfigMounts: configMounts,
+		Env:          env,
 	}, nil
 }
 

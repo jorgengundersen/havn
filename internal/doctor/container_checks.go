@@ -122,11 +122,16 @@ func (c *projectMountCheck) Run(ctx context.Context) CheckResult {
 type configMountsCheck struct {
 	backend   Backend
 	container string
-	mounts    []string
+	mounts    []ConfigMountExpectation
+}
+
+type ConfigMountExpectation struct {
+	Target   string
+	ReadOnly bool
 }
 
 // NewConfigMountsCheck creates check 2.3b: config bind mounts present.
-func NewConfigMountsCheck(backend Backend, container string, mounts []string) Check {
+func NewConfigMountsCheck(backend Backend, container string, mounts []ConfigMountExpectation) Check {
 	return &configMountsCheck{backend: backend, container: container, mounts: mounts}
 }
 
@@ -138,18 +143,35 @@ func (c *configMountsCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *configMountsCheck) Run(ctx context.Context) CheckResult {
 	var missing []string
+	var modeMismatch []string
 	for _, m := range c.mounts {
-		_, err := c.backend.ContainerExec(ctx, c.container, []string{"test", "-r", m})
+		_, err := c.backend.ContainerExec(ctx, c.container, []string{"test", "-e", m.Target})
 		if err != nil {
-			missing = append(missing, m)
+			missing = append(missing, m.Target)
+			continue
+		}
+
+		_, writableErr := c.backend.ContainerExec(ctx, c.container, []string{"test", "-w", m.Target})
+		if m.ReadOnly && writableErr == nil {
+			modeMismatch = append(modeMismatch, m.Target+" expected ro")
+		}
+		if !m.ReadOnly && writableErr != nil {
+			modeMismatch = append(modeMismatch, m.Target+" expected rw")
 		}
 	}
-	if len(missing) > 0 {
+	if len(missing) > 0 || len(modeMismatch) > 0 {
+		details := make([]string, 0, len(missing)+len(modeMismatch))
+		if len(missing) > 0 {
+			details = append(details, "missing: "+strings.Join(missing, ", "))
+		}
+		if len(modeMismatch) > 0 {
+			details = append(details, "mode mismatch: "+strings.Join(modeMismatch, ", "))
+		}
 		return CheckResult{
 			Status:         StatusWarn,
-			Message:        "Config mounts missing",
-			Detail:         strings.Join(missing, ", "),
-			Recommendation: "Check that the files exist on the host",
+			Message:        "Config mounts do not match expected runtime wiring",
+			Detail:         strings.Join(details, "; "),
+			Recommendation: "Check configured mounts and restart with 'havn .'",
 		}
 	}
 	return CheckResult{
@@ -161,13 +183,14 @@ func (c *configMountsCheck) Run(ctx context.Context) CheckResult {
 // --- 2.4 ssh_agent ---
 
 type sshAgentCheck struct {
-	backend   Backend
-	container string
+	backend    Backend
+	container  string
+	socketPath string
 }
 
 // NewSSHAgentCheck creates check 2.4: SSH agent forwarding works.
-func NewSSHAgentCheck(backend Backend, container string) Check {
-	return &sshAgentCheck{backend: backend, container: container}
+func NewSSHAgentCheck(backend Backend, container, socketPath string) Check {
+	return &sshAgentCheck{backend: backend, container: container, socketPath: socketPath}
 }
 
 func (c *sshAgentCheck) ID() string              { return "ssh_agent" }
@@ -177,7 +200,14 @@ func (c *sshAgentCheck) Prerequisites() []string { return []string{"docker_daemo
 func (c *sshAgentCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *sshAgentCheck) Run(ctx context.Context) CheckResult {
-	_, err := c.backend.ContainerExec(ctx, c.container, []string{"test", "-S", "$SSH_AUTH_SOCK"})
+	if strings.TrimSpace(c.socketPath) == "" {
+		return CheckResult{
+			Status:         StatusWarn,
+			Message:        "SSH agent not forwarding",
+			Recommendation: "Ensure ssh-agent is running on host and SSH_AUTH_SOCK is set",
+		}
+	}
+	_, err := c.backend.ContainerExec(ctx, c.container, []string{"test", "-S", c.socketPath})
 	if err != nil {
 		return CheckResult{
 			Status:         StatusWarn,

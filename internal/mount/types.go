@@ -11,8 +11,9 @@ type Spec struct {
 // ResolveResult holds all mounts and environment variables needed for
 // container creation.
 type ResolveResult struct {
-	Mounts []Spec
-	Env    map[string]string
+	Mounts       []Spec
+	ConfigMounts []Spec
+	Env          map[string]string
 }
 
 // ResolveOpts bundles injectable I/O callbacks so Resolve stays pure
