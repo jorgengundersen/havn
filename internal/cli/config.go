@@ -59,7 +59,8 @@ func runConfigShow(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("config show: %w", err)
 	}
 
-	cfg, src, err := loadEffectiveConfigWithMetadata(projectCtx, globalPath, config.Overrides{})
+	orchestrator := newEffectiveConfigOrchestrator(globalPath)
+	cfg, src, err := orchestrator.ResolveWithSource(projectCtx, config.Overrides{})
 	if err != nil {
 		return fmt.Errorf("config show: %w", err)
 	}

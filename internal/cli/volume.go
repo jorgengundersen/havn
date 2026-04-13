@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jorgengundersen/havn/internal/config"
 	"github.com/jorgengundersen/havn/internal/volume"
 )
 
@@ -36,7 +37,8 @@ func newVolumeListCmd(manager *volume.Manager) *cobra.Command {
 				return fmt.Errorf("havn volume list: %w", err)
 			}
 
-			cfg, err := loadEffectiveConfig(filepath.Clean(cwd))
+			orchestrator := newEffectiveConfigOrchestrator("")
+			cfg, err := orchestrator.Resolve(projectContext{Path: filepath.Clean(cwd)}, config.Overrides{})
 			if err != nil {
 				return fmt.Errorf("havn volume list: %w", err)
 			}

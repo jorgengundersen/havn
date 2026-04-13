@@ -231,7 +231,8 @@ func resolveStartConfig(cmd *cobra.Command, opts rootOpts, projectCtx projectCon
 		flagOv.SSHPort = &opts.Port
 	}
 
-	cfg, _, err := loadEffectiveConfigWithMetadata(projectCtx, globalPath, flagOv)
+	orchestrator := newEffectiveConfigOrchestrator(globalPath)
+	cfg, _, err := orchestrator.ResolveWithSource(projectCtx, flagOv)
 	if err != nil {
 		return config.Config{}, err
 	}

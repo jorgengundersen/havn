@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -46,7 +45,8 @@ func newDoltStartCmd(manager *dolt.Manager) *cobra.Command {
 				return fmt.Errorf("havn dolt start: %w", err)
 			}
 
-			cfg, err := loadEffectiveConfig(projectCtx.Path)
+			orchestrator := newEffectiveConfigOrchestrator("")
+			cfg, err := orchestrator.Resolve(projectCtx, config.Overrides{})
 			if err != nil {
 				return fmt.Errorf("havn dolt start: %w", err)
 			}
@@ -234,7 +234,8 @@ func newDoltImportCmd(manager *dolt.Manager, _ *dolt.Setup) *cobra.Command {
 			}
 			projectPath := projectCtx.Path
 
-			cfg, err := loadEffectiveConfig(projectPath)
+			orchestrator := newEffectiveConfigOrchestrator("")
+			cfg, err := orchestrator.Resolve(projectContext{Path: projectPath}, config.Overrides{})
 			if err != nil {
 				return fmt.Errorf("havn dolt import: %w", err)
 			}
@@ -324,64 +325,4 @@ func newDoltExportCmd(manager *dolt.Manager) *cobra.Command {
 	cmd.Flags().StringVar(&opts.Dest, "dest", ".", "destination project directory")
 
 	return cmd
-}
-
-func loadEffectiveConfig(projectPath string) (config.Config, error) {
-	return loadEffectiveConfigForCommand(projectPath, "")
-}
-
-func loadEffectiveConfigForCommand(projectPath, globalConfigPath string) (config.Config, error) {
-	projectCtx := projectContext{Path: filepath.Clean(projectPath)}
-
-	cfg, _, err := loadEffectiveConfigWithMetadata(projectCtx, globalConfigPath, config.Overrides{})
-	if err != nil {
-		return config.Config{}, err
-	}
-
-	return cfg, nil
-}
-
-func loadEffectiveConfigWithMetadata(projectCtx projectContext, globalConfigPath string, flagOv config.Overrides) (config.Config, config.Source, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return config.Config{}, nil, err
-	}
-
-	globalPath := globalConfigPath
-	if globalPath == "" {
-		globalPath = filepath.Join(homeDir, ".config", "havn", "config.toml")
-	}
-	projectConfigPath := projectCtx.ProjectConfigPath()
-	flakePath := projectCtx.ProjectFlakePath()
-
-	global, globalMeta, err := config.LoadFileWithMetadata(globalPath)
-	if err != nil {
-		return config.Config{}, nil, err
-	}
-
-	project, projectMeta, err := config.LoadFileWithMetadata(projectConfigPath)
-	if err != nil {
-		return config.Config{}, nil, err
-	}
-
-	cfg, src := config.ResolveWithMetadata(global, globalMeta, project, projectMeta, config.EnvOverrides(), flagOv)
-
-	if _, err := os.Stat(flakePath); err == nil {
-		cfg.Env = config.ResolveFlake(cfg, src, true)
-		if src["env"] == "default" || src["env"] == "global" {
-			src["env"] = "project"
-		}
-	} else {
-		cfg.Env = config.ResolveFlake(cfg, src, false)
-	}
-
-	if cfg.Dolt.Enabled && cfg.Dolt.Database == "" {
-		cfg.Dolt.Database = projectCtx.DefaultDoltDatabase()
-	}
-
-	if err := config.Validate(cfg); err != nil {
-		return config.Config{}, nil, err
-	}
-
-	return cfg, src, nil
 }

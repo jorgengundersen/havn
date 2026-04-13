@@ -49,10 +49,8 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 
 			projectPath := projectCtx.Path
 			var effectiveValidationErr error
-			cfg, err := loadEffectiveConfig(projectPath)
-			if globalConfigPath != "" {
-				cfg, err = loadEffectiveConfigForCommand(projectPath, globalConfigPath)
-			}
+			orchestrator := newEffectiveConfigOrchestrator(globalConfigPath)
+			cfg, err := orchestrator.Resolve(projectContext{Path: projectPath}, config.Overrides{})
 			if err != nil {
 				var validationErr *config.ValidationError
 				if errors.As(err, &validationErr) {
@@ -66,7 +64,7 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 
 			targets := resolveContainerTargets(ctx, backend, opts.All, projectPath)
 			for _, target := range targets {
-				targetCfg, err := loadEffectiveConfigForCommand(target.Project, globalConfigPath)
+				targetCfg, err := orchestrator.Resolve(projectContext{Path: target.Project}, config.Overrides{})
 				if err != nil {
 					targetCfg = cfg
 				}
