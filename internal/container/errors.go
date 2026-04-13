@@ -11,6 +11,16 @@ func (e *NotFoundError) Error() string {
 	return fmt.Sprintf("container %q not found", e.Name)
 }
 
+// ErrorType returns the stable snake_case identifier for this error.
+func (e *NotFoundError) ErrorType() string {
+	return "container_not_found"
+}
+
+// ErrorDetails returns structured fields for JSON error output.
+func (e *NotFoundError) ErrorDetails() map[string]any {
+	return map[string]any{"name": e.Name}
+}
+
 // NetworkNotFoundError indicates a Docker network does not exist.
 type NetworkNotFoundError struct {
 	Name string
@@ -18,6 +28,35 @@ type NetworkNotFoundError struct {
 
 func (e *NetworkNotFoundError) Error() string {
 	return fmt.Sprintf("network %q not found", e.Name)
+}
+
+// ErrorType returns the stable snake_case identifier for this error.
+func (e *NetworkNotFoundError) ErrorType() string {
+	return "network_not_found"
+}
+
+// ErrorDetails returns structured fields for JSON error output.
+func (e *NetworkNotFoundError) ErrorDetails() map[string]any {
+	return map[string]any{"name": e.Name}
+}
+
+// ImageNotFoundError indicates an image does not exist locally.
+type ImageNotFoundError struct {
+	Name string
+}
+
+func (e *ImageNotFoundError) Error() string {
+	return fmt.Sprintf("image %q not found", e.Name)
+}
+
+// ErrorType returns the stable snake_case identifier for this error.
+func (e *ImageNotFoundError) ErrorType() string {
+	return "image_not_found"
+}
+
+// ErrorDetails returns structured fields for JSON error output.
+func (e *ImageNotFoundError) ErrorDetails() map[string]any {
+	return map[string]any{"name": e.Name}
 }
 
 // BuildError wraps a failure during image build.

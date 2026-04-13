@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -34,13 +35,20 @@ func (s dockerBuildService) Build(ctx context.Context, opts container.BuildOpts,
 }
 
 func (b dockerImageBackend) ImageBuild(ctx context.Context, opts container.ImageBuildOpts) error {
-	return b.docker.ImageBuild(ctx, docker.BuildOpts{
+	err := b.docker.ImageBuild(ctx, docker.BuildOpts{
 		Tag:        opts.Tag,
 		Context:    opts.ContextPath,
 		Dockerfile: "Dockerfile",
 		BuildArgs:  opts.BuildArgs,
 		Output:     b.output,
 	})
+	if err != nil {
+		var notFound *docker.ImageNotFoundError
+		if errors.As(err, &notFound) {
+			return &container.ImageNotFoundError{Name: notFound.Name}
+		}
+	}
+	return err
 }
 
 func (b dockerImageBackend) ImageExists(ctx context.Context, name string) (bool, error) {

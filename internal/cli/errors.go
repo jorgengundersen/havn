@@ -6,8 +6,10 @@ import (
 	"fmt"
 
 	"github.com/jorgengundersen/havn/internal/config"
+	"github.com/jorgengundersen/havn/internal/container"
 	"github.com/jorgengundersen/havn/internal/docker"
 	"github.com/jorgengundersen/havn/internal/dolt"
+	"github.com/jorgengundersen/havn/internal/volume"
 )
 
 // TypedError is implemented by domain errors that expose machine-readable
@@ -57,22 +59,22 @@ func FormatError(err error) string {
 		return "Docker is not running. Start Docker and try again"
 	}
 
-	var containerNotFound *docker.ContainerNotFoundError
+	var containerNotFound *container.NotFoundError
 	if errors.As(err, &containerNotFound) {
 		return fmt.Sprintf("Failed to find container %q", containerNotFound.Name)
 	}
 
-	var imageNotFound *docker.ImageNotFoundError
+	var imageNotFound *container.ImageNotFoundError
 	if errors.As(err, &imageNotFound) {
 		return fmt.Sprintf("Image %q not found — run 'havn build' first", imageNotFound.Name)
 	}
 
-	var networkNotFound *docker.NetworkNotFoundError
+	var networkNotFound *container.NetworkNotFoundError
 	if errors.As(err, &networkNotFound) {
 		return fmt.Sprintf("Network %q not found", networkNotFound.Name)
 	}
 
-	var volumeNotFound *docker.VolumeNotFoundError
+	var volumeNotFound *volume.NotFoundError
 	if errors.As(err, &volumeNotFound) {
 		return fmt.Sprintf("Volume %q not found", volumeNotFound.Name)
 	}

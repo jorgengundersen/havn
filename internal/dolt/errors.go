@@ -14,6 +14,16 @@ func (e *StartError) Error() string {
 	return fmt.Sprintf("start dolt server: %s", e.Err)
 }
 
+// ErrorType returns the stable snake_case identifier for this error.
+func (e *StartError) ErrorType() string {
+	return "dolt_start_failed"
+}
+
+// ErrorDetails returns structured fields for JSON error output.
+func (e *StartError) ErrorDetails() map[string]any {
+	return map[string]any{"error": e.Err.Error()}
+}
+
 func (e *StartError) Unwrap() error {
 	return e.Err
 }
@@ -27,6 +37,16 @@ func (e *HealthCheckTimeoutError) Error() string {
 	return fmt.Sprintf("dolt health check timed out after %s", e.Timeout)
 }
 
+// ErrorType returns the stable snake_case identifier for this error.
+func (e *HealthCheckTimeoutError) ErrorType() string {
+	return "dolt_health_check_timeout"
+}
+
+// ErrorDetails returns structured fields for JSON error output.
+func (e *HealthCheckTimeoutError) ErrorDetails() map[string]any {
+	return map[string]any{"timeout": e.Timeout.String()}
+}
+
 // NotManagedError indicates a container exists but lacks the managed-by=havn label.
 type NotManagedError struct {
 	Name string
@@ -34,6 +54,16 @@ type NotManagedError struct {
 
 func (e *NotManagedError) Error() string {
 	return fmt.Sprintf("container %q exists but was not created by havn", e.Name)
+}
+
+// ErrorType returns the stable snake_case identifier for this error.
+func (e *NotManagedError) ErrorType() string {
+	return "dolt_not_managed"
+}
+
+// ErrorDetails returns structured fields for JSON error output.
+func (e *NotManagedError) ErrorDetails() map[string]any {
+	return map[string]any{"name": e.Name}
 }
 
 // ServerNotRunningError indicates the shared Dolt server container is absent
@@ -44,6 +74,16 @@ type ServerNotRunningError struct {
 
 func (e *ServerNotRunningError) Error() string {
 	return fmt.Sprintf("container %q is not running", e.Name)
+}
+
+// ErrorType returns the stable snake_case identifier for this error.
+func (e *ServerNotRunningError) ErrorType() string {
+	return "dolt_server_not_running"
+}
+
+// ErrorDetails returns structured fields for JSON error output.
+func (e *ServerNotRunningError) ErrorDetails() map[string]any {
+	return map[string]any{"name": e.Name}
 }
 
 // DatabaseExistsError indicates a database already exists on the shared server.
@@ -86,6 +126,16 @@ type DatabaseCreateError struct {
 
 func (e *DatabaseCreateError) Error() string {
 	return fmt.Sprintf("create database %q: %s", e.Name, e.Err)
+}
+
+// ErrorType returns the stable snake_case identifier for this error.
+func (e *DatabaseCreateError) ErrorType() string {
+	return "dolt_database_create_failed"
+}
+
+// ErrorDetails returns structured fields for JSON error output.
+func (e *DatabaseCreateError) ErrorDetails() map[string]any {
+	return map[string]any{"name": e.Name, "error": e.Err.Error()}
 }
 
 func (e *DatabaseCreateError) Unwrap() error {

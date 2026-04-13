@@ -10,8 +10,10 @@ import (
 
 	"github.com/jorgengundersen/havn/internal/cli"
 	"github.com/jorgengundersen/havn/internal/config"
+	"github.com/jorgengundersen/havn/internal/container"
 	"github.com/jorgengundersen/havn/internal/docker"
 	"github.com/jorgengundersen/havn/internal/dolt"
+	"github.com/jorgengundersen/havn/internal/volume"
 )
 
 func TestExitError_ExposesCodeAndWrapsErr(t *testing.T) {
@@ -104,13 +106,13 @@ func TestFormatError_DaemonUnreachableError(t *testing.T) {
 }
 
 func TestFormatError_ContainerNotFoundError(t *testing.T) {
-	err := &docker.ContainerNotFoundError{Name: "havn-user-api"}
+	err := &container.NotFoundError{Name: "havn-user-api"}
 
 	assert.Equal(t, `Failed to find container "havn-user-api"`, cli.FormatError(err))
 }
 
 func TestFormatError_ImageNotFoundError(t *testing.T) {
-	err := &docker.ImageNotFoundError{Name: "havn-base:latest"}
+	err := &container.ImageNotFoundError{Name: "havn-base:latest"}
 
 	assert.Equal(t, `Image "havn-base:latest" not found — run 'havn build' first`, cli.FormatError(err))
 }
@@ -130,13 +132,13 @@ func TestTypedError_ImageNotFoundErrorSatisfiesInterface(t *testing.T) {
 }
 
 func TestFormatError_NetworkNotFoundError(t *testing.T) {
-	err := &docker.NetworkNotFoundError{Name: "havn-net"}
+	err := &container.NetworkNotFoundError{Name: "havn-net"}
 
 	assert.Equal(t, `Network "havn-net" not found`, cli.FormatError(err))
 }
 
 func TestFormatError_VolumeNotFoundError(t *testing.T) {
-	err := &docker.VolumeNotFoundError{Name: "havn-dolt-data"}
+	err := &volume.NotFoundError{Name: "havn-dolt-data"}
 
 	assert.Equal(t, `Volume "havn-dolt-data" not found`, cli.FormatError(err))
 }
@@ -191,7 +193,7 @@ func TestOutput_Error_JSONMode_NetworkNotFoundError(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	out := cli.NewOutput(&stdout, &stderr, true, false)
 
-	err := &docker.NetworkNotFoundError{Name: "havn-net"}
+	err := &container.NetworkNotFoundError{Name: "havn-net"}
 	out.Error(err)
 
 	assert.Empty(t, stdout.String(), "error should not write to stdout")
@@ -206,7 +208,7 @@ func TestOutput_Error_JSONMode_VolumeNotFoundError(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	out := cli.NewOutput(&stdout, &stderr, true, false)
 
-	err := &docker.VolumeNotFoundError{Name: "havn-dolt-data"}
+	err := &volume.NotFoundError{Name: "havn-dolt-data"}
 	out.Error(err)
 
 	assert.Empty(t, stdout.String(), "error should not write to stdout")
