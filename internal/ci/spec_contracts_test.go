@@ -139,3 +139,15 @@ func TestDocs_CLIReferenceDocumentsCommandSurfaceAndSupportMatrix(t *testing.T) 
 	assert.Contains(t, cliRef, "Partial")
 	assert.Contains(t, cliRef, "Planned")
 }
+
+func TestSpecs_CodeStandardsDocumentsSharedCLIOrchestrationBoundary(t *testing.T) {
+	codeStandardsPath := filepath.Join("..", "..", "specs", "code-standards.md")
+	codeStandardsContent, err := os.ReadFile(codeStandardsPath)
+	require.NoError(t, err)
+
+	codeStandards := string(codeStandardsContent)
+	assert.Contains(t, codeStandards, "### Shared CLI orchestration boundary")
+	assert.Contains(t, codeStandards, "`projectContext` and `effectiveConfigOrchestrator`")
+	assert.Contains(t, codeStandards, "`internal/cli` command handlers stay thin")
+	assert.Contains(t, codeStandards, "must not duplicate project-path and effective-config resolution")
+}

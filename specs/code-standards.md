@@ -51,6 +51,18 @@ import (
 
 Blank line between each group. `gci` enforces this automatically.
 
+### Shared CLI orchestration boundary
+
+Shared startup/doctor/config orchestration lives in dedicated helpers inside
+`internal/cli` so command handlers stay wiring-focused:
+
+- `projectContext` and `effectiveConfigOrchestrator` are the canonical CLI
+  boundary primitives for project identity and effective config resolution.
+- `internal/cli` command handlers stay thin and call these primitives rather
+  than reimplementing path/config derivation.
+- command-specific wiring may apply local overrides after resolution, but
+  commands must not duplicate project-path and effective-config resolution.
+
 ## 2. Error Handling
 
 _Ref: [Principles 5, 4](architecture-principles.md)_
