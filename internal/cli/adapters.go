@@ -165,11 +165,7 @@ func (b dockerStartBackend) ContainerExec(ctx context.Context, name string, cmd 
 		return err
 	}
 	if result.ExitCode != 0 {
-		stderr := strings.TrimSpace(string(result.Stderr))
-		if stderr == "" {
-			stderr = "command failed"
-		}
-		return fmt.Errorf("container exec exited %d: %s", result.ExitCode, stderr)
+		return execResultError(result)
 	}
 	return nil
 }
@@ -318,11 +314,7 @@ func (b dockerDoctorBackend) ContainerExec(ctx context.Context, containerName st
 		return "", err
 	}
 	if result.ExitCode != 0 {
-		stderr := strings.TrimSpace(string(result.Stderr))
-		if stderr == "" {
-			stderr = "command failed"
-		}
-		return "", fmt.Errorf("container exec exited %d: %s", result.ExitCode, stderr)
+		return "", execResultError(result)
 	}
 	return string(result.Stdout), nil
 }
@@ -402,6 +394,30 @@ func (b dockerDoltBackend) ContainerInspect(ctx context.Context, name string) (d
 		return dolt.ContainerInfo{}, false, err
 	}
 
+	return toDoltContainerInfo(info), true, nil
+}
+
+func (b dockerDoltBackend) ContainerExec(ctx context.Context, containerName string, cmd []string) (string, error) {
+	result, err := b.docker.ContainerExec(ctx, containerName, docker.ExecOpts{Cmd: cmd})
+	if err != nil {
+		return "", err
+	}
+	if result.ExitCode != 0 {
+		return "", execResultError(result)
+	}
+	return string(result.Stdout), nil
+}
+
+func execResultError(result docker.ExecResult) error {
+	stderr := strings.TrimSpace(string(result.Stderr))
+	if stderr == "" {
+		stderr = "command failed"
+	}
+
+	return fmt.Errorf("container exec exited %d: %s", result.ExitCode, stderr)
+}
+
+func toDoltContainerInfo(info docker.ContainerInfo) dolt.ContainerInfo {
 	network := ""
 	if len(info.Networks) > 0 {
 		network = info.Networks[0]
@@ -413,22 +429,7 @@ func (b dockerDoltBackend) ContainerInspect(ctx context.Context, name string) (d
 		Image:   info.Image,
 		Labels:  info.Labels,
 		Network: network,
-	}, true, nil
-}
-
-func (b dockerDoltBackend) ContainerExec(ctx context.Context, containerName string, cmd []string) (string, error) {
-	result, err := b.docker.ContainerExec(ctx, containerName, docker.ExecOpts{Cmd: cmd})
-	if err != nil {
-		return "", err
 	}
-	if result.ExitCode != 0 {
-		stderr := strings.TrimSpace(string(result.Stderr))
-		if stderr == "" {
-			stderr = "command failed"
-		}
-		return "", fmt.Errorf("container exec exited %d: %s", result.ExitCode, stderr)
-	}
-	return string(result.Stdout), nil
 }
 
 func (b dockerDoltBackend) ContainerExecInteractive(ctx context.Context, containerName string, cmd []string) error {
