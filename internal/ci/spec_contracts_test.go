@@ -112,6 +112,7 @@ func TestDocs_ContributingGuideCoversDeveloperWorkflow(t *testing.T) {
 	assert.Contains(t, contributing, "## Repository structure")
 	assert.Contains(t, contributing, "## Working with bd issues")
 	assert.Contains(t, contributing, "## Pull request workflow")
+	assert.Contains(t, contributing, "`integration-tests` and `boundary-confidence` are required merge checks on `main`")
 }
 
 func TestDocs_CLIReferenceDocumentsCommandSurfaceAndSupportMatrix(t *testing.T) {

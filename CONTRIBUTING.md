@@ -56,10 +56,13 @@ Run these targets before opening a PR:
 - `make lint` - run static analysis (`golangci-lint`)
 - `make test` - run unit tests
 - `make test-integration` - run Docker-backed integration tests
+- `make test-boundary-confidence` - run boundary-confidence suites for shipped CLI contracts
 - `make build` - compile `bin/havn`
 - `make check` - run fmt + lint + test + build
 
 Commits trigger hooks. A failing hook blocks the commit.
+
+`integration-tests` and `boundary-confidence` are required merge checks on `main`.
 
 ## Repository structure
 
@@ -92,7 +95,7 @@ Rules:
 ## Pull request workflow
 
 1. Keep your branch up to date (`git pull --rebase`).
-2. Run `make check` (and `make test-integration` when relevant).
+2. Run `make check`, `make test-integration`, and `make test-boundary-confidence`.
 3. Commit using a conventional commit style (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`).
 4. Push your branch and open a PR with a clear summary of intent and behavior changes.
 5. Reference and close related `bd` issues in the PR and issue notes.
