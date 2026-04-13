@@ -1,5 +1,7 @@
 # Agent Instructions
 
+- use `uv` for any python needs (even runtime)
+
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
 ## Quick Reference

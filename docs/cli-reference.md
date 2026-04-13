@@ -1,16 +1,26 @@
 # havn CLI reference
 
-This reference documents the current `havn` CLI surface as implemented today and highlights where behavior is still planned.
+This is a derivative guide to the current CLI surface.
+
+For the normative CLI contract, see `specs/cli-framework.md`.
+
+## Status labels
+
+- `Implemented`: supported and intended to work today
+- `Partial`: user-facing surface exists, but the full spec contract is still being tightened
+- `Planned`: documented direction, not shipped command behavior yet
 
 ## Global flags
 
-These flags apply to all commands:
+These persistent flags apply to all commands:
 
 - `--json`: machine-readable JSON output
-- `--verbose`: detailed status output, command-level diagnostics
-- `--config <path>`: explicit global config file path
+- `--verbose`: detailed status output and diagnostics
+- `--config <path>`: alternate global config file for this invocation
 
-Root-only runtime flags (for `havn [path]` and `havn build` image resolution) are not global:
+## Root-only runtime flags
+
+These are accepted by `havn [path]` and are not global:
 
 - `--shell <name>` (`HAVN_SHELL`)
 - `--env <flake-ref>` (`HAVN_ENV`)
@@ -20,38 +30,44 @@ Root-only runtime flags (for `havn [path]` and `havn build` image resolution) ar
 - `--no-dolt`
 - `--image <name>` (`HAVN_IMAGE`)
 
+`havn build` may also honor `--image`, but that does not make it a persistent
+flag.
+
 ## Output modes and JSON conventions
 
-- Stream separation is always enforced: status/errors to `stderr`, command data to `stdout`.
-- Normal mode writes concise human-readable output.
-- `--verbose` adds detailed diagnostics to `stderr`.
-- `--json` writes structured JSON to `stdout` for data-producing commands.
-- Action commands return JSON result objects in JSON mode, typically:
+- stream separation is always enforced for normal command execution: status and
+  errors go to `stderr`, command data goes to `stdout`
+- normal mode writes concise human-readable output
+- `--verbose` adds detailed diagnostics to `stderr`
+- `--json` writes structured JSON to `stdout` for data-producing commands
+- action commands return JSON result objects in JSON mode, typically:
 
 ```json
 {"status":"ok","message":"..."}
 ```
 
-- JSON errors are emitted on `stderr` and include `error`; typed errors may include `type` and `details`.
+- JSON errors are emitted on `stderr` and include `error`; typed errors may also
+  include `type` and `details`
 
 ## Command reference
 
 ### Root command
 
-- `havn [path]`: start or attach to the project container (path defaults to `.`)
+- `havn [path]`: start or attach to the project container
 - `havn --version`: print CLI version
 
 ### Core commands
 
-- `havn list`: list running havn-managed project containers
+- `havn list`: list havn-managed project containers
 - `havn stop [name|path]`: stop one project container
-- `havn stop --all`: stop all running havn-managed project containers (best effort)
+- `havn stop --all`: stop all running havn-managed project containers with
+  best-effort reporting
 - `havn build`: build the base image used for project containers
 
 ### Grouped commands
 
-- `havn config show`: show effective merged configuration
-- `havn volume list`: list managed/shared volume presence
+- `havn config show`: inspect effective merged configuration
+- `havn volume list`: inspect configured shared volume presence
 - `havn doctor`: run host and container health checks
 
 ### Dolt commands
@@ -71,17 +87,16 @@ Root-only runtime flags (for `havn [path]` and `havn build` image resolution) ar
 
 ## Support matrix
 
-The table below describes implementation status in the current CLI.
-
 | Command | Status | Notes |
 |---|---|---|
-| `havn [path]` | Implemented | Start/attach flow wired through container lifecycle service |
-| `havn list` | Implemented | Human + JSON output |
+| `havn [path]` | Implemented | Start-or-attach entry point |
+| `havn list` | Implemented | Human and JSON output |
 | `havn stop` | Implemented | Single stop and `--all` best-effort behavior |
-| `havn build` | Implemented | Builds configured base image |
-| `havn config show` | Implemented | Includes JSON `source` metadata object |
-| `havn volume list` | Implemented | Reports configured volumes and existence |
-| `havn doctor` | Implemented | Exit codes: 0 pass, 1 warn, 2 error |
-| `havn dolt start/stop/status/databases/drop/connect/import/export` | Implemented | Shared-server mode |
-| `havn completion` | Implemented | Cobra built-in completion generator |
-| Additional commands from future specs | Planned | Not yet part of the current command tree |
+| `havn build` | Implemented | Base-image build surface |
+| `havn config show` | Partial | Normative config contract lives in `specs/configuration.md` |
+| `havn volume list` | Implemented | Shared volume inspection |
+| `havn doctor` | Partial | Normative doctor contract lives in `specs/havn-doctor.md` |
+| `havn dolt start/stop/status/databases/drop/connect/import/export` | Partial | Normative Dolt contract lives in `specs/shared-dolt-server.md` |
+| `havn completion` | Planned | Planned CLI surface owned by `specs/cli-framework.md` |
+
+When this guide and a spec disagree, follow the relevant spec in `specs/`.

@@ -10,14 +10,14 @@ import (
 )
 
 func TestSpecs_ConfigContractDocumentsStableSourceAndConfigOnlyOverrides(t *testing.T) {
-	overviewPath := filepath.Join("..", "..", "specs", "havn-overview.md")
-	overviewContent, err := os.ReadFile(overviewPath)
+	configPath := filepath.Join("..", "..", "specs", "configuration.md")
+	configContent, err := os.ReadFile(configPath)
 	require.NoError(t, err)
 
-	overview := string(overviewContent)
-	assert.Contains(t, overview, "The `source` object is part of the stable `havn config show --json` contract")
-	assert.Contains(t, overview, "havn must include source metadata for these fields")
-	assert.Contains(t, overview, "`memory_swap` is a config-only setting")
+	configuration := string(configContent)
+	assert.Contains(t, configuration, "The `source` object is part of the stable contract")
+	assert.Contains(t, configuration, "`havn` must include source metadata for at least these fields")
+	assert.Contains(t, configuration, "`memory_swap` is intentionally config-only")
 
 	principlesPath := filepath.Join("..", "..", "specs", "architecture-principles.md")
 	principlesContent, err := os.ReadFile(principlesPath)
@@ -29,22 +29,21 @@ func TestSpecs_ConfigContractDocumentsStableSourceAndConfigOnlyOverrides(t *test
 }
 
 func TestSpecs_PortExposureContractIsExplicitAndCoherent(t *testing.T) {
-	overviewPath := filepath.Join("..", "..", "specs", "havn-overview.md")
-	overviewContent, err := os.ReadFile(overviewPath)
+	configPath := filepath.Join("..", "..", "specs", "configuration.md")
+	configContent, err := os.ReadFile(configPath)
 	require.NoError(t, err)
 
-	overview := string(overviewContent)
-	assert.Contains(t, overview, "`--port` accepts a single host port number")
-	assert.Contains(t, overview, "`ports` accepts explicit host:container mappings")
-	assert.Contains(t, overview, "`--port` and `ports` are merged into one Docker publish set")
-	assert.Contains(t, overview, "A startup request fails if any requested host port is unavailable")
+	configuration := string(configContent)
+	assert.Contains(t, configuration, "`--port` is SSH-only")
+	assert.Contains(t, configuration, "merged with any configured `ports` entries into the final Docker publish set")
 
 	cliPath := filepath.Join("..", "..", "specs", "cli-framework.md")
 	cliContent, err := os.ReadFile(cliPath)
 	require.NoError(t, err)
 
 	cli := string(cliContent)
-	assert.Contains(t, cli, "root.Flags().StringVar(&opts.Port, \"port\", \"\", \"publish container SSH on host port\")")
+	assert.Contains(t, cli, "Root-only flags apply only to `havn [path]` and are not inherited by")
+	assert.Contains(t, cli, "- `--port <port>`")
 }
 
 func TestSpecs_InterfaceAssertionImplementorStrategyIsExplicit(t *testing.T) {
@@ -135,5 +134,6 @@ func TestDocs_CLIReferenceDocumentsCommandSurfaceAndSupportMatrix(t *testing.T) 
 	assert.Contains(t, cliRef, "havn dolt start")
 	assert.Contains(t, cliRef, "havn completion")
 	assert.Contains(t, cliRef, "Implemented")
+	assert.Contains(t, cliRef, "Partial")
 	assert.Contains(t, cliRef, "Planned")
 }

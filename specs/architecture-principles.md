@@ -357,8 +357,8 @@ emerges -- so err on the side of less upfront.
 always be one of: a flag, an env var, or a line in config. Never "edit this
 source file" or "it's not possible."
 
-_Specific config layers, file paths, and precedence rules live in a config
-spec._
+_Specific config layers, file paths, precedence rules, and effective-config
+inspection semantics live in `specs/configuration.md`._
 
 **Config is a pure data problem.** Merging/validation/defaults = pure
 functions, no dependency on Docker or filesystem beyond reading files.

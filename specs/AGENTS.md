@@ -1,6 +1,6 @@
-# Specs
+# Specs Guidance
 
-This directory is the normative contract set for `havn`.
+This file contains working rules for maintaining the spec corpus in `specs/`.
 
 ## Spec Governance
 
@@ -26,7 +26,7 @@ Meta specs such as coding or testing standards do not need support-status labels
 When a new major contract is added:
 
 1. Choose one authoritative owner for the behavior.
-2. Add the spec to the index below with its role.
+2. Add the spec to `specs/README.md` with its role.
 3. Update `specs/havn-overview.md` so the overview points to the new owner.
 4. Update derivative docs in `README.md` or `docs/` so they link back to the authoritative spec instead of re-defining the contract.
 
@@ -46,18 +46,3 @@ When a new major contract is added:
 - CLI stream separation is consistent across commands: status, logs, and errors go to `stderr`; command data and stable JSON go to `stdout`.
 - `specs/havn-overview.md` is never the hidden authority for config, doctor, CLI, or shared-Dolt detail; it points to the owning spec.
 - Shared Dolt lifecycle, readiness, ownership, and import/export safety semantics are owned by `specs/shared-dolt-server.md`.
-
-## Spec Index
-
-| Spec | Role |
-|------|------|
-| [architecture-principles.md](architecture-principles.md) | Foundational engineering principles and architectural constraints |
-| [code-standards.md](code-standards.md) | Go-specific implementation conventions |
-| [test-standards.md](test-standards.md) | Testing conventions and boundaries |
-| [quality-gates.md](quality-gates.md) | Tooling, build, lint, and CI gates |
-| [configuration.md](configuration.md) | Authoritative configuration contract: discovery, precedence, merge rules, and config inspection |
-| [cli-framework.md](cli-framework.md) | Authoritative CLI contract: command tree, flag scope, output handling, and CLI error behavior |
-| [havn-overview.md](havn-overview.md) | Product overview, core workflows, and pointers to authoritative subsystem specs |
-| [base-image.md](base-image.md) | Base image and runtime-init contract |
-| [havn-doctor.md](havn-doctor.md) | Authoritative doctor contract: checks, tiers, selection rules, and output |
-| [shared-dolt-server.md](shared-dolt-server.md) | Authoritative shared-Dolt contract: lifecycle, readiness, ownership, and migration safety |

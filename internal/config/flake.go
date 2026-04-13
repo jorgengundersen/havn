@@ -1,8 +1,7 @@
 package config
 
-// ResolveFlake determines the effective Nix flake reference using the 5-level
-// priority chain defined in specs/havn-overview.md §'Dev environment flake
-// resolution':
+// ResolveFlake determines the effective Nix flake reference using the priority
+// chain defined in specs/configuration.md:
 //
 //  1. --env flag
 //  2. HAVN_ENV env var

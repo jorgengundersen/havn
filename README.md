@@ -15,8 +15,9 @@ Nix dev shell.
 
 `havn` is in active development.
 
-- User-facing docs describe behavior that works today
-- Spec-defined behavior that is not fully landed is marked as planned
+- Specs in `specs/` are the normative contract set
+- User-facing docs in `README.md` and `docs/` are derivative guides and should be read as current-status guidance
+- Support labels use `Implemented`, `Partial`, and `Planned`
 - Source builds are the supported installation path right now
 
 For command-level support details, see the support matrix in

@@ -1,6 +1,6 @@
 # havn doctor troubleshooting guide
 
-`havn doctor` is the first command to run when a havn environment is not behaving as expected. It is diagnostic-only: it reports what is wrong and what to do next, but it does not change your system.
+`havn doctor` is the first command to run when a havn environment is not behaving as expected. This guide is derivative; the normative doctor contract lives in `specs/havn-doctor.md`. Doctor is diagnostic-only: it reports what is wrong and what to do next, but it does not change your system.
 
 ## Purpose
 

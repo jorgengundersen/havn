@@ -1,17 +1,26 @@
 # havn configuration guide
 
-This guide explains where `havn` reads configuration, how values are merged, and how to inspect the effective configuration used for a project.
+This is a derivative guide to the current configuration model.
+
+For the normative contract, see `specs/configuration.md`.
+
+## Status
+
+Configuration support is `Partial`: the intended contract is defined in
+`specs/configuration.md`, while some implementation details are still being
+aligned to that spec.
 
 ## Configuration sources
 
-`havn` reads configuration from four layers:
+`havn` resolves configuration from these layers:
 
-1. global config file
-2. project config file
-3. environment variables
-4. CLI flags
+1. built-in defaults
+2. global config file
+3. project config file
+4. environment-variable overrides
+5. command flags accepted by the current command
 
-Higher layers override lower layers.
+Higher-precedence layers override lower-precedence layers.
 
 ## File locations
 
@@ -23,45 +32,47 @@ Default path:
 ~/.config/havn/config.toml
 ```
 
-Use `--config <path>` to point `havn` at a different global config file for that command invocation.
+Use `--config <path>` to select a different global config file for one command
+invocation.
 
 ### Project config
 
-Path relative to a project root:
+Project-local path:
 
 ```text
 <project>/.havn/config.toml
 ```
 
-Project config is optional. If present, it overrides matching global values.
+Project config is optional.
 
 ## Precedence rules
 
-For regular config fields (`shell`, `image`, `resources.*`, `dolt.*`, and similar), precedence is:
+For normal config fields, precedence is:
 
 ```text
 flag > env var > project config > global config > built-in default
 ```
 
-Example mappings:
+Examples:
 
-- `--shell` overrides `HAVN_SHELL` and any `shell = "..."` value in config files
-- `--cpus` overrides `HAVN_CPUS` and any `[resources].cpus` value in config files
-- `--image` overrides `HAVN_IMAGE` and any `image = "..."` value in config files
+- `--shell` overrides `HAVN_SHELL` and any `shell` value from config files
+- `--cpus` overrides `HAVN_CPUS` and any `[resources].cpus` value from config files
+- `--image` overrides `HAVN_IMAGE` and any `image` value from config files
 
-### Dev environment (`env`) resolution
+### Flake resolution
 
-`env` has an additional source: `.havn/flake.nix`. Resolution order is:
+`env` has one extra discovered source, `.havn/flake.nix`. Resolution order is:
 
 1. `--env`
 2. `HAVN_ENV`
 3. `env` in `<project>/.havn/config.toml`
-4. `<project>/.havn/flake.nix` (resolved as `path:./.havn`)
-5. `env` in `~/.config/havn/config.toml`
+4. `<project>/.havn/flake.nix` resolved as `path:./.havn`
+5. `env` in global config
+6. built-in default
 
 ## Minimal examples
 
-### Global defaults (`~/.config/havn/config.toml`)
+### Global defaults
 
 ```toml
 env = "github:jorgengundersen/dev-environments"
@@ -80,7 +91,7 @@ port = 3308
 image = "dolthub/dolt-sql-server:latest"
 ```
 
-### Project overrides (`<project>/.havn/config.toml`)
+### Project overrides
 
 ```toml
 shell = "go"
@@ -98,11 +109,9 @@ database = "myproject"
 MY_API_KEY = "${MY_API_KEY}"
 ```
 
-## Common configuration patterns
+## Common patterns
 
 ### Reuse existing Docker volumes
-
-If you already have compatible XDG volumes from another tool, set:
 
 ```toml
 [volumes]
@@ -111,7 +120,7 @@ cache = "devenv-cache"
 state = "devenv-state"
 ```
 
-### Enable shared Dolt per project
+### Enable shared Dolt for one project
 
 ```toml
 [dolt]
@@ -125,7 +134,7 @@ database = "api"
 ports = ["3000:3000", "8080:8080"]
 ```
 
-`--port` is separate and SSH-only (`host:<container 22>` behavior).
+`--port` is separate and SSH-only.
 
 ### Pass host environment values through
 
@@ -134,19 +143,19 @@ ports = ["3000:3000", "8080:8080"]
 GITHUB_TOKEN = "${GITHUB_TOKEN}"
 ```
 
-`havn` reads the host variable at startup. If it is unset, startup fails with a validation error.
+If the host variable is unset at startup, `havn` treats that as a validation
+error.
 
 ## Inspect effective configuration
 
-Use `havn config show` to inspect the merged runtime config for a project.
+Use `havn config show` to inspect the resolved configuration for the current
+invocation.
 
-### Human-readable output
+### Human output
 
 ```bash
 havn config show
 ```
-
-Use this for quick local inspection.
 
 ### JSON output
 
@@ -154,10 +163,11 @@ Use this for quick local inspection.
 havn config show --json
 ```
 
-Use this for scripts and automation. The output includes:
+The JSON output includes:
 
-- effective values (`env`, `shell`, `resources`, `dolt`, and others)
-- a `source` object that explains where key values came from (`default`, `global`, `project`, `env`, or `flag`)
+- effective values such as `env`, `shell`, `resources`, `ports`, `environment`,
+  and `dolt`
+- a stable `source` object describing where key values came from
 
 Example snippet:
 
@@ -178,16 +188,15 @@ Example snippet:
 }
 ```
 
-Interpretation:
-
-- `shell = "go"` came from project config
-- `resources.cpus = 8` came from a CLI flag in this example
-- `resources.memory = "16g"` came from project config
+Source labels are `default`, `global`, `project`, `env`, and `flag`.
 
 ## Recommended workflow
 
-1. set stable defaults in `~/.config/havn/config.toml`
+1. put stable defaults in `~/.config/havn/config.toml`
 2. keep project-specific overrides in `<project>/.havn/config.toml`
-3. use env vars for machine/session-specific values
+3. use environment variables for session-specific values
 4. use flags for one-off overrides
 5. confirm with `havn config show --json`
+
+When this guide and the configuration spec disagree, follow
+`specs/configuration.md`.

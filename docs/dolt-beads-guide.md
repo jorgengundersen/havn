@@ -1,33 +1,37 @@
 # Dolt and beads guide
 
-This guide explains how `havn` and `bd` work together when projects use the shared Dolt server.
+This is a derivative guide to how `havn` and `bd` work together in shared-Dolt
+mode.
+
+For the normative shared-Dolt contract, see `specs/shared-dolt-server.md`.
+
+## Status
+
+Shared-Dolt support is `Partial`: the command surface exists, but the full
+lifecycle and migration contract is still being tightened against the spec.
 
 ## What this setup is
 
-- `havn` runs one shared Dolt SQL server container: `havn-dolt`.
-- Project containers connect to it over the Docker network (default `havn-net`).
-- Each project gets its own Dolt database on that server.
-- `bd` is the user-facing interface for issue data; `havn` only handles server and database lifecycle.
+- `havn` runs one shared Dolt SQL server container: `havn-dolt`
+- project containers connect to it over the configured Docker network
+- each project gets its own database on that server
+- `bd` is the user-facing interface for issue data; `havn` handles server and
+  database lifecycle
 
-At a high level:
+## Shared-server model
 
-- infrastructure is managed by `havn` (`havn dolt ...`)
-- issue data operations are managed by `bd` (`bd ready`, `bd create`, `bd close`, `bd dolt push`, ...)
+When Dolt is enabled for a project, the intended flow is:
 
-## Shared server model
+1. ensure `havn-dolt` exists and is running
+2. verify the container is managed by `havn`
+3. wait for readiness
+4. ensure the project database exists
+5. start or attach to the project container with shared-server beads env vars
 
-When Dolt is enabled for a project, startup follows this flow:
-
-1. Ensure `havn-dolt` exists and is running.
-2. Verify the container is managed by `havn` (ownership label).
-3. Wait for server readiness (`SELECT 1`).
-4. Ensure project database exists (`CREATE DATABASE IF NOT EXISTS`).
-5. Start or attach to the project container.
-
-The Dolt server lifecycle is independent of project containers:
+The shared server lifecycle is independent from project containers:
 
 - stopping a project container does not stop `havn-dolt`
-- use `havn dolt start` / `havn dolt stop` for shared server lifecycle
+- use `havn dolt start` and `havn dolt stop` for server lifecycle
 
 ## Project configuration
 
@@ -39,21 +43,23 @@ enabled = true
 database = "myproject"
 ```
 
-- `database` defaults to the project directory name when omitted.
-- global defaults (for image/port/enabled) can be set in `~/.config/havn/config.toml`.
+- `database` defaults to the project directory name when omitted
+- image and port defaults can be set in global config
 
 ## beads integration
 
-When a project container starts with Dolt enabled, `havn` injects the shared-server environment variables beads expects:
+When a project starts with Dolt enabled, `havn` injects the shared-server env
+vars beads expects:
 
 - `BEADS_DOLT_SHARED_SERVER=1`
 - `BEADS_DOLT_SERVER_HOST=havn-dolt`
-- `BEADS_DOLT_SERVER_PORT=3308` (or configured Dolt port)
+- `BEADS_DOLT_SERVER_PORT=3308` or the configured Dolt port
 - `BEADS_DOLT_SERVER_USER=root`
 - `BEADS_DOLT_SERVER_DATABASE=<project database>`
 - `BEADS_DOLT_AUTO_START=0`
 
-This keeps beads in external/shared-server mode and prevents per-project auto-started Dolt servers.
+This keeps beads in external/shared-server mode and prevents per-project Dolt
+auto-start behavior.
 
 ## Operational command reference
 
@@ -65,7 +71,7 @@ havn dolt stop
 havn dolt status
 ```
 
-- `status` supports `--json` and reports running state, image, network, and management ownership.
+`status` reports shared-server state, not project-specific state.
 
 ### Database operations
 
@@ -75,9 +81,9 @@ havn dolt drop <name> --yes
 havn dolt connect
 ```
 
-- `databases` supports `--json` and returns user databases.
-- `drop` is non-interactive: `--yes` is required.
-- `connect` opens an interactive `dolt sql` shell in the shared server container.
+- `databases` lists shared-server database names
+- `drop` is non-interactive: `--yes` is required
+- `connect` opens an interactive `dolt sql` shell in the shared server
 
 ### Migration and portability
 
@@ -86,31 +92,33 @@ havn dolt import <project-path> [--force]
 havn dolt export <database> [--dest <path>]
 ```
 
-- `import` copies local project database data from `<project>/.beads/dolt/<dbname>/` into the shared server volume.
-- `export` copies a shared-server database out to `<dest>/.beads/dolt/<dbname>/`.
-- `--force` on import allows overwrite when the database already exists on the shared server.
+- `import` migrates a local project database into the shared server
+- `export` copies a shared-server database out to project-local layout
+- `--force` allows overwrite on import when the destination database already
+  exists
 
-## Import workflow (existing local beads database -> shared server)
+## Import workflow
 
-Use this when moving from a local `.beads/dolt/...` database to shared-server mode.
+Use this when moving from a local `.beads/dolt/...` database to shared-server
+mode.
 
-1. Ensure project Dolt is enabled in `.havn/config.toml`.
-2. Run:
+1. enable Dolt in `.havn/config.toml`
+2. run:
 
 ```bash
 havn dolt import .
 ```
 
-3. Start project container normally with `havn .`.
-4. Use `bd` as usual inside the container.
+3. start the project normally with `havn .`
+4. use `bd` as usual inside the container
 
-What import verifies:
+The intended import contract verifies:
 
-- source database directory exists
-- destination database visibility after copy
-- best-effort project identity check (warning on mismatch)
+- the source database directory exists
+- the destination database becomes visible on the shared server
+- project identity is checked and surfaced when it can be compared
 
-## Export workflow (shared server -> project directory)
+## Export workflow
 
 Use this when you need a project-local copy of a shared database:
 
@@ -118,39 +126,29 @@ Use this when you need a project-local copy of a shared database:
 havn dolt export myproject --dest .
 ```
 
-Result path:
+Expected result path:
 
-- `./.beads/dolt/myproject/`
+```text
+./.beads/dolt/myproject/
+```
 
 ## Backup and sync options
 
-Two layers can be used:
+Two layers are available:
 
-- Dolt-volume level backup (Docker volume backup/restore)
-- beads-level remote sync (`bd dolt push` / `bd dolt pull`)
+- Docker-volume level backup for the shared Dolt volume
+- beads-level remote sync with `bd dolt push` and `bd dolt pull`
 
-For day-to-day issue data sync between machines, prefer beads remote sync commands.
+For day-to-day issue data sync between machines, prefer the beads remote-sync
+commands.
 
-## Current status and caveats
+## Caveats
 
-- This guide is implementation-first and reflects behavior currently wired in the CLI and Dolt domain package.
-- Shared Dolt server mode is the supported model; per-project Dolt server mode is not part of the current `havn` flow.
-- Default setup assumes network-isolated access (no host port publishing for Dolt).
-- Authentication/TLS hardening is not part of the default flow today.
-- `havn` handles server/database lifecycle; issue semantics, schema, and data workflows remain in beads (`bd`).
+- this guide describes intended shared-Dolt behavior, but support is still
+  marked `Partial`
+- per-project Dolt server mode is not supported by `havn`
+- default access model is network-isolated shared-server access, not host port
+  publishing
+- authentication and TLS are not part of the default flow today
 
-## Troubleshooting quick checks
-
-If shared Dolt behavior looks wrong:
-
-```bash
-havn dolt status
-havn dolt databases
-havn doctor --verbose
-```
-
-Then validate beads connectivity from inside the project container with:
-
-```bash
-bd doctor --json
-```
+When this guide and the spec disagree, follow `specs/shared-dolt-server.md`.

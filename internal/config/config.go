@@ -11,7 +11,7 @@ import (
 
 // Config represents the full havn configuration, combining global and
 // project-level settings. Fields use toml tags matching the schema in
-// specs/havn-overview.md §Configuration.
+// specs/configuration.md.
 type Config struct {
 	Env       string         `toml:"env"`
 	Shell     string         `toml:"shell"`
