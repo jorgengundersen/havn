@@ -26,7 +26,7 @@ func (f *fakeBackend) VolumeInspect(_ context.Context, name string) error {
 	if f.existing[name] {
 		return nil
 	}
-	return fmt.Errorf("volume %q not found", name)
+	return &volume.NotFoundError{Name: name}
 }
 
 func (f *fakeBackend) VolumeCreate(_ context.Context, name string) error {
@@ -154,9 +154,28 @@ func TestEnsureExists_CreateError(t *testing.T) {
 type failingCreateBackend struct{}
 
 func (f *failingCreateBackend) VolumeInspect(_ context.Context, _ string) error {
-	return fmt.Errorf("not found")
+	return &volume.NotFoundError{Name: "havn-nix"}
 }
 
 func (f *failingCreateBackend) VolumeCreate(_ context.Context, _ string) error {
 	return fmt.Errorf("permission denied")
+}
+
+type failingInspectBackend struct{}
+
+func (f *failingInspectBackend) VolumeInspect(_ context.Context, _ string) error {
+	return fmt.Errorf("daemon unavailable")
+}
+
+func (f *failingInspectBackend) VolumeCreate(_ context.Context, _ string) error {
+	return nil
+}
+
+func TestEnsureExists_InspectError(t *testing.T) {
+	mgr := volume.NewManager(&failingInspectBackend{})
+
+	err := mgr.EnsureExists(context.Background(), "havn-nix")
+
+	assert.ErrorContains(t, err, "inspect volume \"havn-nix\"")
+	assert.ErrorContains(t, err, "daemon unavailable")
 }

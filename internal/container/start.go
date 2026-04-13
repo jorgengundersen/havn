@@ -108,6 +108,17 @@ func StartOrAttach(ctx context.Context, deps StartDeps, cfg config.Config, proje
 		// Container doesn't exist — proceed to create.
 	} else if state.Running {
 		return attach(ctx, deps.Exec, string(cname), cfg, projectPath)
+	} else {
+		if err := deps.Container.ContainerStart(ctx, state.ID); err != nil {
+			return 0, fmt.Errorf("start container %q: %w", cname, err)
+		}
+
+		// Step 9: post-start init (sshd).
+		if err := deps.Exec.ContainerExec(ctx, string(cname), sshdCmd); err != nil {
+			return 0, fmt.Errorf("init sshd in container %q: %w", cname, err)
+		}
+
+		return attach(ctx, deps.Exec, string(cname), cfg, projectPath)
 	}
 
 	// Steps 4-7: ensure infrastructure.
@@ -124,8 +135,10 @@ func StartOrAttach(ctx context.Context, deps StartDeps, cfg config.Config, proje
 		return 0, fmt.Errorf("start container %q: %w", cname, err)
 	}
 
-	// Step 9: post-start init (sshd, best-effort).
-	_ = deps.Exec.ContainerExec(ctx, string(cname), sshdCmd)
+	// Step 9: post-start init (sshd).
+	if err := deps.Exec.ContainerExec(ctx, string(cname), sshdCmd); err != nil {
+		return 0, fmt.Errorf("init sshd in container %q: %w", cname, err)
+	}
 
 	// Step 10: attach to devShell.
 	return attach(ctx, deps.Exec, string(cname), cfg, projectPath)
@@ -155,6 +168,11 @@ func ensureInfrastructure(ctx context.Context, deps StartDeps, cfg config.Config
 
 	// Step 5: ensure network.
 	if err := deps.Network.NetworkInspect(ctx, cfg.Network); err != nil {
+		var notFound *NetworkNotFoundError
+		if !errors.As(err, &notFound) {
+			return fmt.Errorf("inspect network %q: %w", cfg.Network, err)
+		}
+
 		deps.Status(fmt.Sprintf("Network %s not found, creating...", cfg.Network))
 		if err := deps.Network.NetworkCreate(ctx, cfg.Network); err != nil {
 			return fmt.Errorf("create network %q: %w", cfg.Network, err)

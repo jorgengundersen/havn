@@ -242,6 +242,49 @@ func TestStartOrAttach_NewContainer(t *testing.T) {
 	assert.Equal(t, testProjectPath, exec.interactiveWorkdir)
 }
 
+func TestStartOrAttach_StoppedContainer_StartsExisting(t *testing.T) {
+	ctx := context.Background()
+	cb := &fakeStartBackend{
+		inspectState: container.State{ID: "stopped-123", Running: false},
+	}
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	deps := container.StartDeps{
+		Container: cb,
+		Exec:      exec,
+		Status:    func(string) {},
+	}
+	cfg := defaultTestConfig()
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	assert.Equal(t, "stopped-123", cb.startedID)
+	assert.Empty(t, cb.createdOpts.Name, "should not create a new container when an existing one is stopped")
+	assert.Equal(t, "havn-user-project", exec.interactiveName)
+}
+
+func TestStartOrAttach_StoppedContainer_InitFailure_AbortsStartup(t *testing.T) {
+	ctx := context.Background()
+	cb := &fakeStartBackend{
+		inspectState: container.State{ID: "stopped-123", Running: false},
+	}
+	exec := &fakeExecBackend{execErr: fmt.Errorf("sshd failed")}
+	deps := container.StartDeps{
+		Container: cb,
+		Exec:      exec,
+		Status:    func(string) {},
+	}
+	cfg := defaultTestConfig()
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	assert.Equal(t, 0, exitCode)
+	assert.ErrorContains(t, err, "init sshd in container \"havn-user-project\"")
+	assert.ErrorContains(t, err, "sshd failed")
+	assert.Empty(t, exec.interactiveName)
+}
+
 func TestStartOrAttach_ImageMissing_BuildsFirst(t *testing.T) {
 	ctx := context.Background()
 	imgBackend := &fakeImageBackend{existsResult: false}
@@ -272,7 +315,7 @@ func TestStartOrAttach_ImageMissing_BuildsFirst(t *testing.T) {
 
 func TestStartOrAttach_NetworkMissing_CreatesWithStatus(t *testing.T) {
 	ctx := context.Background()
-	net := &fakeNetworkBackend{inspectErr: fmt.Errorf("not found")}
+	net := &fakeNetworkBackend{inspectErr: &container.NetworkNotFoundError{Name: "havn-net"}}
 	var statusMessages []string
 	deps := container.StartDeps{
 		Container: &fakeStartBackend{
@@ -293,6 +336,26 @@ func TestStartOrAttach_NetworkMissing_CreatesWithStatus(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, net.created)
 	assert.Contains(t, statusMessages, "Network havn-net not found, creating...")
+}
+
+func TestStartOrAttach_NetworkInspectError_Aborts(t *testing.T) {
+	ctx := context.Background()
+	net := &fakeNetworkBackend{inspectErr: fmt.Errorf("permission denied")}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectErr: &container.NotFoundError{Name: "havn-user-project"},
+		},
+		Image:   &fakeImageBackend{existsResult: true},
+		Network: net,
+		Volume:  &fakeVolumeEnsurer{},
+		Status:  func(string) {},
+	}
+	cfg := defaultTestConfig()
+
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	assert.ErrorContains(t, err, "inspect network \"havn-net\"")
+	assert.False(t, net.created)
 }
 
 func TestStartOrAttach_DoltEnabled(t *testing.T) {
@@ -392,7 +455,7 @@ func TestStartOrAttach_DoltDisabled_SkipsSetup(t *testing.T) {
 	assert.False(t, hasDoltEnv, "dolt env vars should not be present when dolt is disabled")
 }
 
-func TestStartOrAttach_InitFailure_BestEffort(t *testing.T) {
+func TestStartOrAttach_InitFailure_AbortsStartup(t *testing.T) {
 	ctx := context.Background()
 	exec := &fakeExecBackend{interactiveExitCode: 0}
 	// Override ContainerExec to return an error for sshd init.
@@ -413,9 +476,9 @@ func TestStartOrAttach_InitFailure_BestEffort(t *testing.T) {
 
 	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
 
-	require.NoError(t, err, "init failure should not abort startup")
 	assert.Equal(t, 0, exitCode)
-	assert.Equal(t, "havn-user-project", exec.interactiveName, "should still attach to shell")
+	assert.ErrorContains(t, err, "sshd failed")
+	assert.Empty(t, exec.interactiveName, "should not attach to shell when sshd init fails")
 }
 
 func TestStartOrAttach_InspectError_Aborts(t *testing.T) {
@@ -699,7 +762,7 @@ func TestStartOrAttach_NetworkCreateError_Aborts(t *testing.T) {
 			inspectErr: &container.NotFoundError{Name: "havn-user-project"},
 		},
 		Image:   &fakeImageBackend{existsResult: true},
-		Network: &fakeNetworkBackend{inspectErr: fmt.Errorf("not found"), createErr: fmt.Errorf("network create failed")},
+		Network: &fakeNetworkBackend{inspectErr: &container.NetworkNotFoundError{Name: "havn-net"}, createErr: fmt.Errorf("network create failed")},
 		Status:  func(string) {},
 	}
 	cfg := defaultTestConfig()

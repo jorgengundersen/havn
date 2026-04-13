@@ -172,6 +172,26 @@ func TestResolve_ConfigMountSkippedWhenMissing(t *testing.T) {
 	}
 }
 
+func TestResolve_ConfigMountAbsolutePathOutsideHome_Rejected(t *testing.T) {
+	cfg := config.Default()
+	cfg.Mounts.Config = []string{"/etc/gitconfig:ro"}
+
+	opts := noopOpts()
+	opts.Glob = func(pattern string) ([]string, error) {
+		if pattern == "/etc/gitconfig" {
+			return []string{"/etc/gitconfig"}, nil
+		}
+		return nil, nil
+	}
+	opts.Exists = func(path string) bool { return path == "/etc/gitconfig" }
+
+	_, err := mount.Resolve(cfg, "/projects/api", "/home/user", opts)
+
+	var invalid *mount.InvalidMountEntryError
+	require.ErrorAs(t, err, &invalid)
+	assert.Equal(t, "/etc/gitconfig:ro", invalid.Entry)
+}
+
 func TestResolve_NamedVolumes(t *testing.T) {
 	cfg := config.Default()
 	result, err := mount.Resolve(cfg, "/projects/api", "/home/user", noopOpts())

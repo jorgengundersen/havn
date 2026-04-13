@@ -146,6 +146,12 @@ func (b dockerStartBackend) ContainerStart(ctx context.Context, id string) error
 
 func (b dockerStartBackend) NetworkInspect(ctx context.Context, name string) error {
 	_, err := b.docker.NetworkInspect(ctx, name)
+	if err != nil {
+		var notFound *docker.NetworkNotFoundError
+		if errors.As(err, &notFound) {
+			return &container.NetworkNotFoundError{Name: notFound.Name}
+		}
+	}
 	return err
 }
 
@@ -344,6 +350,12 @@ type dockerVolumeBackend struct {
 
 func (b dockerVolumeBackend) VolumeInspect(ctx context.Context, name string) error {
 	_, err := b.docker.VolumeInspect(ctx, name)
+	if err != nil {
+		var notFound *docker.VolumeNotFoundError
+		if errors.As(err, &notFound) {
+			return &volume.NotFoundError{Name: notFound.Name}
+		}
+	}
 	return err
 }
 

@@ -11,6 +11,15 @@ func (e *NotFoundError) Error() string {
 	return fmt.Sprintf("container %q not found", e.Name)
 }
 
+// NetworkNotFoundError indicates a Docker network does not exist.
+type NetworkNotFoundError struct {
+	Name string
+}
+
+func (e *NetworkNotFoundError) Error() string {
+	return fmt.Sprintf("network %q not found", e.Name)
+}
+
 // BuildError wraps a failure during image build.
 type BuildError struct {
 	Err error

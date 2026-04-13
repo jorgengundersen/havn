@@ -2,6 +2,7 @@ package volume
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jorgengundersen/havn/internal/config"
@@ -34,6 +35,11 @@ func (m *Manager) List(ctx context.Context, cfg config.Config) ([]Entry, error) 
 func (m *Manager) EnsureExists(ctx context.Context, name string) error {
 	if err := m.backend.VolumeInspect(ctx, name); err == nil {
 		return nil
+	} else {
+		var notFound *NotFoundError
+		if !errors.As(err, &notFound) {
+			return fmt.Errorf("inspect volume %q: %w", name, err)
+		}
 	}
 	if err := m.backend.VolumeCreate(ctx, name); err != nil {
 		return fmt.Errorf("ensure volume %q: %w", name, err)

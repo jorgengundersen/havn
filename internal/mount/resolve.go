@@ -86,6 +86,7 @@ func expandPath(raw, homeDir string) string {
 // resolveConfigMounts resolves the mounts.config entries to Specs.
 func resolveConfigMounts(entries []string, homeDir string, opts ResolveOpts) ([]Spec, error) {
 	var mounts []Spec
+	homeAbs := filepath.Clean(homeDir)
 	for _, entry := range entries {
 		relPath, mode, err := parseConfigEntry(entry)
 		if err != nil {
@@ -104,8 +105,14 @@ func resolveConfigMounts(entries []string, homeDir string, opts ResolveOpts) ([]
 			if !opts.Exists(hostPath) {
 				continue
 			}
+
+			hostAbs := filepath.Clean(hostPath)
+			relToHome, err := filepath.Rel(homeAbs, hostAbs)
+			if err != nil || relToHome == ".." || strings.HasPrefix(relToHome, ".."+string(filepath.Separator)) {
+				return nil, &InvalidMountEntryError{Entry: entry, Reason: "path resolves outside the home directory"}
+			}
 			// Compute relative path from homeDir to derive container target.
-			rel, err := filepath.Rel(homeDir, hostPath)
+			rel, err := filepath.Rel(homeDir, hostAbs)
 			if err != nil {
 				rel = filepath.Base(hostPath)
 			}
