@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/jorgengundersen/havn/internal/cli"
 	"github.com/jorgengundersen/havn/internal/doctor"
+	"github.com/jorgengundersen/havn/internal/name"
 )
 
 // fakeDoctorBackend implements doctor.Backend for CLI tests.
@@ -259,4 +261,100 @@ func TestDoctorCommand_UsesResolvedConfigMountTargets(t *testing.T) {
 
 	assert.Contains(t, stdout, "Config mounts present")
 	assert.NotContains(t, stdout, "Config mounts missing")
+}
+
+func TestDoctorCommand_DefaultScopeTargetsCurrentProjectContainer(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectPath := filepath.Join(homeDir, "workspace", "myproject")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectPath))
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	parent, project, err := name.SplitProjectPath(projectPath)
+	require.NoError(t, err)
+	containerName, err := name.DeriveContainerName(parent, project)
+	require.NoError(t, err)
+
+	backend := &fakeDoctorBackend{
+		containerInfos: map[string]doctor.ContainerInfo{
+			string(containerName): {
+				Running: true,
+				Labels:  map[string]string{"havn.path": projectPath},
+			},
+			"havn-user-otherproject": {
+				Running: true,
+				Labels:  map[string]string{"havn.path": filepath.Join(homeDir, "workspace", "otherproject")},
+			},
+		},
+	}
+
+	stdout, _, _ := executeDoctorCommand(backend)
+
+	assert.Contains(t, stdout, fmt.Sprintf("Container: %s", string(containerName)))
+	assert.NotContains(t, stdout, "Container: havn-user-otherproject")
+}
+
+func TestDoctorCommand_DerivesProjectDatabaseNameFromProjectPath(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectPath := filepath.Join(homeDir, "workspace", "projectalpha")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectPath, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "config.toml"), []byte("[dolt]\nenabled = true\n"), 0o644))
+
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectPath))
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	backend := &fakeDoctorBackend{
+		containerInfos: map[string]doctor.ContainerInfo{
+			"havn-dolt": {
+				Running: true,
+				Labels:  map[string]string{"managed-by": "havn"},
+			},
+		},
+	}
+
+	stdout, _, err := executeDoctorCommand(backend)
+
+	require.Error(t, err)
+	assert.Equal(t, 1, cli.ExitCode(err))
+	assert.Contains(t, stdout, "Database 'projectalpha' does not exist on the shared server")
+}
+
+func TestDoctorCommand_JSONWarnExitCodeAndStreamSeparation(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectPath := filepath.Join(homeDir, "workspace", "projectbeta")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectPath))
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	stdout, stderr, err := executeDoctorCommand(&fakeDoctorBackend{}, "--json")
+
+	require.Error(t, err)
+	assert.Equal(t, 1, cli.ExitCode(err))
+	assert.Empty(t, strings.TrimSpace(stderr))
+
+	var parsed struct {
+		Status string `json:"status"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(stdout), &parsed))
+	assert.Equal(t, "warn", parsed.Status)
 }
