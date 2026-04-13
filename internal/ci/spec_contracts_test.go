@@ -166,6 +166,14 @@ func TestDocs_PartialDerivativeGuidesCallOutConcreteCurrentGaps(t *testing.T) {
 	configGuide := string(configGuideContent)
 	assert.Contains(t, configGuide, "## Current partial-support gaps")
 	assert.Contains(t, configGuide, "`havn config show` does not yet expose every provenance detail")
+
+	doctorGuidePath := filepath.Join("..", "..", "docs", "doctor-troubleshooting.md")
+	doctorGuideContent, err := os.ReadFile(doctorGuidePath)
+	require.NoError(t, err)
+
+	doctorGuide := string(doctorGuideContent)
+	assert.Contains(t, doctorGuide, "## Current partial-support gaps")
+	assert.Contains(t, doctorGuide, "`havn doctor` currently reports an extra container-tier skip check")
 }
 
 func TestSpecs_CodeStandardsDocumentsSharedCLIOrchestrationBoundary(t *testing.T) {
