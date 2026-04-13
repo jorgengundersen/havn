@@ -3,6 +3,7 @@ package container
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	"github.com/jorgengundersen/havn/internal/name"
 )
@@ -29,9 +30,22 @@ func List(ctx context.Context, backend Backend) ([]Info, error) {
 
 	result := make([]Info, 0, len(raw))
 	for _, r := range raw {
+		if !isRunningProjectContainer(r) {
+			continue
+		}
 		result = append(result, containerInfoFromRaw(r))
 	}
 	return result, nil
+}
+
+func isRunningProjectContainer(r RawContainer) bool {
+	if r.Name == "havn-dolt" {
+		return false
+	}
+	if strings.ToLower(strings.TrimSpace(r.Status)) != "running" {
+		return false
+	}
+	return strings.TrimSpace(r.Labels[LabelPath]) != ""
 }
 
 // containerInfoFromRaw decodes a RawContainer's labels into an Info.

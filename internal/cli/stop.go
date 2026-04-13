@@ -42,10 +42,20 @@ func newStopCmd(backend container.StopBackend) *cobra.Command {
 				message := fmt.Sprintf("%d stopped, %d failed", len(result.Stopped), len(result.Failed))
 				out.Status(message)
 				if out.IsJSON() {
-					return out.DataJSON(map[string]any{
-						"status":  "ok",
+					status := "ok"
+					if len(result.Failed) > 0 {
+						status = "error"
+					}
+					if err := out.DataJSON(map[string]any{
+						"status":  status,
 						"message": message,
-					})
+					}); err != nil {
+						return err
+					}
+					if len(result.Failed) > 0 {
+						return &ExitError{Code: 1, Err: fmt.Errorf("%s", message)}
+					}
+					return nil
 				}
 				if len(result.Failed) > 0 {
 					return &ExitError{Code: 1, Err: fmt.Errorf("%s", message)}

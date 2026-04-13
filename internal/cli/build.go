@@ -48,7 +48,7 @@ func (b dockerImageBackend) ImageExists(ctx context.Context, name string) (bool,
 }
 
 func newBuildCmd(service BuildService) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "build",
 		Short: "Build base image",
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -84,6 +84,10 @@ func newBuildCmd(service BuildService) *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().String("image", "", "override base image")
+
+	return cmd
 }
 
 func resolveBuildImageName(cmd *cobra.Command) (string, error) {

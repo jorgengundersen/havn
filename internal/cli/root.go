@@ -266,8 +266,7 @@ func resolveStartConfig(cmd *cobra.Command, opts rootOpts, projectPath string) (
 		flagOv.Image = &opts.Image
 	}
 	if cmd.Flags().Changed("port") {
-		sshPort := opts.Port + ":22"
-		flagOv.SSHPort = &sshPort
+		flagOv.SSHPort = &opts.Port
 	}
 
 	cfg, src := config.Resolve(global, project, config.EnvOverrides(), flagOv)

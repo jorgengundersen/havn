@@ -146,7 +146,7 @@ func applyOverrides(cfg *Config, ov Overrides, label string, src Source) {
 		src["image"] = label
 	}
 	if ov.SSHPort != nil {
-		cfg.Ports = append(cfg.Ports, *ov.SSHPort)
+		cfg.Ports = append(cfg.Ports, *ov.SSHPort+":22")
 	}
 }
 

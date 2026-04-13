@@ -119,13 +119,55 @@ func TestList_MultipleContainers(t *testing.T) {
 	assert.False(t, got[1].Dolt)
 }
 
-func TestList_MissingLabelsDefaultToZeroValues(t *testing.T) {
+func TestList_MissingMetadataLabelsDefaultToZeroValues(t *testing.T) {
 	ctx := context.Background()
 	backend := &fakeContainerBackend{
 		containers: []container.RawContainer{
 			{
 				Name:   "havn-user-api",
 				Image:  "havn-base:latest",
+				Status: "running",
+				Labels: map[string]string{
+					"managed-by": "havn",
+					"havn.path":  "/home/user/api",
+				},
+			},
+		},
+	}
+
+	got, err := container.List(ctx, backend)
+
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, "/home/user/api", got[0].Path)
+	assert.Equal(t, "", got[0].Shell)
+	assert.Equal(t, 0, got[0].CPUs)
+	assert.Equal(t, "", got[0].Memory)
+	assert.False(t, got[0].Dolt)
+}
+
+func TestList_OnlyIncludesRunningProjectContainers(t *testing.T) {
+	ctx := context.Background()
+	backend := &fakeContainerBackend{
+		containers: []container.RawContainer{
+			{
+				Name:   "havn-user-api",
+				Status: "running",
+				Labels: map[string]string{
+					"managed-by": "havn",
+					"havn.path":  "/home/user/api",
+				},
+			},
+			{
+				Name:   "havn-user-web",
+				Status: "exited",
+				Labels: map[string]string{
+					"managed-by": "havn",
+					"havn.path":  "/home/user/web",
+				},
+			},
+			{
+				Name:   "havn-dolt",
 				Status: "running",
 				Labels: map[string]string{
 					"managed-by": "havn",
@@ -138,9 +180,5 @@ func TestList_MissingLabelsDefaultToZeroValues(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, got, 1)
-	assert.Equal(t, "", got[0].Path)
-	assert.Equal(t, "", got[0].Shell)
-	assert.Equal(t, 0, got[0].CPUs)
-	assert.Equal(t, "", got[0].Memory)
-	assert.False(t, got[0].Dolt)
+	assert.Equal(t, name.ContainerName("havn-user-api"), got[0].Name)
 }

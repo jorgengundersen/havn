@@ -87,3 +87,18 @@ func TestBuildCommand_UsesConfiguredImageFromEnv(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "havn-custom:dev", service.lastOpts.ImageName)
 }
+
+func TestBuildCommand_ImageFlagOverridesEnv(t *testing.T) {
+	t.Setenv("HAVN_IMAGE", "havn-custom:dev")
+
+	service := &fakeBuildService{}
+	root := cli.NewRoot(cli.Deps{BuildService: service})
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"build", "--image", "havn-flag:latest", "--config", filepath.Join(t.TempDir(), "config.toml")})
+
+	err := root.Execute()
+
+	require.NoError(t, err)
+	assert.Equal(t, "havn-flag:latest", service.lastOpts.ImageName)
+}

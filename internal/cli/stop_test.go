@@ -73,8 +73,8 @@ func TestStopCommand_StopsNamedContainer(t *testing.T) {
 func TestStopCommand_StopAllBestEffort(t *testing.T) {
 	backend := &fakeStopBackend{
 		containers: []container.RawContainer{
-			{Name: "havn-user-api", Labels: map[string]string{"managed-by": "havn"}},
-			{Name: "havn-user-web", Labels: map[string]string{"managed-by": "havn"}},
+			{Name: "havn-user-api", Status: "running", Labels: map[string]string{"managed-by": "havn", container.LabelPath: "/home/user/api"}},
+			{Name: "havn-user-web", Status: "running", Labels: map[string]string{"managed-by": "havn", container.LabelPath: "/home/user/web"}},
 			{Name: "havn-dolt", Labels: map[string]string{"managed-by": "havn"}},
 		},
 		stopErrMap: map[string]error{"havn-user-web": errors.New("boom")},
@@ -91,11 +91,27 @@ func TestStopCommand_StopAllBestEffort(t *testing.T) {
 
 func TestStopCommand_StopAllJSONOutput(t *testing.T) {
 	backend := &fakeStopBackend{
-		containers: []container.RawContainer{{Name: "havn-user-api", Labels: map[string]string{"managed-by": "havn"}}},
+		containers: []container.RawContainer{{Name: "havn-user-api", Status: "running", Labels: map[string]string{"managed-by": "havn", container.LabelPath: "/home/user/api"}}},
 	}
 
 	stdout, _, err := executeCommandWithDeps(cli.Deps{ContainerStop: backend}, "--json", "stop", "--all")
 
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"status":"ok","message":"1 stopped, 0 failed"}`+"\n", stdout)
+}
+
+func TestStopCommand_StopAllJSONPartialFailureReturnsError(t *testing.T) {
+	backend := &fakeStopBackend{
+		containers: []container.RawContainer{
+			{Name: "havn-user-api", Status: "running", Labels: map[string]string{"managed-by": "havn", container.LabelPath: "/home/user/api"}},
+			{Name: "havn-user-web", Status: "running", Labels: map[string]string{"managed-by": "havn", container.LabelPath: "/home/user/web"}},
+		},
+		stopErrMap: map[string]error{"havn-user-web": errors.New("boom")},
+	}
+
+	stdout, _, err := executeCommandWithDeps(cli.Deps{ContainerStop: backend}, "--json", "stop", "--all")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "1 stopped, 1 failed")
+	assert.JSONEq(t, `{"status":"error","message":"1 stopped, 1 failed"}`+"\n", stdout)
 }

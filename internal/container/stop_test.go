@@ -71,8 +71,8 @@ func TestStopAll_StopsAllExceptDolt(t *testing.T) {
 	ctx := context.Background()
 	backend := &fakeStopBackend{
 		containers: []container.RawContainer{
-			{Name: "havn-user-api", Labels: map[string]string{"managed-by": "havn"}},
-			{Name: "havn-user-web", Labels: map[string]string{"managed-by": "havn"}},
+			{Name: "havn-user-api", Status: "running", Labels: map[string]string{"managed-by": "havn", container.LabelPath: "/home/user/api"}},
+			{Name: "havn-user-web", Status: "running", Labels: map[string]string{"managed-by": "havn", container.LabelPath: "/home/user/web"}},
 			{Name: "havn-dolt", Labels: map[string]string{"managed-by": "havn"}},
 		},
 	}
@@ -92,9 +92,9 @@ func TestStopAll_BestEffortContinuesAfterFailure(t *testing.T) {
 	}
 	backend := &fakeStopBackend{
 		containers: []container.RawContainer{
-			{Name: "havn-user-api", Labels: map[string]string{"managed-by": "havn"}},
-			{Name: "havn-user-web", Labels: map[string]string{"managed-by": "havn"}},
-			{Name: "havn-user-cli", Labels: map[string]string{"managed-by": "havn"}},
+			{Name: "havn-user-api", Status: "running", Labels: map[string]string{"managed-by": "havn", container.LabelPath: "/home/user/api"}},
+			{Name: "havn-user-web", Status: "running", Labels: map[string]string{"managed-by": "havn", container.LabelPath: "/home/user/web"}},
+			{Name: "havn-user-cli", Status: "running", Labels: map[string]string{"managed-by": "havn", container.LabelPath: "/home/user/cli"}},
 		},
 		stopErrMap: stopErrs,
 	}

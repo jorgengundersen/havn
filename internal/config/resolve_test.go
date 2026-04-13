@@ -154,7 +154,7 @@ func TestResolve_SSHPortOverrideAddsToPorts(t *testing.T) {
 	project := config.Config{
 		Ports: []string{"8080:8080"},
 	}
-	sshPort := "2222:22"
+	sshPort := "2222"
 	flagOv := config.Overrides{SSHPort: &sshPort}
 
 	cfg, _ := config.Resolve(config.Config{}, project, config.Overrides{}, flagOv)
@@ -168,7 +168,7 @@ func TestEnvOverrides_ReadsSetVars(t *testing.T) {
 	t.Setenv("HAVN_ENV", "path:./my-flake")
 	t.Setenv("HAVN_CPUS", "16")
 	t.Setenv("HAVN_MEMORY", "32g")
-	t.Setenv("HAVN_SSH_PORT", "2222:22")
+	t.Setenv("HAVN_SSH_PORT", "2222")
 	t.Setenv("HAVN_IMAGE", "custom:v2")
 
 	ov := config.EnvOverrides()
@@ -182,7 +182,7 @@ func TestEnvOverrides_ReadsSetVars(t *testing.T) {
 	assert.NotNil(t, ov.Memory)
 	assert.Equal(t, "32g", *ov.Memory)
 	assert.NotNil(t, ov.SSHPort)
-	assert.Equal(t, "2222:22", *ov.SSHPort)
+	assert.Equal(t, "2222", *ov.SSHPort)
 	assert.NotNil(t, ov.Image)
 	assert.Equal(t, "custom:v2", *ov.Image)
 }
