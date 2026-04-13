@@ -19,8 +19,9 @@ type TypedError interface {
 
 // ExitError wraps an error with a specific process exit code.
 type ExitError struct {
-	Code int
-	Err  error
+	Code           int
+	Err            error
+	SuppressOutput bool
 }
 
 // ShellExitError carries the interactive shell exit code from the root command.

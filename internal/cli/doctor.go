@@ -48,6 +48,7 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 
 			runner := doctor.NewRunner(checks)
 			report := runner.Run(ctx)
+			report = addContainerTierSkipIfNeeded(report, containers)
 
 			return outputReport(out, report)
 		},
@@ -114,12 +115,27 @@ func outputReport(out *Output, report doctor.Report) error {
 	return exitCodeFromReport(report)
 }
 
+func addContainerTierSkipIfNeeded(report doctor.Report, containers []string) doctor.Report {
+	if len(containers) > 0 {
+		return report
+	}
+
+	report.Checks = append(report.Checks, doctor.ReportCheck{
+		Tier:    "container",
+		Name:    "container_tier",
+		Status:  doctor.StatusSkip,
+		Message: "No relevant running havn-managed project containers; tier 2 skipped",
+	})
+
+	return report
+}
+
 func exitCodeFromReport(report doctor.Report) error {
 	switch report.Status {
 	case doctor.StatusWarn:
-		return &ExitError{Code: 1, Err: errDoctorWarnings}
+		return &ExitError{Code: 1, Err: errDoctorWarnings, SuppressOutput: true}
 	case doctor.StatusError:
-		return &ExitError{Code: 2, Err: errDoctorErrors}
+		return &ExitError{Code: 2, Err: errDoctorErrors, SuppressOutput: true}
 	default:
 		return nil
 	}

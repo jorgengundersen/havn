@@ -47,10 +47,20 @@ func Execute() int {
 		if errors.As(err, &shellExit) {
 			return shellExit.Code
 		}
-		out.Error(err)
+		if shouldRenderCLIError(err) {
+			out.Error(err)
+		}
 		return ExitCode(err)
 	}
 	return 0
+}
+
+func shouldRenderCLIError(err error) bool {
+	var exitErr *ExitError
+	if errors.As(err, &exitErr) {
+		return !exitErr.SuppressOutput
+	}
+	return true
 }
 
 // Deps holds dependencies injected into the command tree.

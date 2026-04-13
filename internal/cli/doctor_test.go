@@ -113,3 +113,29 @@ func TestDoctorCommand_NoContainersSkipsTier2(t *testing.T) {
 
 	assert.NotContains(t, stdout, "Container:")
 }
+
+func TestDoctorCommand_NoContainersReportsInformationalSkipInJSON(t *testing.T) {
+	backend := &fakeDoctorBackend{}
+	stdout, _, _ := executeDoctorCommand(backend, "--all", "--json")
+
+	var parsed struct {
+		Checks []struct {
+			Tier    string `json:"tier"`
+			Name    string `json:"name"`
+			Status  string `json:"status"`
+			Message string `json:"message"`
+		} `json:"checks"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(stdout), &parsed))
+
+	found := false
+	for _, check := range parsed.Checks {
+		if check.Tier == "container" && check.Name == "container_tier" && check.Status == "skip" {
+			assert.Contains(t, check.Message, "No relevant running havn-managed project containers")
+			found = true
+			break
+		}
+	}
+
+	assert.True(t, found, "expected informational container-tier skip check")
+}
