@@ -76,31 +76,33 @@ Startup may create or reuse:
 These resources are shared across projects. They are not torn down as part of a
 single project startup failure.
 
-### Stop behavior
+### Stop and maintenance workflows
 
-- `havn stop <name|path>` stops one project container
-- `havn stop --all` stops all running havn-managed project containers using
-  best-effort semantics
-- shared Dolt lifecycle is separate from project-container stop behavior
+At overview level, `havn` provides command surfaces for:
 
-The detailed stop contract and output semantics live in
-`specs/cli-framework.md` and `specs/shared-dolt-server.md`.
+- stopping one project container or stopping all havn-managed project containers
+- listing managed containers and shared volumes
+- building the base image
+- inspecting effective configuration
+- running diagnostics (`doctor`)
+- managing shared Dolt lifecycle and data migration
 
-## Command Map
+Exact command names, flag scope, output semantics, support status, and
+best-effort behavior are owned by `specs/cli-framework.md`,
+`specs/configuration.md`, `specs/havn-doctor.md`, and
+`specs/shared-dolt-server.md`.
 
-This is a product map, not the detailed CLI contract.
+## Reading Order
 
-| Surface | Status | Authority |
-|------|------|------|
-| `havn [path]` | Implemented | `specs/cli-framework.md` |
-| `havn list` | Implemented | `specs/cli-framework.md` |
-| `havn stop` | Implemented | `specs/cli-framework.md` |
-| `havn build` | Implemented | `specs/cli-framework.md` + `specs/base-image.md` |
-| `havn config show` | Partial | `specs/configuration.md` |
-| `havn volume list` | Implemented | `specs/cli-framework.md` |
-| `havn doctor` | Partial | `specs/havn-doctor.md` |
-| `havn dolt ...` | Partial | `specs/shared-dolt-server.md` |
-| `havn completion ...` | Planned | `specs/cli-framework.md` |
+Use this order when moving from product framing to detailed contracts:
+
+1. `specs/havn-overview.md` (this document) for product shape and workflow
+   orientation
+2. `specs/cli-framework.md` for command tree, flags, output, and CLI errors
+3. `specs/configuration.md` for discovery, precedence, and effective config
+4. `specs/havn-doctor.md` for diagnostic checks and output behavior
+5. `specs/shared-dolt-server.md` for shared-Dolt lifecycle and safety semantics
+6. `specs/base-image.md` for base-image and runtime assumptions
 
 ## Runtime Model
 
