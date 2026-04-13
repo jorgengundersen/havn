@@ -151,3 +151,25 @@ func TestSpecs_CodeStandardsDocumentsSharedCLIOrchestrationBoundary(t *testing.T
 	assert.Contains(t, codeStandards, "`internal/cli` command handlers stay thin")
 	assert.Contains(t, codeStandards, "must not duplicate project-path and effective-config resolution")
 }
+
+func TestSpecs_SpecGovernanceHasSingleCanonicalSource(t *testing.T) {
+	readmePath := filepath.Join("..", "..", "specs", "README.md")
+	readmeContent, err := os.ReadFile(readmePath)
+	require.NoError(t, err)
+
+	readme := string(readmeContent)
+	assert.Contains(t, readme, "## Spec Governance")
+	assert.Contains(t, readme, "### Authority levels")
+	assert.Contains(t, readme, "### Support-status labels")
+	assert.Contains(t, readme, "## Cross-Spec Invariants")
+
+	agentsPath := filepath.Join("..", "..", "specs", "AGENTS.md")
+	agentsContent, err := os.ReadFile(agentsPath)
+	require.NoError(t, err)
+
+	agents := string(agentsContent)
+	assert.Contains(t, agents, "The canonical governance source is `specs/README.md`")
+	assert.NotContains(t, agents, "## Spec Governance")
+	assert.NotContains(t, agents, "## Shared Vocabulary")
+	assert.NotContains(t, agents, "## Cross-Spec Invariants")
+}
