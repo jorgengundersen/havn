@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -111,6 +113,20 @@ func TestDoctorCommand_ExitCode2OnError(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, 2, cli.ExitCode(err))
+}
+
+func TestDoctorCommand_UsesConfigFlagForGlobalConfigCheck(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	badGlobalPath := filepath.Join(t.TempDir(), "bad-global.toml")
+	require.NoError(t, os.WriteFile(badGlobalPath, []byte("[broken"), 0o644))
+
+	backend := &fakeDoctorBackend{}
+	stdout, _, err := executeDoctorCommand(backend, "--config", badGlobalPath)
+
+	require.Error(t, err)
+	assert.Equal(t, 2, cli.ExitCode(err))
+	assert.Contains(t, stdout, "Global config syntax error")
 }
 
 func TestDoctorCommand_AllFlagRunsContainerChecks(t *testing.T) {

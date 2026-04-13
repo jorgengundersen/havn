@@ -39,22 +39,28 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			jsonMode, _ := cmd.Flags().GetBool("json")
 			verbose, _ := cmd.Flags().GetBool("verbose")
+			globalConfigPath, _ := cmd.Flags().GetString("config")
 			out := NewOutput(cmd.OutOrStdout(), cmd.ErrOrStderr(), jsonMode, verbose)
 			ctx := cmd.Context()
 			cwd, _ := os.Getwd()
 
 			projectPath := filepath.Clean(cwd)
-			cfg, err := loadEffectiveConfig(projectPath)
+			var effectiveValidationErr error
+			cfg, err := loadEffectiveConfigForCommand(projectPath, globalConfigPath)
 			if err != nil {
+				var validationErr *config.ValidationError
+				if errors.As(err, &validationErr) {
+					effectiveValidationErr = err
+				}
 				cfg = config.Default()
 			}
 			projectConfigPath := filepath.Join(projectPath, ".havn", "config.toml")
 
-			checks := doctor.HostChecks(backend, cfg, projectConfigPath)
+			checks := doctor.HostChecks(backend, cfg, globalConfigPath, projectConfigPath, effectiveValidationErr)
 
 			targets := resolveContainerTargets(ctx, backend, opts.All, projectPath)
 			for _, target := range targets {
-				targetCfg, err := loadEffectiveConfig(target.Project)
+				targetCfg, err := loadEffectiveConfigForCommand(target.Project, globalConfigPath)
 				if err != nil {
 					targetCfg = cfg
 				}

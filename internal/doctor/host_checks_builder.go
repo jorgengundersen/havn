@@ -8,9 +8,11 @@ import (
 )
 
 // HostChecks builds the tier-1 check list from configuration.
-func HostChecks(backend Backend, cfg config.Config, projectConfigPath string) []Check {
-	homeDir, _ := os.UserHomeDir()
-	globalConfigPath := filepath.Join(homeDir, ".config", "havn", "config.toml")
+func HostChecks(backend Backend, cfg config.Config, globalConfigPath, projectConfigPath string, effectiveValidationErr error) []Check {
+	if globalConfigPath == "" {
+		homeDir, _ := os.UserHomeDir()
+		globalConfigPath = filepath.Join(homeDir, ".config", "havn", "config.toml")
+	}
 
 	volumeNames := []string{cfg.Volumes.Nix, cfg.Volumes.Data, cfg.Volumes.Cache, cfg.Volumes.State}
 	if cfg.Dolt.Enabled {
@@ -23,7 +25,7 @@ func HostChecks(backend Backend, cfg config.Config, projectConfigPath string) []
 		NewNetworkCheck(backend, cfg.Network),
 		NewVolumesCheck(backend, volumeNames),
 		NewGlobalConfigCheck(globalConfigPath),
-		NewProjectConfigCheck(projectConfigPath, cfg),
+		NewProjectConfigCheck(projectConfigPath, effectiveValidationErr),
 		NewDoltServerCheck(backend, cfg.Dolt.Enabled),
 		NewDoltDatabaseCheck(backend, cfg.Dolt.Enabled, cfg.Dolt.Database),
 	}

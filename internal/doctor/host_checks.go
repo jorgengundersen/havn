@@ -240,13 +240,13 @@ func (c *globalConfigCheck) Run(_ context.Context) CheckResult {
 // --- 1.6 project_config ---
 
 type projectConfigCheck struct {
-	path      string
-	globalCfg config.Config
+	path                   string
+	effectiveValidationErr error
 }
 
 // NewProjectConfigCheck creates check 1.6: project config parses and merges.
-func NewProjectConfigCheck(path string, globalCfg config.Config) Check {
-	return &projectConfigCheck{path: path, globalCfg: globalCfg}
+func NewProjectConfigCheck(path string, effectiveValidationErr error) Check {
+	return &projectConfigCheck{path: path, effectiveValidationErr: effectiveValidationErr}
 }
 
 func (c *projectConfigCheck) ID() string              { return "project_config" }
@@ -256,6 +256,15 @@ func (c *projectConfigCheck) Prerequisites() []string { return nil }
 func (c *projectConfigCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *projectConfigCheck) Run(_ context.Context) CheckResult {
+	if c.effectiveValidationErr != nil {
+		return CheckResult{
+			Status:         StatusError,
+			Message:        "Project config validation error",
+			Detail:         c.effectiveValidationErr.Error(),
+			Recommendation: "Fix invalid project config values",
+		}
+	}
+
 	if _, err := os.Stat(c.path); os.IsNotExist(err) {
 		return CheckResult{
 			Status:  StatusPass,

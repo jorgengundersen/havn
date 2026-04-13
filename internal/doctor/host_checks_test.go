@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/jorgengundersen/havn/internal/config"
 	"github.com/jorgengundersen/havn/internal/doctor"
 )
 
@@ -248,7 +247,7 @@ func TestGlobalConfigCheck_NoPrerequisites(t *testing.T) {
 // --- project_config check ---
 
 func TestProjectConfigCheck_Missing(t *testing.T) {
-	check := doctor.NewProjectConfigCheck("/nonexistent/.havn/config.toml", config.Default())
+	check := doctor.NewProjectConfigCheck("/nonexistent/.havn/config.toml", nil)
 
 	result := check.Run(context.Background())
 
@@ -260,7 +259,7 @@ func TestProjectConfigCheck_Valid(t *testing.T) {
 	path := dir + "/config.toml"
 	writeTestFile(t, path, `shell = "go"`)
 
-	check := doctor.NewProjectConfigCheck(path, config.Default())
+	check := doctor.NewProjectConfigCheck(path, nil)
 	result := check.Run(context.Background())
 
 	assert.Equal(t, doctor.StatusPass, result.Status)
@@ -271,10 +270,20 @@ func TestProjectConfigCheck_ParseError(t *testing.T) {
 	path := dir + "/config.toml"
 	writeTestFile(t, path, `[bad toml`)
 
-	check := doctor.NewProjectConfigCheck(path, config.Default())
+	check := doctor.NewProjectConfigCheck(path, nil)
 	result := check.Run(context.Background())
 
 	assert.Equal(t, doctor.StatusError, result.Status)
+}
+
+func TestProjectConfigCheck_ValidationError(t *testing.T) {
+	check := doctor.NewProjectConfigCheck("/tmp/project/.havn/config.toml", errors.New("invalid config: resources.cpus: must be greater than 0"))
+
+	result := check.Run(context.Background())
+
+	assert.Equal(t, doctor.StatusError, result.Status)
+	assert.Equal(t, "Project config validation error", result.Message)
+	assert.Contains(t, result.Detail, "resources.cpus")
 }
 
 // --- dolt_server check ---

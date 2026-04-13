@@ -326,57 +326,47 @@ func newDoltExportCmd(manager *dolt.Manager) *cobra.Command {
 }
 
 func loadEffectiveConfig(projectPath string) (config.Config, error) {
+	return loadEffectiveConfigForCommand(projectPath, "")
+}
+
+func loadEffectiveConfigForCommand(projectPath, globalConfigPath string) (config.Config, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return config.Config{}, err
 	}
 
-	globalPath := filepath.Join(homeDir, ".config", "havn", "config.toml")
+	globalPath := globalConfigPath
+	if globalPath == "" {
+		globalPath = filepath.Join(homeDir, ".config", "havn", "config.toml")
+	}
 	projectConfigPath := filepath.Join(projectPath, ".havn", "config.toml")
+	flakePath := filepath.Join(projectPath, ".havn", "flake.nix")
 
-	global, err := config.LoadFile(globalPath)
+	global, globalMeta, err := config.LoadFileWithMetadata(globalPath)
 	if err != nil {
 		return config.Config{}, err
 	}
 
-	project, err := config.LoadFile(projectConfigPath)
+	project, projectMeta, err := config.LoadFileWithMetadata(projectConfigPath)
 	if err != nil {
 		return config.Config{}, err
 	}
 
-	cfg, _ := config.Resolve(global, project, config.EnvOverrides(), config.Overrides{})
-	cfg.Dolt = mergeDoltConfig(global, project)
+	cfg, src := config.ResolveWithMetadata(global, globalMeta, project, projectMeta, config.EnvOverrides(), config.Overrides{})
+
+	if _, err := os.Stat(flakePath); err == nil {
+		cfg.Env = config.ResolveFlake(cfg, src, true)
+	} else {
+		cfg.Env = config.ResolveFlake(cfg, src, false)
+	}
+
+	if cfg.Dolt.Enabled && cfg.Dolt.Database == "" {
+		cfg.Dolt.Database = filepath.Base(projectPath)
+	}
+
+	if err := config.Validate(cfg); err != nil {
+		return config.Config{}, err
+	}
+
 	return cfg, nil
-}
-
-func mergeDoltConfig(global, project config.Config) config.DoltConfig {
-	merged := config.Default().Dolt
-
-	if global.Dolt.Enabled {
-		merged.Enabled = true
-	}
-	if global.Dolt.Port != 0 {
-		merged.Port = global.Dolt.Port
-	}
-	if global.Dolt.Image != "" {
-		merged.Image = global.Dolt.Image
-	}
-	if global.Dolt.Database != "" {
-		merged.Database = global.Dolt.Database
-	}
-
-	if project.Dolt.Enabled {
-		merged.Enabled = true
-	}
-	if project.Dolt.Port != 0 {
-		merged.Port = project.Dolt.Port
-	}
-	if project.Dolt.Image != "" {
-		merged.Image = project.Dolt.Image
-	}
-	if project.Dolt.Database != "" {
-		merged.Database = project.Dolt.Database
-	}
-
-	return merged
 }
