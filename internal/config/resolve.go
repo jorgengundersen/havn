@@ -24,6 +24,13 @@ type Source map[string]string
 // Resolve merges configuration from all precedence levels and returns the
 // effective config plus a source map. Priority: flag > env > project > global > default.
 func Resolve(global, project Config, envOverrides, flagOverrides Overrides) (Config, Source) {
+	return ResolveWithMetadata(global, FileMetadata{}, project, FileMetadata{}, envOverrides, flagOverrides)
+}
+
+// ResolveWithMetadata merges configuration like Resolve, but also accepts file
+// metadata for boolean presence so explicit false values can override lower
+// precedence true values.
+func ResolveWithMetadata(global Config, globalMeta FileMetadata, project Config, projectMeta FileMetadata, envOverrides, flagOverrides Overrides) (Config, Source) {
 	cfg := Default()
 	src := Source{
 		"env":         "default",
@@ -36,10 +43,10 @@ func Resolve(global, project Config, envOverrides, flagOverrides Overrides) (Con
 	}
 
 	// Layer 2: global config
-	applyConfig(&cfg, global, "global", src)
+	applyConfig(&cfg, global, globalMeta, "global", src)
 
 	// Layer 3: project config
-	applyConfig(&cfg, project, "project", src)
+	applyConfig(&cfg, project, projectMeta, "project", src)
 
 	// Layer 4: env var overrides
 	applyOverrides(&cfg, envOverrides, "env", src)
@@ -51,7 +58,7 @@ func Resolve(global, project Config, envOverrides, flagOverrides Overrides) (Con
 }
 
 // applyConfig overlays non-zero fields from layer onto cfg.
-func applyConfig(cfg *Config, layer Config, label string, src Source) {
+func applyConfig(cfg *Config, layer Config, meta FileMetadata, label string, src Source) {
 	if layer.Env != "" {
 		cfg.Env = layer.Env
 		src["env"] = label
@@ -92,8 +99,8 @@ func applyConfig(cfg *Config, layer Config, label string, src Source) {
 	if layer.Volumes.State != "" {
 		cfg.Volumes.State = layer.Volumes.State
 	}
-	if layer.Dolt.Enabled {
-		cfg.Dolt.Enabled = true
+	if meta.DoltEnabledSet {
+		cfg.Dolt.Enabled = layer.Dolt.Enabled
 	}
 	if layer.Dolt.Port != 0 {
 		cfg.Dolt.Port = layer.Dolt.Port
@@ -120,6 +127,13 @@ func applyConfig(cfg *Config, layer Config, label string, src Source) {
 		for k, v := range layer.Environment {
 			cfg.Environment[k] = v
 		}
+	}
+
+	if meta.MountSSHForwardAgentSet {
+		cfg.Mounts.SSH.ForwardAgent = layer.Mounts.SSH.ForwardAgent
+	}
+	if meta.MountSSHAuthorizedKeysSet {
+		cfg.Mounts.SSH.AuthorizedKeys = layer.Mounts.SSH.AuthorizedKeys
 	}
 }
 

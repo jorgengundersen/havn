@@ -250,11 +250,11 @@ func resolveStartConfig(cmd *cobra.Command, opts rootOpts, projectPath string) (
 	}
 	projectConfigPath := filepath.Join(projectPath, ".havn", "config.toml")
 
-	global, err := config.LoadFile(globalPath)
+	global, globalMeta, err := config.LoadFileWithMetadata(globalPath)
 	if err != nil {
 		return config.Config{}, err
 	}
-	project, err := config.LoadFile(projectConfigPath)
+	project, projectMeta, err := config.LoadFileWithMetadata(projectConfigPath)
 	if err != nil {
 		return config.Config{}, err
 	}
@@ -279,7 +279,7 @@ func resolveStartConfig(cmd *cobra.Command, opts rootOpts, projectPath string) (
 		flagOv.SSHPort = &opts.Port
 	}
 
-	cfg, src := config.Resolve(global, project, config.EnvOverrides(), flagOv)
+	cfg, src := config.ResolveWithMetadata(global, globalMeta, project, projectMeta, config.EnvOverrides(), flagOv)
 
 	flakePath := filepath.Join(projectPath, ".havn", "flake.nix")
 	if _, err := os.Stat(flakePath); err == nil {

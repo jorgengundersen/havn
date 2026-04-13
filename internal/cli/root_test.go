@@ -197,6 +197,31 @@ func TestNewRoot_RunE_DefaultsDoltDatabaseToProjectNameWhenEnabled(t *testing.T)
 	assert.Equal(t, "sample-project", svc.lastCfg.Dolt.Database)
 }
 
+func TestNewRoot_RunE_ProjectExplicitFalseOverridesGlobalTrueForStartupBooleans(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	globalDir := filepath.Join(homeDir, ".config", "havn")
+	require.NoError(t, os.MkdirAll(globalDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(globalDir, "config.toml"), []byte("[dolt]\nenabled = true\n\n[mounts.ssh]\nforward_agent = true\nauthorized_keys = true\n"), 0o644))
+
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectPath, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "config.toml"), []byte("[dolt]\nenabled = false\n\n[mounts.ssh]\nforward_agent = false\nauthorized_keys = false\n"), 0o644))
+
+	svc := &fakeStartService{}
+	root := cli.NewRoot(cli.Deps{StartService: svc})
+	root.SetArgs([]string{projectPath})
+
+	err := root.Execute()
+
+	require.NoError(t, err)
+	assert.True(t, svc.called)
+	assert.False(t, svc.lastCfg.Dolt.Enabled)
+	assert.False(t, svc.lastCfg.Mounts.SSH.ForwardAgent)
+	assert.False(t, svc.lastCfg.Mounts.SSH.AuthorizedKeys)
+}
+
 func TestNewRoot_RunE_ReturnsNotImplementedWithoutStartService(t *testing.T) {
 	root := cli.NewRoot(cli.Deps{})
 	root.SetArgs([]string{"."})

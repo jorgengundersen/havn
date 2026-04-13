@@ -61,36 +61,58 @@ type DoltConfig struct {
 	Database string `toml:"database" json:"database"`
 }
 
+// FileMetadata captures which config keys were explicitly defined in a TOML
+// file, including explicit false booleans.
+type FileMetadata struct {
+	MountSSHForwardAgentSet   bool
+	MountSSHAuthorizedKeysSet bool
+	DoltEnabledSet            bool
+}
+
 // LoadFile parses a TOML file into a Config. A missing file returns a zero
 // Config and nil error (not an error per havn-doctor §1.5). A parse error
 // returns *ParseError with file path and line number.
 func LoadFile(path string) (Config, error) {
+	cfg, _, err := LoadFileWithMetadata(path)
+	return cfg, err
+}
+
+// LoadFileWithMetadata parses a TOML file into a Config and returns metadata
+// about explicitly-defined keys needed for precedence-sensitive boolean merges.
+func LoadFileWithMetadata(path string) (Config, FileMetadata, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return Config{}, nil
+			return Config{}, FileMetadata{}, nil
 		}
-		return Config{}, fmt.Errorf("read config %s: %w", path, err)
+		return Config{}, FileMetadata{}, fmt.Errorf("read config %s: %w", path, err)
 	}
 
 	var cfg Config
-	if _, err := toml.Decode(string(data), &cfg); err != nil {
+	md, err := toml.Decode(string(data), &cfg)
+	if err != nil {
 		var parseErr toml.ParseError
 		if errors.As(err, &parseErr) {
-			return Config{}, &ParseError{
+			return Config{}, FileMetadata{}, &ParseError{
 				File:   path,
 				Line:   parseErr.Position.Line,
 				Detail: parseErr.Message,
 			}
 		}
-		return Config{}, &ParseError{
+		return Config{}, FileMetadata{}, &ParseError{
 			File:   path,
 			Line:   0,
 			Detail: err.Error(),
 		}
 	}
 
-	return cfg, nil
+	meta := FileMetadata{
+		MountSSHForwardAgentSet:   md.IsDefined("mounts", "ssh", "forward_agent"),
+		MountSSHAuthorizedKeysSet: md.IsDefined("mounts", "ssh", "authorized_keys"),
+		DoltEnabledSet:            md.IsDefined("dolt", "enabled"),
+	}
+
+	return cfg, meta, nil
 }
 
 // Default returns a Config populated with all spec-defined default values.
