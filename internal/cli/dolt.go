@@ -41,9 +41,19 @@ func newDoltStartCmd(manager *dolt.Manager) *cobra.Command {
 				return fmt.Errorf("havn dolt start: %w", ErrNotImplemented)
 			}
 
+			cwd, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("havn dolt start: %w", err)
+			}
+
+			cfg, err := loadEffectiveConfig(filepath.Clean(cwd))
+			if err != nil {
+				return fmt.Errorf("havn dolt start: %w", err)
+			}
+
 			out := commandOutput(cmd)
 			out.Status("Starting shared Dolt server...")
-			if err := manager.Start(cmd.Context(), config.Default()); err != nil {
+			if err := manager.Start(cmd.Context(), cfg); err != nil {
 				return fmt.Errorf("havn dolt start: %w", err)
 			}
 

@@ -292,6 +292,10 @@ func resolveStartConfig(cmd *cobra.Command, opts rootOpts, projectPath string) (
 		cfg.Dolt.Enabled = false
 	}
 
+	if cfg.Dolt.Enabled && cfg.Dolt.Database == "" {
+		cfg.Dolt.Database = filepath.Base(projectPath)
+	}
+
 	if err := config.Validate(cfg); err != nil {
 		return config.Config{}, err
 	}

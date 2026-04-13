@@ -5,6 +5,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -174,6 +175,26 @@ func TestNewRoot_RunE_InvokesStartService(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.True(t, svc.called)
+}
+
+func TestNewRoot_RunE_DefaultsDoltDatabaseToProjectNameWhenEnabled(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectPath, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "config.toml"), []byte("[dolt]\nenabled = true\n"), 0o644))
+
+	svc := &fakeStartService{}
+	root := cli.NewRoot(cli.Deps{StartService: svc})
+	root.SetArgs([]string{projectPath})
+
+	err := root.Execute()
+
+	require.NoError(t, err)
+	assert.True(t, svc.called)
+	assert.True(t, svc.lastCfg.Dolt.Enabled)
+	assert.Equal(t, "sample-project", svc.lastCfg.Dolt.Database)
 }
 
 func TestNewRoot_RunE_ReturnsNotImplementedWithoutStartService(t *testing.T) {

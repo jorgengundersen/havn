@@ -19,10 +19,13 @@ type fakeDoltBackend struct {
 	inspectInfo     dolt.ContainerInfo
 	inspectFound    bool
 	inspectErr      error
+	createOpts      dolt.ContainerCreateOpts
 	stopErr         error
 	execOutput      string
 	execErr         error
 	execFunc        func(cmd []string) (string, error)
+	copyToData      []byte
+	copyToDest      string
 	copyFromData    []byte
 	copyFromErr     error
 	interactiveErr  error
@@ -31,8 +34,9 @@ type fakeDoltBackend struct {
 	lastStoppedName string
 }
 
-func (f *fakeDoltBackend) ContainerCreate(_ context.Context, _ dolt.ContainerCreateOpts) (string, error) {
-	return "", nil
+func (f *fakeDoltBackend) ContainerCreate(_ context.Context, opts dolt.ContainerCreateOpts) (string, error) {
+	f.createOpts = opts
+	return "created-id", nil
 }
 
 func (f *fakeDoltBackend) ContainerStart(_ context.Context, _ string) error {
@@ -64,7 +68,9 @@ func (f *fakeDoltBackend) ContainerExecInteractive(_ context.Context, _ string, 
 	return f.interactiveErr
 }
 
-func (f *fakeDoltBackend) CopyToContainer(_ context.Context, _ string, _ string, _ []byte) error {
+func (f *fakeDoltBackend) CopyToContainer(_ context.Context, _ string, destPath string, data []byte) error {
+	f.copyToDest = destPath
+	f.copyToData = append([]byte(nil), data...)
 	return nil
 }
 
@@ -111,6 +117,37 @@ func TestDoltStartCommand_StartsSharedDoltServer(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, stdout)
 	assert.Contains(t, stderr, "Starting shared Dolt server")
+}
+
+func TestDoltStartCommand_UsesEffectiveProjectDoltConfig(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(projectDir+"/.havn", 0o755))
+	require.NoError(t, os.WriteFile(projectDir+"/.havn/config.toml", []byte("network = \"custom-net\"\n[dolt]\nport = 4400\nimage = \"dolthub/dolt-sql-server:v2\"\n"), 0o644))
+
+	originalWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectDir))
+	t.Cleanup(func() {
+		require.NoError(t, os.Chdir(originalWD))
+	})
+
+	backend := &fakeDoltBackend{
+		execFunc: func(_ []string) (string, error) {
+			return "", nil
+		},
+	}
+
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	_, _, err = executeDoltWithRoot(root, "dolt", "start")
+
+	require.NoError(t, err)
+	assert.Equal(t, "custom-net", backend.createOpts.Network)
+	assert.Equal(t, "dolthub/dolt-sql-server:v2", backend.createOpts.Image)
+	assert.Equal(t, "/etc/dolt/servercfg.d", backend.copyToDest)
+	assert.Contains(t, string(backend.copyToData), "port: 4400")
 }
 
 func TestDoltStopCommand_ReturnsNotImplemented(t *testing.T) {
