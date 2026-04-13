@@ -198,5 +198,10 @@ Source labels are `default`, `global`, `project`, `env`, and `flag`.
 4. use flags for one-off overrides
 5. confirm with `havn config show --json`
 
+## Current partial-support gaps
+
+- `havn config show` does not yet expose every provenance detail for all returned fields; the stable `source` map currently focuses on core scalar/resource and Dolt fields
+- `havn config show` currently reflects startup-style effective config without command-local runtime override flags on `config show` itself
+
 When this guide and the configuration spec disagree, follow
 `specs/configuration.md`.

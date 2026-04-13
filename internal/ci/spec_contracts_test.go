@@ -140,6 +140,34 @@ func TestDocs_CLIReferenceDocumentsCommandSurfaceAndSupportMatrix(t *testing.T) 
 	assert.Contains(t, cliRef, "Planned")
 }
 
+func TestDocs_PartialDerivativeGuidesCallOutConcreteCurrentGaps(t *testing.T) {
+	cliRefPath := filepath.Join("..", "..", "docs", "cli-reference.md")
+	cliRefContent, err := os.ReadFile(cliRefPath)
+	require.NoError(t, err)
+
+	cliRef := string(cliRefContent)
+	assert.Contains(t, cliRef, "## Current partial-support gaps")
+	assert.Contains(t, cliRef, "`havn doctor` currently reports an extra container-tier skip check")
+	assert.Contains(t, cliRef, "`havn dolt import --force` currently reports `overwrote=true`")
+
+	doltGuidePath := filepath.Join("..", "..", "docs", "dolt-beads-guide.md")
+	doltGuideContent, err := os.ReadFile(doltGuidePath)
+	require.NoError(t, err)
+
+	doltGuide := string(doltGuideContent)
+	assert.Contains(t, doltGuide, "## Current partial-support gaps")
+	assert.Contains(t, doltGuide, "`havn dolt import --force` currently reports `overwrote=true`")
+	assert.Contains(t, doltGuide, "`havn doctor` may report a missing project database")
+
+	configGuidePath := filepath.Join("..", "..", "docs", "configuration-guide.md")
+	configGuideContent, err := os.ReadFile(configGuidePath)
+	require.NoError(t, err)
+
+	configGuide := string(configGuideContent)
+	assert.Contains(t, configGuide, "## Current partial-support gaps")
+	assert.Contains(t, configGuide, "`havn config show` does not yet expose every provenance detail")
+}
+
 func TestSpecs_CodeStandardsDocumentsSharedCLIOrchestrationBoundary(t *testing.T) {
 	codeStandardsPath := filepath.Join("..", "..", "specs", "code-standards.md")
 	codeStandardsContent, err := os.ReadFile(codeStandardsPath)

@@ -151,4 +151,10 @@ commands.
   publishing
 - authentication and TLS are not part of the default flow today
 
+## Current partial-support gaps
+
+- `havn dolt import --force` currently reports `overwrote=true` whenever `--force` is used, even if no destination database previously existed
+- project-identity verification during import currently reports mismatch as warnings (not a hard failure), and only when both metadata sources are available
+- `havn doctor` may report a missing project database based on direct `SHOW DATABASES` output parsing, which can miss formatted-table rows in some daemon output shapes
+
 When this guide and the spec disagree, follow `specs/shared-dolt-server.md`.
