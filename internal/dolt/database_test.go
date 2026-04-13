@@ -100,3 +100,14 @@ func TestConnect_ExecError(t *testing.T) {
 
 	assert.ErrorIs(t, err, assert.AnError)
 }
+
+func TestDrop_InvalidDatabaseIdentifier(t *testing.T) {
+	backend := &fakeBackend{}
+	mgr := dolt.NewManager(backend)
+
+	err := mgr.Drop(context.Background(), "mydb`; DROP DATABASE prod; --")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid database identifier")
+	assert.Empty(t, backend.execCalls)
+}

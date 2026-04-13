@@ -184,6 +184,38 @@ func TestExport_DatabaseNotOnServer(t *testing.T) {
 	assert.Equal(t, "nonexistent", notFound.Name)
 }
 
+func TestImport_InvalidDatabaseIdentifier(t *testing.T) {
+	projectDir := t.TempDir()
+	badName := "mydb`; DROP DATABASE prod; --"
+	dbDir := projectDir + "/.beads/dolt/" + badName
+	require.NoError(t, os.MkdirAll(dbDir, 0o755))
+	require.NoError(t, os.WriteFile(dbDir+"/manifest", []byte("data"), 0o644))
+
+	backend := &fakeBackend{}
+	mgr := dolt.NewManager(backend)
+	cfg := config.Config{
+		Dolt: config.DoltConfig{Database: badName},
+	}
+
+	_, err := mgr.Import(context.Background(), projectDir, cfg, false)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid database identifier")
+	assert.Empty(t, backend.execCalls)
+	assert.Empty(t, backend.copiedData)
+}
+
+func TestExport_InvalidDatabaseIdentifier(t *testing.T) {
+	backend := &fakeBackend{}
+	mgr := dolt.NewManager(backend)
+
+	err := mgr.Export(context.Background(), "mydb`; DROP DATABASE prod; --", t.TempDir())
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid database identifier")
+	assert.Empty(t, backend.execCalls)
+}
+
 // buildTestTar creates a tar archive with a directory prefix and file contents.
 func buildTestTar(t *testing.T, prefix string, files map[string]string) []byte {
 	t.Helper()

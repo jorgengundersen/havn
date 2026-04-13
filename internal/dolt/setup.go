@@ -43,6 +43,10 @@ func (s *Setup) EnsureReady(ctx context.Context, cfg config.Config) (map[string]
 }
 
 func (s *Setup) ensureDatabase(ctx context.Context, name string) error {
+	if err := validateDatabaseIdentifier(name); err != nil {
+		return err
+	}
+
 	query := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s`", name)
 	_, err := s.backend.ContainerExec(ctx, containerName, []string{
 		"dolt", "sql", "-q", query,

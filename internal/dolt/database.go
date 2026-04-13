@@ -29,6 +29,10 @@ func (m *Manager) Databases(ctx context.Context) ([]string, error) {
 // Drop executes DROP DATABASE on the shared Dolt server.
 // No confirmation logic here — the CLI layer enforces --yes.
 func (m *Manager) Drop(ctx context.Context, name string) error {
+	if err := validateDatabaseIdentifier(name); err != nil {
+		return err
+	}
+
 	query := fmt.Sprintf("DROP DATABASE `%s`", name)
 	_, err := m.backend.ContainerExec(ctx, containerName, []string{
 		"dolt", "sql", "-q", query,

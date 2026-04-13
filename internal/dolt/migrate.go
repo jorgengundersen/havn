@@ -31,6 +31,9 @@ func (m *Manager) Import(ctx context.Context, projectPath string, cfg config.Con
 	if dbName == "" {
 		dbName = filepath.Base(projectPath)
 	}
+	if err := validateDatabaseIdentifier(dbName); err != nil {
+		return ImportResult{}, err
+	}
 
 	srcDir := filepath.Join(projectPath, ".beads", "dolt", dbName)
 	if _, err := os.Stat(srcDir); os.IsNotExist(err) {
@@ -73,6 +76,10 @@ func (m *Manager) Import(ctx context.Context, projectPath string, cfg config.Con
 // Export copies a Dolt database from the shared server's data volume to
 // <destPath>/.beads/dolt/<dbName>/.
 func (m *Manager) Export(ctx context.Context, dbName string, destPath string) error {
+	if err := validateDatabaseIdentifier(dbName); err != nil {
+		return err
+	}
+
 	exists, err := m.databaseExists(ctx, dbName)
 	if err != nil {
 		return &ExportError{Err: fmt.Errorf("check database: %w", err)}

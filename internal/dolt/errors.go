@@ -94,3 +94,13 @@ func (e *ExportError) Error() string {
 func (e *ExportError) Unwrap() error {
 	return e.Err
 }
+
+// InvalidDatabaseIdentifierError indicates a database name does not match the
+// supported identifier contract.
+type InvalidDatabaseIdentifierError struct {
+	Name string
+}
+
+func (e *InvalidDatabaseIdentifierError) Error() string {
+	return fmt.Sprintf("invalid database identifier %q: only letters, numbers, underscores (_), hyphens (-), and dots (.) are supported", e.Name)
+}

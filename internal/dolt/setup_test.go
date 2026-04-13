@@ -170,3 +170,25 @@ func TestEnsureReady_UsesPortFromConfig(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "5555", envVars["BEADS_DOLT_SERVER_PORT"])
 }
+
+func TestEnsureReady_InvalidDatabaseIdentifier(t *testing.T) {
+	backend := &fakeBackend{
+		inspectInfo:  dolt.ContainerInfo{ID: "abc123", Running: true, Labels: map[string]string{"managed-by": "havn"}},
+		inspectFound: true,
+	}
+	mgr := dolt.NewManager(backend)
+	setup := dolt.NewSetup(mgr, backend)
+	cfg := config.Config{
+		Dolt: config.DoltConfig{
+			Enabled:  true,
+			Port:     3308,
+			Database: "mydb`; DROP DATABASE prod; --",
+		},
+	}
+
+	_, err := setup.EnsureReady(context.Background(), cfg)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid database identifier")
+	assert.Empty(t, backend.execCalls)
+}
