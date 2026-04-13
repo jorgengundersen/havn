@@ -250,17 +250,22 @@ func newDoltImportCmd(manager *dolt.Manager, _ *dolt.Setup) *cobra.Command {
 				return fmt.Errorf("havn dolt import: %w", err)
 			}
 
+			if result.Overwrote {
+				out.Status(fmt.Sprintf("Overwriting existing database %s on shared server", result.DatabaseName))
+			}
+
 			for _, warning := range result.Warnings {
 				out.Status("Warning: " + warning)
 			}
 
 			if out.IsJSON() {
 				return out.DataJSON(map[string]any{
-					"status":   "ok",
-					"message":  "database imported",
-					"database": result.DatabaseName,
-					"path":     projectPath,
-					"warnings": result.Warnings,
+					"status":    "ok",
+					"message":   "database imported",
+					"database":  result.DatabaseName,
+					"path":      projectPath,
+					"overwrote": result.Overwrote,
+					"warnings":  result.Warnings,
 				})
 			}
 

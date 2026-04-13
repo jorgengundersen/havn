@@ -81,6 +81,7 @@ func TestImport_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "mydb", result.DatabaseName)
+	assert.False(t, result.Overwrote)
 	assert.Empty(t, result.Warnings)
 	assert.Equal(t, "/var/lib/dolt", backend.copiedPath)
 	assert.NotEmpty(t, backend.copiedData)
@@ -101,9 +102,10 @@ func TestImport_ForceOverwriteExisting(t *testing.T) {
 		Dolt: config.DoltConfig{Database: "mydb"},
 	}
 
-	_, err := mgr.Import(context.Background(), projectDir, cfg, true)
+	result, err := mgr.Import(context.Background(), projectDir, cfg, true)
 
 	assert.NoError(t, err)
+	assert.True(t, result.Overwrote)
 	assert.NotEmpty(t, backend.copiedData)
 }
 
@@ -182,6 +184,21 @@ func TestExport_DatabaseNotOnServer(t *testing.T) {
 	var notFound *dolt.DatabaseNotFoundError
 	assert.ErrorAs(t, err, &notFound)
 	assert.Equal(t, "nonexistent", notFound.Name)
+}
+
+func TestExport_DestinationVerificationFailsWhenDatabaseMissing(t *testing.T) {
+	destDir := t.TempDir()
+
+	backend := &fakeBackend{
+		execOutput:   "+--------------------+\n| Database           |\n+--------------------+\n| mydb               |\n+--------------------+\n",
+		copyFromData: buildTestTar(t, "otherdb", map[string]string{"manifest": "exported-data"}),
+	}
+	mgr := dolt.NewManager(backend)
+
+	err := mgr.Export(context.Background(), "mydb", destDir)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "database \"mydb\" not found in destination")
 }
 
 func TestImport_InvalidDatabaseIdentifier(t *testing.T) {

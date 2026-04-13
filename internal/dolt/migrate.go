@@ -19,6 +19,7 @@ const doltDataDir = "/var/lib/dolt"
 // ImportResult holds the outcome of a database import.
 type ImportResult struct {
 	DatabaseName string
+	Overwrote    bool
 	Warnings     []string
 }
 
@@ -65,7 +66,7 @@ func (m *Manager) Import(ctx context.Context, projectPath string, cfg config.Con
 		return ImportResult{}, &ImportError{Err: fmt.Errorf("database %q not visible after import", dbName)}
 	}
 
-	result := ImportResult{DatabaseName: dbName}
+	result := ImportResult{DatabaseName: dbName, Overwrote: exists && force}
 
 	warnings := m.verifyProjectID(ctx, projectPath, dbName)
 	result.Warnings = warnings
@@ -97,6 +98,13 @@ func (m *Manager) Export(ctx context.Context, dbName string, destPath string) er
 	destDir := filepath.Join(destPath, ".beads", "dolt")
 	if err := untarToDirectory(tarData, destDir); err != nil {
 		return &ExportError{Err: fmt.Errorf("untar database: %w", err)}
+	}
+
+	if _, err := os.Stat(filepath.Join(destDir, dbName)); err != nil {
+		if os.IsNotExist(err) {
+			return &ExportError{Err: fmt.Errorf("database %q not found in destination after export", dbName)}
+		}
+		return &ExportError{Err: fmt.Errorf("verify destination: %w", err)}
 	}
 
 	return nil

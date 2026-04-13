@@ -320,6 +320,30 @@ func TestDoltImportCommand_ImportsDatabase(t *testing.T) {
 	assert.Contains(t, stderr, "Importing Dolt database")
 }
 
+func TestDoltImportCommand_ForceMakesOverwriteExplicit(t *testing.T) {
+	projectDir := t.TempDir()
+	dbName := "sample"
+	require.NoError(t, os.MkdirAll(projectDir+"/.havn", 0o755))
+	require.NoError(t, os.WriteFile(projectDir+"/.havn/config.toml", []byte("[dolt]\ndatabase = \"sample\"\n"), 0o644))
+	require.NoError(t, os.MkdirAll(projectDir+"/.beads/dolt/"+dbName, 0o755))
+	require.NoError(t, os.WriteFile(projectDir+"/.beads/dolt/"+dbName+"/manifest", []byte("data"), 0o644))
+
+	backend := &fakeDoltBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "running-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+		execOutput: "+--------------------+\n| Database           |\n+--------------------+\n| sample             |\n+--------------------+\n",
+	}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	_, stderr, err := executeDoltWithRoot(root, "dolt", "import", projectDir, "--force")
+
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "Overwriting existing database sample")
+}
+
 func TestDoltExportCommand_RequiresName(t *testing.T) {
 	_, _, err := executeCommand("dolt", "export")
 
