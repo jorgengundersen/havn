@@ -103,11 +103,8 @@ Boundary-confidence suites should run in a dedicated CI job via
 effective-state behavior, and shared-Dolt readiness paths are continuously
 validated as an explicit merge signal.
 
-When the Docker-backed integration job exists and is stable, it should also be
-required for merge.
-
-When the boundary-confidence job is stable, it should also be required for
-merge.
+`integration-tests` and `boundary-confidence` are required merge checks for
+`main`, matching `.github/settings.yml` branch protection.
 
 ## Tool versions
 

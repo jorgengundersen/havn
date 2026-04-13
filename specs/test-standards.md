@@ -375,9 +375,10 @@ _Ref: [Principles 10](architecture-principles.md)_
 
 ### Required checks before merge
 
-1. `go test ./...` — all unit tests pass.
-2. `golangci-lint run` — all linters pass.
-3. `go build ./...` — clean compilation.
+1. `make check` — the core gate (format, lint, unit tests, and build) passes on every push/PR.
+2. `make build` (`go build -o bin/havn ./cmd/havn`) — the shipped CLI binary compiles cleanly.
+3. `make test-integration` — Docker-backed integration tests pass in CI.
+4. `make test-boundary-confidence` — boundary-confidence suites pass in CI.
 
 Integration tests (`-tags integration`) run in CI but may be gated on
 Docker availability.

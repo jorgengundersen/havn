@@ -235,3 +235,19 @@ func TestQualityGates_FormattingContractValidatesCommittedTreeConsistently(t *te
 	assert.Contains(t, qualityGates, "`make fmt-check`")
 	assert.Contains(t, qualityGates, "Validate formatting without rewriting files")
 }
+
+func TestSpecs_BuildAndTestMergeGateRequirementsMatchEnforcement(t *testing.T) {
+	testStandardsPath := filepath.Join("..", "..", "specs", "test-standards.md")
+	testStandardsContent, err := os.ReadFile(testStandardsPath)
+	require.NoError(t, err)
+
+	testStandards := string(testStandardsContent)
+	assert.Contains(t, testStandards, "`make build` (`go build -o bin/havn ./cmd/havn`)")
+
+	qualityGatesPath := filepath.Join("..", "..", "specs", "quality-gates.md")
+	qualityGatesContent, err := os.ReadFile(qualityGatesPath)
+	require.NoError(t, err)
+
+	qualityGates := string(qualityGatesContent)
+	assert.Contains(t, qualityGates, "`integration-tests` and `boundary-confidence` are required merge checks")
+}
