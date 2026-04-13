@@ -48,5 +48,8 @@ func Validate(cfg Config) error {
 			}
 		}
 	}
+	if _, err := ResolveProjectEnvironment(cfg.Environment); err != nil {
+		return err
+	}
 	return nil
 }

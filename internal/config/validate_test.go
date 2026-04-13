@@ -17,6 +17,32 @@ func TestValidate_ValidConfig(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestValidate_EnvironmentReservedKeyRejected(t *testing.T) {
+	cfg := config.Default()
+	cfg.Environment = map[string]string{
+		"SSH_AUTH_SOCK": "/tmp/agent.sock",
+	}
+
+	err := config.Validate(cfg)
+
+	var valErr *config.ValidationError
+	require.ErrorAs(t, err, &valErr)
+	assert.Equal(t, "environment.SSH_AUTH_SOCK", valErr.Field)
+}
+
+func TestValidate_EnvironmentUnsetPassthroughRejected(t *testing.T) {
+	cfg := config.Default()
+	cfg.Environment = map[string]string{
+		"API_TOKEN": "${UNSET_API_TOKEN}",
+	}
+
+	err := config.Validate(cfg)
+
+	var valErr *config.ValidationError
+	require.ErrorAs(t, err, &valErr)
+	assert.Equal(t, "environment.API_TOKEN", valErr.Field)
+}
+
 func TestValidate_CPUsZero(t *testing.T) {
 	cfg := config.Default()
 	cfg.Resources.CPUs = 0

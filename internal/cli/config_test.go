@@ -203,6 +203,7 @@ func TestConfigShowCommand_ProjectConfigReflectedInSource(t *testing.T) {
 
 func TestConfigShowCommand_JSONOutputIncludesEnvironmentMap(t *testing.T) {
 	dir := t.TempDir()
+	t.Setenv("API_TOKEN", "host-token")
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".havn"), 0o755))
 	require.NoError(t, os.WriteFile(
 		filepath.Join(dir, ".havn", "config.toml"),
@@ -221,4 +222,20 @@ func TestConfigShowCommand_JSONOutputIncludesEnvironmentMap(t *testing.T) {
 	envMap, ok := result["environment"].(map[string]any)
 	require.True(t, ok, "environment should be a JSON object")
 	assert.Equal(t, "${API_TOKEN}", envMap["API_TOKEN"])
+}
+
+func TestConfigShowCommand_UnsetEnvironmentPassthroughReturnsValidationError(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(dir, ".havn", "config.toml"),
+		[]byte("[environment]\nAPI_TOKEN = \"${UNSET_API_TOKEN}\"\n"),
+		0o644,
+	))
+	t.Chdir(dir)
+
+	_, _, err := executeCommand("config", "show", "--json")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "environment.API_TOKEN")
 }
