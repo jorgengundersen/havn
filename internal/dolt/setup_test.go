@@ -102,15 +102,21 @@ func TestEnsureReady_CreatesProjectDatabase(t *testing.T) {
 	_, err := setup.EnsureReady(context.Background(), cfg)
 
 	require.NoError(t, err)
-	require.Len(t, backend.execCalls, 1)
-	assert.Equal(t, []string{"dolt", "sql", "-q", "CREATE DATABASE IF NOT EXISTS `webapp`"}, backend.execCalls[0].cmd)
+	require.Len(t, backend.execCalls, 2)
+	assert.Equal(t, []string{"dolt", "sql", "-q", "SELECT 1"}, backend.execCalls[0].cmd)
+	assert.Equal(t, []string{"dolt", "sql", "-q", "CREATE DATABASE IF NOT EXISTS `webapp`"}, backend.execCalls[1].cmd)
 }
 
 func TestEnsureReady_DatabaseCreateFailure(t *testing.T) {
 	backend := &fakeBackend{
 		inspectInfo:  dolt.ContainerInfo{ID: "abc123", Running: true, Labels: map[string]string{"managed-by": "havn"}},
 		inspectFound: true,
-		execErr:      assert.AnError,
+		execFunc: func(cmd []string) (string, error) {
+			if len(cmd) == 4 && cmd[3] == "SELECT 1" {
+				return "", nil
+			}
+			return "", assert.AnError
+		},
 	}
 	mgr := dolt.NewManager(backend)
 	setup := dolt.NewSetup(mgr, backend)
@@ -190,5 +196,6 @@ func TestEnsureReady_InvalidDatabaseIdentifier(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid database identifier")
-	assert.Empty(t, backend.execCalls)
+	require.Len(t, backend.execCalls, 1)
+	assert.Equal(t, []string{"dolt", "sql", "-q", "SELECT 1"}, backend.execCalls[0].cmd)
 }

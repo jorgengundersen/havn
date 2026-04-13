@@ -65,7 +65,7 @@ func (m *Manager) startExisting(ctx context.Context, info ContainerInfo) error {
 		return &NotManagedError{Name: containerName}
 	}
 	if info.Running {
-		return nil
+		return m.pollHealth(ctx)
 	}
 	if err := m.backend.ContainerStart(ctx, info.ID); err != nil {
 		return &StartError{Err: fmt.Errorf("start existing container: %w", err)}
@@ -74,11 +74,6 @@ func (m *Manager) startExisting(ctx context.Context, info ContainerInfo) error {
 }
 
 func (m *Manager) startNew(ctx context.Context, cfg config.Config) error {
-	configData := GenerateConfig(cfg)
-	if err := m.backend.CopyToContainer(ctx, containerName, "/etc/dolt/servercfg.d", configData); err != nil {
-		return &StartError{Err: fmt.Errorf("copy config: %w", err)}
-	}
-
 	id, err := m.backend.ContainerCreate(ctx, ContainerCreateOpts{
 		Name:    containerName,
 		Image:   cfg.Dolt.Image,
@@ -93,6 +88,11 @@ func (m *Manager) startNew(ctx context.Context, cfg config.Config) error {
 	})
 	if err != nil {
 		return &StartError{Err: fmt.Errorf("create container: %w", err)}
+	}
+
+	configData := GenerateConfig(cfg)
+	if err := m.backend.CopyToContainer(ctx, containerName, "/etc/dolt/servercfg.d", configData); err != nil {
+		return &StartError{Err: fmt.Errorf("copy config: %w", err)}
 	}
 
 	if err := m.backend.ContainerStart(ctx, id); err != nil {

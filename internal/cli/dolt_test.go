@@ -301,12 +301,15 @@ func TestDoltImportCommand_ImportsDatabase(t *testing.T) {
 			Running: true,
 			Labels:  map[string]string{"managed-by": "havn"},
 		},
-		execFunc: func(_ []string) (string, error) {
-			callCount++
-			if callCount == 1 {
-				return "+--------------------+\n| Database           |\n+--------------------+\n| information_schema |\n+--------------------+\n", nil
+		execFunc: func(cmd []string) (string, error) {
+			if len(cmd) == 4 && cmd[3] == "SHOW DATABASES" {
+				callCount++
+				if callCount == 1 {
+					return "+--------------------+\n| Database           |\n+--------------------+\n| information_schema |\n+--------------------+\n", nil
+				}
+				return "+--------------------+\n| Database           |\n+--------------------+\n| information_schema |\n| sample             |\n+--------------------+\n", nil
 			}
-			return "+--------------------+\n| Database           |\n+--------------------+\n| information_schema |\n| sample             |\n+--------------------+\n", nil
+			return "", nil
 		},
 	}
 	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})

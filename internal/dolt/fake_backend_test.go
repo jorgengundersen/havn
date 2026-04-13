@@ -15,9 +15,10 @@ type fakeBackend struct {
 	startErr error
 	stopErr  error
 
-	createID   string
-	createErr  error
-	createOpts dolt.ContainerCreateOpts
+	createID     string
+	createErr    error
+	createOpts   dolt.ContainerCreateOpts
+	createCalled bool
 
 	execOutput string
 	execErr    error
@@ -27,6 +28,7 @@ type fakeBackend struct {
 	copyErr    error
 	copiedData []byte
 	copiedPath string
+	copyFunc   func(destPath string, content []byte) error
 
 	copyFromData []byte
 	copyFromErr  error
@@ -43,6 +45,7 @@ type execCall struct {
 
 func (f *fakeBackend) ContainerCreate(_ context.Context, opts dolt.ContainerCreateOpts) (string, error) {
 	f.createOpts = opts
+	f.createCalled = true
 	return f.createID, f.createErr
 }
 
@@ -69,6 +72,9 @@ func (f *fakeBackend) ContainerExec(_ context.Context, container string, cmd []s
 func (f *fakeBackend) CopyToContainer(_ context.Context, _ string, destPath string, content []byte) error {
 	f.copiedData = content
 	f.copiedPath = destPath
+	if f.copyFunc != nil {
+		return f.copyFunc(destPath, content)
+	}
 	return f.copyErr
 }
 

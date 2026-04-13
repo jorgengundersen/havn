@@ -45,6 +45,33 @@ func TestStart_CreatesNewContainer(t *testing.T) {
 	assert.Equal(t, "/etc/dolt/servercfg.d", backend.copiedPath)
 }
 
+func TestStart_CopiesConfigAfterContainerCreate(t *testing.T) {
+	var backend *fakeBackend
+	backend = &fakeBackend{
+		inspectFound: false,
+		createID:     "new-id",
+		execOutput:   "1",
+		copyFunc: func(_ string, _ []byte) error {
+			if !backend.createCalled {
+				return fmt.Errorf("copy called before create")
+			}
+			return nil
+		},
+	}
+	mgr := dolt.NewManager(backend)
+	cfg := config.Config{
+		Network: "havn-net",
+		Dolt: config.DoltConfig{
+			Port:  3308,
+			Image: "dolthub/dolt-sql-server:latest",
+		},
+	}
+
+	err := mgr.Start(context.Background(), cfg)
+
+	require.NoError(t, err)
+}
+
 func TestStart_ExistingManagedStopped(t *testing.T) {
 	backend := &fakeBackend{
 		inspectFound: true,
@@ -122,6 +149,8 @@ func TestStart_ExistingManagedRunning(t *testing.T) {
 	err := mgr.Start(context.Background(), cfg)
 
 	assert.NoError(t, err)
+	assert.NotEmpty(t, backend.execCalls)
+	assert.Equal(t, []string{"dolt", "sql", "-q", "SELECT 1"}, backend.execCalls[0].cmd)
 }
 
 func TestStop_Success(t *testing.T) {
