@@ -222,6 +222,49 @@ func TestNewRoot_RunE_ProjectExplicitFalseOverridesGlobalTrueForStartupBooleans(
 	assert.False(t, svc.lastCfg.Mounts.SSH.AuthorizedKeys)
 }
 
+func TestNewRoot_RunE_AppliesRootRuntimeFlagsToStartupConfig(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectPath, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "config.toml"), []byte("shell = \"project-shell\"\nenv = \"github:project/env\"\nimage = \"havn-project:latest\"\nports = [\"2022:22\"]\n\n[resources]\ncpus = 2\nmemory = \"2g\"\n"), 0o644))
+
+	svc := &fakeStartService{}
+	root := cli.NewRoot(cli.Deps{StartService: svc})
+	root.SetArgs([]string{"--shell", "flag-shell", "--env", "github:flag/env", "--cpus", "6", "--memory", "12g", "--port", "2244", "--image", "havn-flag:latest", projectPath})
+
+	err := root.Execute()
+
+	require.NoError(t, err)
+	assert.True(t, svc.called)
+	assert.Equal(t, "flag-shell", svc.lastCfg.Shell)
+	assert.Equal(t, "github:flag/env", svc.lastCfg.Env)
+	assert.Equal(t, 6, svc.lastCfg.Resources.CPUs)
+	assert.Equal(t, "12g", svc.lastCfg.Resources.Memory)
+	assert.Equal(t, "havn-flag:latest", svc.lastCfg.Image)
+	assert.Equal(t, []string{"2022:22", "2244:22"}, svc.lastCfg.Ports)
+}
+
+func TestNewRoot_RunE_NoDoltFlagDisablesDoltWhenConfigEnablesIt(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectPath, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "config.toml"), []byte("[dolt]\nenabled = true\n"), 0o644))
+
+	svc := &fakeStartService{}
+	root := cli.NewRoot(cli.Deps{StartService: svc})
+	root.SetArgs([]string{"--no-dolt", projectPath})
+
+	err := root.Execute()
+
+	require.NoError(t, err)
+	assert.True(t, svc.called)
+	assert.False(t, svc.lastCfg.Dolt.Enabled)
+}
+
 func TestNewRoot_RunE_ReturnsNotImplementedWithoutStartService(t *testing.T) {
 	root := cli.NewRoot(cli.Deps{})
 	root.SetArgs([]string{"."})
