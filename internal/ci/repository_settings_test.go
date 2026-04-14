@@ -24,4 +24,5 @@ func TestRepositorySettings_RequireCoreCIChecksForMain(t *testing.T) {
 	assert.Contains(t, settings, "contexts:")
 	assert.Contains(t, settings, "- quality-gates")
 	assert.Contains(t, settings, "- integration-tests")
+	assert.Contains(t, settings, "- boundary-confidence")
 }
