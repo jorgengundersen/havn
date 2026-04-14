@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/jorgengundersen/havn/internal/config"
 	"github.com/jorgengundersen/havn/internal/dolt"
@@ -14,19 +13,17 @@ import (
 // --- 1.1 docker_daemon ---
 
 type dockerDaemonCheck struct {
+	checkMetadata
 	backend Backend
 }
 
 // NewDockerDaemonCheck creates check 1.1: Docker daemon accessible.
 func NewDockerDaemonCheck(backend Backend) Check {
-	return &dockerDaemonCheck{backend: backend}
+	return &dockerDaemonCheck{
+		checkMetadata: newHostCheckMetadata("docker_daemon", nil, defaultTimeout),
+		backend:       backend,
+	}
 }
-
-func (c *dockerDaemonCheck) ID() string              { return "docker_daemon" }
-func (c *dockerDaemonCheck) Tier() string            { return "host" }
-func (c *dockerDaemonCheck) Container() string       { return "" }
-func (c *dockerDaemonCheck) Prerequisites() []string { return nil }
-func (c *dockerDaemonCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *dockerDaemonCheck) Run(ctx context.Context) CheckResult {
 	if err := c.backend.Ping(ctx); err != nil {
@@ -60,20 +57,19 @@ func (c *dockerDaemonCheck) Run(ctx context.Context) CheckResult {
 // --- 1.2 base_image ---
 
 type baseImageCheck struct {
+	checkMetadata
 	backend Backend
 	image   string
 }
 
 // NewBaseImageCheck creates check 1.2: base image exists.
 func NewBaseImageCheck(backend Backend, image string) Check {
-	return &baseImageCheck{backend: backend, image: image}
+	return &baseImageCheck{
+		checkMetadata: newHostCheckMetadata("base_image", []string{"docker_daemon"}, defaultTimeout),
+		backend:       backend,
+		image:         image,
+	}
 }
-
-func (c *baseImageCheck) ID() string              { return "base_image" }
-func (c *baseImageCheck) Tier() string            { return "host" }
-func (c *baseImageCheck) Container() string       { return "" }
-func (c *baseImageCheck) Prerequisites() []string { return []string{"docker_daemon"} }
-func (c *baseImageCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *baseImageCheck) Run(ctx context.Context) CheckResult {
 	info, found, err := c.backend.ImageInspect(ctx, c.image)
@@ -106,20 +102,19 @@ func (c *baseImageCheck) Run(ctx context.Context) CheckResult {
 // --- 1.3 network ---
 
 type networkCheck struct {
+	checkMetadata
 	backend Backend
 	network string
 }
 
 // NewNetworkCheck creates check 1.3: Docker network exists.
 func NewNetworkCheck(backend Backend, network string) Check {
-	return &networkCheck{backend: backend, network: network}
+	return &networkCheck{
+		checkMetadata: newHostCheckMetadata("network", []string{"docker_daemon"}, defaultTimeout),
+		backend:       backend,
+		network:       network,
+	}
 }
-
-func (c *networkCheck) ID() string              { return "network" }
-func (c *networkCheck) Tier() string            { return "host" }
-func (c *networkCheck) Container() string       { return "" }
-func (c *networkCheck) Prerequisites() []string { return []string{"docker_daemon"} }
-func (c *networkCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *networkCheck) Run(ctx context.Context) CheckResult {
 	info, found, err := c.backend.NetworkInspect(ctx, c.network)
@@ -152,20 +147,19 @@ func (c *networkCheck) Run(ctx context.Context) CheckResult {
 // --- 1.4 volumes ---
 
 type volumesCheck struct {
+	checkMetadata
 	backend Backend
 	volumes []string
 }
 
 // NewVolumesCheck creates check 1.4: named volumes exist.
 func NewVolumesCheck(backend Backend, volumes []string) Check {
-	return &volumesCheck{backend: backend, volumes: volumes}
+	return &volumesCheck{
+		checkMetadata: newHostCheckMetadata("volumes", []string{"docker_daemon"}, defaultTimeout),
+		backend:       backend,
+		volumes:       volumes,
+	}
 }
-
-func (c *volumesCheck) ID() string              { return "volumes" }
-func (c *volumesCheck) Tier() string            { return "host" }
-func (c *volumesCheck) Container() string       { return "" }
-func (c *volumesCheck) Prerequisites() []string { return []string{"docker_daemon"} }
-func (c *volumesCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *volumesCheck) Run(ctx context.Context) CheckResult {
 	var missing []string
@@ -200,19 +194,17 @@ func (c *volumesCheck) Run(ctx context.Context) CheckResult {
 // --- 1.5 global_config ---
 
 type globalConfigCheck struct {
+	checkMetadata
 	path string
 }
 
 // NewGlobalConfigCheck creates check 1.5: global config parses.
 func NewGlobalConfigCheck(path string) Check {
-	return &globalConfigCheck{path: path}
+	return &globalConfigCheck{
+		checkMetadata: newHostCheckMetadata("global_config", nil, defaultTimeout),
+		path:          path,
+	}
 }
-
-func (c *globalConfigCheck) ID() string              { return "global_config" }
-func (c *globalConfigCheck) Tier() string            { return "host" }
-func (c *globalConfigCheck) Container() string       { return "" }
-func (c *globalConfigCheck) Prerequisites() []string { return nil }
-func (c *globalConfigCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *globalConfigCheck) Run(_ context.Context) CheckResult {
 	if _, err := os.Stat(c.path); os.IsNotExist(err) {
@@ -241,20 +233,19 @@ func (c *globalConfigCheck) Run(_ context.Context) CheckResult {
 // --- 1.6 project_config ---
 
 type projectConfigCheck struct {
+	checkMetadata
 	path                   string
 	effectiveValidationErr error
 }
 
 // NewProjectConfigCheck creates check 1.6: project config parses and merges.
 func NewProjectConfigCheck(path string, effectiveValidationErr error) Check {
-	return &projectConfigCheck{path: path, effectiveValidationErr: effectiveValidationErr}
+	return &projectConfigCheck{
+		checkMetadata:          newHostCheckMetadata("project_config", nil, defaultTimeout),
+		path:                   path,
+		effectiveValidationErr: effectiveValidationErr,
+	}
 }
-
-func (c *projectConfigCheck) ID() string              { return "project_config" }
-func (c *projectConfigCheck) Tier() string            { return "host" }
-func (c *projectConfigCheck) Container() string       { return "" }
-func (c *projectConfigCheck) Prerequisites() []string { return nil }
-func (c *projectConfigCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *projectConfigCheck) Run(_ context.Context) CheckResult {
 	if c.effectiveValidationErr != nil {
@@ -292,20 +283,19 @@ func (c *projectConfigCheck) Run(_ context.Context) CheckResult {
 // --- 1.7 dolt_server ---
 
 type doltServerCheck struct {
+	checkMetadata
 	backend     Backend
 	doltEnabled bool
 }
 
 // NewDoltServerCheck creates check 1.7: Dolt container running and responsive.
 func NewDoltServerCheck(backend Backend, doltEnabled bool) Check {
-	return &doltServerCheck{backend: backend, doltEnabled: doltEnabled}
+	return &doltServerCheck{
+		checkMetadata: newHostCheckMetadata("dolt_server", []string{"docker_daemon"}, defaultTimeout),
+		backend:       backend,
+		doltEnabled:   doltEnabled,
+	}
 }
-
-func (c *doltServerCheck) ID() string              { return "dolt_server" }
-func (c *doltServerCheck) Tier() string            { return "host" }
-func (c *doltServerCheck) Container() string       { return "" }
-func (c *doltServerCheck) Prerequisites() []string { return []string{"docker_daemon"} }
-func (c *doltServerCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *doltServerCheck) Run(ctx context.Context) CheckResult {
 	if !c.doltEnabled {
@@ -358,6 +348,7 @@ func (c *doltServerCheck) Run(ctx context.Context) CheckResult {
 // --- 1.8 dolt_database ---
 
 type doltDatabaseCheck struct {
+	checkMetadata
 	backend     Backend
 	doltEnabled bool
 	database    string
@@ -365,14 +356,13 @@ type doltDatabaseCheck struct {
 
 // NewDoltDatabaseCheck creates check 1.8: project database exists on server.
 func NewDoltDatabaseCheck(backend Backend, doltEnabled bool, database string) Check {
-	return &doltDatabaseCheck{backend: backend, doltEnabled: doltEnabled, database: database}
+	return &doltDatabaseCheck{
+		checkMetadata: newHostCheckMetadata("dolt_database", []string{"dolt_server"}, defaultTimeout),
+		backend:       backend,
+		doltEnabled:   doltEnabled,
+		database:      database,
+	}
 }
-
-func (c *doltDatabaseCheck) ID() string              { return "dolt_database" }
-func (c *doltDatabaseCheck) Tier() string            { return "host" }
-func (c *doltDatabaseCheck) Container() string       { return "" }
-func (c *doltDatabaseCheck) Prerequisites() []string { return []string{"dolt_server"} }
-func (c *doltDatabaseCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *doltDatabaseCheck) Run(ctx context.Context) CheckResult {
 	if !c.doltEnabled {

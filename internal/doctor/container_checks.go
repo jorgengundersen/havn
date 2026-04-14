@@ -10,20 +10,19 @@ import (
 // --- 2.1 nix_store ---
 
 type nixStoreCheck struct {
+	checkMetadata
 	backend   Backend
 	container string
 }
 
 // NewNixStoreCheck creates check 2.1: /nix/store mounted and readable.
 func NewNixStoreCheck(backend Backend, container string) Check {
-	return &nixStoreCheck{backend: backend, container: container}
+	return &nixStoreCheck{
+		checkMetadata: newContainerCheckMetadata("nix_store", container, []string{"docker_daemon"}, defaultTimeout),
+		backend:       backend,
+		container:     container,
+	}
 }
-
-func (c *nixStoreCheck) ID() string              { return "nix_store" }
-func (c *nixStoreCheck) Tier() string            { return "container" }
-func (c *nixStoreCheck) Container() string       { return c.container }
-func (c *nixStoreCheck) Prerequisites() []string { return []string{"docker_daemon"} }
-func (c *nixStoreCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *nixStoreCheck) Run(ctx context.Context) CheckResult {
 	_, err := c.backend.ContainerExec(ctx, c.container, []string{"test", "-d", "/nix/store"})
@@ -44,6 +43,7 @@ func (c *nixStoreCheck) Run(ctx context.Context) CheckResult {
 // --- 2.2 nix_devshell ---
 
 type nixDevshellCheck struct {
+	checkMetadata
 	backend   Backend
 	container string
 	flakeRef  string
@@ -54,14 +54,14 @@ const devshellTimeout = 60 * time.Second
 
 // NewNixDevshellCheck creates check 2.2: configured devShell evaluates.
 func NewNixDevshellCheck(backend Backend, container, flakeRef, shell string) Check {
-	return &nixDevshellCheck{backend: backend, container: container, flakeRef: flakeRef, shell: shell}
+	return &nixDevshellCheck{
+		checkMetadata: newContainerCheckMetadata("nix_devshell", container, []string{"docker_daemon"}, devshellTimeout),
+		backend:       backend,
+		container:     container,
+		flakeRef:      flakeRef,
+		shell:         shell,
+	}
 }
-
-func (c *nixDevshellCheck) ID() string              { return "nix_devshell" }
-func (c *nixDevshellCheck) Tier() string            { return "container" }
-func (c *nixDevshellCheck) Container() string       { return c.container }
-func (c *nixDevshellCheck) Prerequisites() []string { return []string{"docker_daemon"} }
-func (c *nixDevshellCheck) Timeout() time.Duration  { return devshellTimeout }
 
 func (c *nixDevshellCheck) Run(ctx context.Context) CheckResult {
 	ref := fmt.Sprintf("%s#%s", c.flakeRef, c.shell)
@@ -84,6 +84,7 @@ func (c *nixDevshellCheck) Run(ctx context.Context) CheckResult {
 // --- 2.3 project_mount ---
 
 type projectMountCheck struct {
+	checkMetadata
 	backend     Backend
 	container   string
 	projectPath string
@@ -91,14 +92,13 @@ type projectMountCheck struct {
 
 // NewProjectMountCheck creates check 2.3: project directory mounted and writable.
 func NewProjectMountCheck(backend Backend, container, projectPath string) Check {
-	return &projectMountCheck{backend: backend, container: container, projectPath: projectPath}
+	return &projectMountCheck{
+		checkMetadata: newContainerCheckMetadata("project_mount", container, []string{"docker_daemon"}, defaultTimeout),
+		backend:       backend,
+		container:     container,
+		projectPath:   projectPath,
+	}
 }
-
-func (c *projectMountCheck) ID() string              { return "project_mount" }
-func (c *projectMountCheck) Tier() string            { return "container" }
-func (c *projectMountCheck) Container() string       { return c.container }
-func (c *projectMountCheck) Prerequisites() []string { return []string{"docker_daemon"} }
-func (c *projectMountCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *projectMountCheck) Run(ctx context.Context) CheckResult {
 	_, err := c.backend.ContainerExec(ctx, c.container, []string{"test", "-w", c.projectPath})
@@ -120,6 +120,7 @@ func (c *projectMountCheck) Run(ctx context.Context) CheckResult {
 // --- 2.3b config_mounts ---
 
 type configMountsCheck struct {
+	checkMetadata
 	backend   Backend
 	container string
 	mounts    []ConfigMountExpectation
@@ -133,14 +134,13 @@ type ConfigMountExpectation struct {
 
 // NewConfigMountsCheck creates check 2.3b: config bind mounts present.
 func NewConfigMountsCheck(backend Backend, container string, mounts []ConfigMountExpectation) Check {
-	return &configMountsCheck{backend: backend, container: container, mounts: mounts}
+	return &configMountsCheck{
+		checkMetadata: newContainerCheckMetadata("config_mounts", container, []string{"docker_daemon"}, defaultTimeout),
+		backend:       backend,
+		container:     container,
+		mounts:        mounts,
+	}
 }
-
-func (c *configMountsCheck) ID() string              { return "config_mounts" }
-func (c *configMountsCheck) Tier() string            { return "container" }
-func (c *configMountsCheck) Container() string       { return c.container }
-func (c *configMountsCheck) Prerequisites() []string { return []string{"docker_daemon"} }
-func (c *configMountsCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *configMountsCheck) Run(ctx context.Context) CheckResult {
 	var missing []string
@@ -184,6 +184,7 @@ func (c *configMountsCheck) Run(ctx context.Context) CheckResult {
 // --- 2.4 ssh_agent ---
 
 type sshAgentCheck struct {
+	checkMetadata
 	backend    Backend
 	container  string
 	socketPath string
@@ -191,14 +192,13 @@ type sshAgentCheck struct {
 
 // NewSSHAgentCheck creates check 2.4: SSH agent forwarding works.
 func NewSSHAgentCheck(backend Backend, container, socketPath string) Check {
-	return &sshAgentCheck{backend: backend, container: container, socketPath: socketPath}
+	return &sshAgentCheck{
+		checkMetadata: newContainerCheckMetadata("ssh_agent", container, []string{"docker_daemon"}, defaultTimeout),
+		backend:       backend,
+		container:     container,
+		socketPath:    socketPath,
+	}
 }
-
-func (c *sshAgentCheck) ID() string              { return "ssh_agent" }
-func (c *sshAgentCheck) Tier() string            { return "container" }
-func (c *sshAgentCheck) Container() string       { return c.container }
-func (c *sshAgentCheck) Prerequisites() []string { return []string{"docker_daemon"} }
-func (c *sshAgentCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *sshAgentCheck) Run(ctx context.Context) CheckResult {
 	if strings.TrimSpace(c.socketPath) == "" {
@@ -235,6 +235,7 @@ func (c *sshAgentCheck) Run(ctx context.Context) CheckResult {
 // --- 2.5 dolt_connectivity ---
 
 type doltConnectivityCheck struct {
+	checkMetadata
 	backend     Backend
 	container   string
 	network     string
@@ -243,14 +244,14 @@ type doltConnectivityCheck struct {
 
 // NewDoltConnectivityCheck creates check 2.5: container connected to havn-net.
 func NewDoltConnectivityCheck(backend Backend, container, network string, doltEnabled bool) Check {
-	return &doltConnectivityCheck{backend: backend, container: container, network: network, doltEnabled: doltEnabled}
+	return &doltConnectivityCheck{
+		checkMetadata: newContainerCheckMetadata("dolt_connectivity", container, []string{"docker_daemon"}, defaultTimeout),
+		backend:       backend,
+		container:     container,
+		network:       network,
+		doltEnabled:   doltEnabled,
+	}
 }
-
-func (c *doltConnectivityCheck) ID() string              { return "dolt_connectivity" }
-func (c *doltConnectivityCheck) Tier() string            { return "container" }
-func (c *doltConnectivityCheck) Container() string       { return c.container }
-func (c *doltConnectivityCheck) Prerequisites() []string { return []string{"docker_daemon"} }
-func (c *doltConnectivityCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *doltConnectivityCheck) Run(ctx context.Context) CheckResult {
 	if !c.doltEnabled {
@@ -296,6 +297,7 @@ func (c *doltConnectivityCheck) Run(ctx context.Context) CheckResult {
 // --- 2.6 beads_health ---
 
 type beadsHealthCheck struct {
+	checkMetadata
 	backend     Backend
 	container   string
 	beadsExists bool
@@ -303,14 +305,13 @@ type beadsHealthCheck struct {
 
 // NewBeadsHealthCheck creates check 2.6: bd doctor passes.
 func NewBeadsHealthCheck(backend Backend, container string, beadsExists bool) Check {
-	return &beadsHealthCheck{backend: backend, container: container, beadsExists: beadsExists}
+	return &beadsHealthCheck{
+		checkMetadata: newContainerCheckMetadata("beads_health", container, []string{"docker_daemon"}, defaultTimeout),
+		backend:       backend,
+		container:     container,
+		beadsExists:   beadsExists,
+	}
 }
-
-func (c *beadsHealthCheck) ID() string              { return "beads_health" }
-func (c *beadsHealthCheck) Tier() string            { return "container" }
-func (c *beadsHealthCheck) Container() string       { return c.container }
-func (c *beadsHealthCheck) Prerequisites() []string { return []string{"docker_daemon"} }
-func (c *beadsHealthCheck) Timeout() time.Duration  { return defaultTimeout }
 
 func (c *beadsHealthCheck) Run(ctx context.Context) CheckResult {
 	if !c.beadsExists {
