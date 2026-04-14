@@ -79,5 +79,5 @@ func TestResolveFlake_DefaultWhenNothingSet(t *testing.T) {
 	)
 
 	got := config.ResolveFlake(cfg, src, false)
-	assert.Equal(t, "github:jorgengundersen/dev-environments", got)
+	assert.Equal(t, "path:.", got)
 }

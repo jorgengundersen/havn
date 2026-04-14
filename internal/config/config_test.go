@@ -116,7 +116,7 @@ func TestConfig_TOMLRoundTrip(t *testing.T) {
 func TestDefault_ReturnsSpecValues(t *testing.T) {
 	cfg := config.Default()
 
-	assert.Equal(t, "github:jorgengundersen/dev-environments", cfg.Env)
+	assert.Equal(t, "path:.", cfg.Env)
 	assert.Equal(t, "default", cfg.Shell)
 	assert.Equal(t, "havn-base:latest", cfg.Image)
 	assert.Equal(t, "havn-net", cfg.Network)

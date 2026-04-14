@@ -119,7 +119,7 @@ func TestConfigShowCommand_JSONOutputDefaultValues(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(stdout), &result))
 
 	// Verify default values match config.Default()
-	assert.Equal(t, "github:jorgengundersen/dev-environments", result["env"])
+	assert.Equal(t, "path:.", result["env"])
 	assert.Equal(t, "default", result["shell"])
 	assert.Equal(t, "havn-base:latest", result["image"])
 	assert.Equal(t, "havn-net", result["network"])

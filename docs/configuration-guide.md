@@ -75,7 +75,7 @@ Examples:
 ### Global defaults
 
 ```toml
-env = "github:jorgengundersen/dev-environments"
+env = "path:."
 shell = "default"
 image = "havn-base:latest"
 network = "havn-net"

@@ -37,7 +37,7 @@ func TestHAVNBinary_CLIContractAtProcessBoundary(t *testing.T) {
 
 		var payload map[string]any
 		require.NoError(t, json.Unmarshal([]byte(stdout), &payload))
-		assert.Equal(t, "github:jorgengundersen/dev-environments", payload["env"])
+		assert.Equal(t, "path:.", payload["env"])
 		assert.Contains(t, payload, "source")
 	})
 

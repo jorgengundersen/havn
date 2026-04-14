@@ -118,7 +118,7 @@ func LoadFileWithMetadata(path string) (Config, FileMetadata, error) {
 // Default returns a Config populated with all spec-defined default values.
 func Default() Config {
 	return Config{
-		Env:     "github:jorgengundersen/dev-environments",
+		Env:     "path:.",
 		Shell:   "default",
 		Image:   "havn-base:latest",
 		Network: "havn-net",

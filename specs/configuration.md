@@ -181,7 +181,7 @@ including `SSH_AUTH_SOCK` and `BEADS_DOLT_*`. That is a validation error.
 Built-in defaults:
 
 ```toml
-env = "github:jorgengundersen/dev-environments"
+env = "path:."
 shell = "default"
 image = "havn-base:latest"
 network = "havn-net"
@@ -248,7 +248,7 @@ Expected shape:
 
 ```json
 {
-  "env": "github:jorgengundersen/dev-environments",
+  "env": "path:.",
   "shell": "go",
   "image": "havn-base:latest",
   "network": "havn-net",
