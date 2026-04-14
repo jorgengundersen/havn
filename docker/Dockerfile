@@ -16,12 +16,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tini \
     && rm -rf /var/lib/apt/lists/*
 
-RUN groupadd --gid "${GID}" devuser \
-    && useradd --uid "${UID}" --gid "${GID}" --create-home --shell /bin/bash devuser
+RUN if ! getent group "${GID}" >/dev/null; then \
+      groupadd --gid "${GID}" devuser; \
+    fi \
+    && existing_user="$(getent passwd "${UID}" | cut -d: -f1 || true)" \
+    && if [ -n "${existing_user}" ] && [ "${existing_user}" != "devuser" ]; then \
+         usermod --login devuser --home /home/devuser --move-home --shell /bin/bash --gid "${GID}" "${existing_user}"; \
+       elif id -u devuser >/dev/null 2>&1; then \
+         usermod --uid "${UID}" --gid "${GID}" --home /home/devuser --move-home --shell /bin/bash devuser; \
+       else \
+         useradd --uid "${UID}" --gid "${GID}" --create-home --shell /bin/bash devuser; \
+       fi
 
 RUN install -d -m 0755 /run/sshd /nix \
-    && install -d -m 0700 -o devuser -g devuser /home/devuser/.ssh \
-    && install -d -m 0755 -o devuser -g devuser /home/devuser/.local/share /home/devuser/.cache /home/devuser/.local/state
+    && install -d -m 0700 -o devuser -g "${GID}" /home/devuser/.ssh \
+    && install -d -m 0755 -o devuser -g "${GID}" /home/devuser/.local/share /home/devuser/.cache /home/devuser/.local/state
 
 RUN printf 'devuser ALL=(root) NOPASSWD: /usr/sbin/sshd\n' >/etc/sudoers.d/devuser-sshd \
     && chmod 0440 /etc/sudoers.d/devuser-sshd
