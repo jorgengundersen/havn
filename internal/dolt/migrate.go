@@ -52,6 +52,12 @@ func (m *Manager) Import(ctx context.Context, projectPath string, cfg config.Con
 	if exists && !force {
 		return ImportResult{}, &DatabaseExistsError{Name: dbName}
 	}
+	if exists && force {
+		destinationPath := filepath.Join(doltDataDir, dbName)
+		if _, err := m.backend.ContainerExec(ctx, containerName, []string{"rm", "-rf", destinationPath}); err != nil {
+			return ImportResult{}, &ImportError{Err: fmt.Errorf("remove existing database: %w", err)}
+		}
+	}
 
 	tarData, err := tarDirectory(srcDir, dbName)
 	if err != nil {

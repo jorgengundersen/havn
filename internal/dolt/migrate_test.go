@@ -127,6 +127,48 @@ func TestImport_ForceOverwriteExisting(t *testing.T) {
 	assert.NotEmpty(t, backend.copiedData)
 }
 
+func TestImport_ForceOverwriteExisting_UsesCleanReplacementStrategy(t *testing.T) {
+	projectDir := t.TempDir()
+	dbDir := projectDir + "/.beads/dolt/mydb"
+	require.NoError(t, os.MkdirAll(dbDir, 0o755))
+	require.NoError(t, os.WriteFile(dbDir+"/manifest", []byte("data"), 0o644))
+
+	showCalls := 0
+	backend := &fakeBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "managed-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+		execFunc: func(cmd []string) (string, error) {
+			if len(cmd) == 4 && cmd[0] == "dolt" && cmd[3] == "SHOW DATABASES" {
+				showCalls++
+				if showCalls == 1 {
+					return "+--------------------+\n| Database           |\n+--------------------+\n| mydb               |\n+--------------------+\n", nil
+				}
+				return "+--------------------+\n| Database           |\n+--------------------+\n| information_schema |\n| mydb               |\n+--------------------+\n", nil
+			}
+			if len(cmd) == 3 && cmd[0] == "rm" && cmd[1] == "-rf" && cmd[2] == "/var/lib/dolt/mydb" {
+				return "", nil
+			}
+			return "", nil
+		},
+	}
+	mgr := dolt.NewManager(backend)
+	cfg := config.Config{Dolt: config.DoltConfig{Database: "mydb"}}
+
+	result, err := mgr.Import(context.Background(), projectDir, cfg, true)
+
+	require.NoError(t, err)
+	assert.True(t, result.Overwrote)
+	assert.NotEmpty(t, backend.copiedData)
+	require.Len(t, backend.execCalls, 3)
+	assert.Equal(t, []string{"dolt", "sql", "-q", "SHOW DATABASES"}, backend.execCalls[0].cmd)
+	assert.Equal(t, []string{"rm", "-rf", "/var/lib/dolt/mydb"}, backend.execCalls[1].cmd)
+	assert.Equal(t, []string{"dolt", "sql", "-q", "SHOW DATABASES"}, backend.execCalls[2].cmd)
+}
+
 func TestImport_ProjectIDMismatchWarning(t *testing.T) {
 	projectDir := t.TempDir()
 	dbDir := projectDir + "/.beads/dolt/mydb"
