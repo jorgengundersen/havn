@@ -106,7 +106,7 @@ func newDoltStatusCmd(manager *dolt.Manager) *cobra.Command {
 			}
 
 			if out.IsJSON() {
-				return out.DataJSON(status)
+				return out.DataJSON(doltStatusPayload(status))
 			}
 
 			if !status.Running {
@@ -117,10 +117,23 @@ func newDoltStatusCmd(manager *dolt.Manager) *cobra.Command {
 			out.Data(fmt.Sprintf("Dolt server is running (%s)", status.Container))
 			out.Data(fmt.Sprintf("Image: %s", status.Image))
 			out.Data(fmt.Sprintf("Network: %s", status.Network))
-			out.Data(fmt.Sprintf("Port: %d", status.Port))
 			return nil
 		},
 	}
+}
+
+func doltStatusPayload(status dolt.Status) map[string]any {
+	payload := map[string]any{"running": status.Running}
+	if !status.Running {
+		return payload
+	}
+
+	payload["container"] = status.Container
+	payload["image"] = status.Image
+	payload["network"] = status.Network
+	payload["managed_by_havn"] = status.ManagedByHavn
+
+	return payload
 }
 
 func newDoltDatabasesCmd(manager *dolt.Manager) *cobra.Command {

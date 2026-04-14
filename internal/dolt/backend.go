@@ -42,5 +42,4 @@ type ContainerInfo struct {
 	Image   string
 	Labels  map[string]string
 	Network string
-	Port    int
 }

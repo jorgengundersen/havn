@@ -214,7 +214,6 @@ func TestStatus_Running(t *testing.T) {
 			Image:   "dolthub/dolt-sql-server:latest",
 			Labels:  map[string]string{"managed-by": "havn"},
 			Network: "havn-net",
-			Port:    3308,
 		},
 	}
 	mgr := dolt.NewManager(backend)
@@ -225,7 +224,6 @@ func TestStatus_Running(t *testing.T) {
 	assert.True(t, status.Running)
 	assert.Equal(t, "havn-dolt", status.Container)
 	assert.Equal(t, "dolthub/dolt-sql-server:latest", status.Image)
-	assert.Equal(t, 3308, status.Port)
 	assert.Equal(t, "havn-net", status.Network)
 	assert.True(t, status.ManagedByHavn)
 }

@@ -184,6 +184,10 @@ claim success if the final copied database is missing from the destination.
 
 The status payload describes shared-server state, not project state.
 
+`havn dolt status` currently does not report a runtime port. The payload is
+limited to fields that the runtime adapter can report faithfully on supported
+paths.
+
 Canonical shape:
 
 ```json
@@ -191,7 +195,6 @@ Canonical shape:
   "running": true,
   "container": "havn-dolt",
   "image": "dolthub/dolt-sql-server:latest",
-  "port": 3308,
   "network": "havn-net",
   "managed_by_havn": true
 }

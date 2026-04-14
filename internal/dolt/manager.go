@@ -16,13 +16,11 @@ const (
 	healthTimeout   = 30 * time.Second
 )
 
-// Status represents the status of the shared Dolt server,
-// matching the havn dolt status --json shape.
+// Status represents shared Dolt server state used by the CLI layer.
 type Status struct {
 	Running       bool   `json:"running"`
 	Container     string `json:"container,omitempty"`
 	Image         string `json:"image,omitempty"`
-	Port          int    `json:"port,omitempty"`
 	Network       string `json:"network,omitempty"`
 	ManagedByHavn bool   `json:"managed_by_havn,omitempty"`
 }
@@ -143,7 +141,6 @@ func (m *Manager) Status(ctx context.Context) (Status, error) {
 		Running:       info.Running,
 		Container:     containerName,
 		Image:         info.Image,
-		Port:          info.Port,
 		Network:       info.Network,
 		ManagedByHavn: info.Labels[managedByLabel] == managedByValue,
 	}, nil

@@ -196,7 +196,6 @@ func TestDoltStatusCommand_PrintsJSONStatus(t *testing.T) {
 			Running: true,
 			Image:   "dolthub/dolt-sql-server:latest",
 			Network: "havn-net",
-			Port:    3308,
 			Labels:  map[string]string{"managed-by": "havn"},
 		},
 	}
@@ -204,7 +203,7 @@ func TestDoltStatusCommand_PrintsJSONStatus(t *testing.T) {
 	stdout, _, err := executeDoltWithRoot(root, "--json", "dolt", "status")
 
 	require.NoError(t, err)
-	assert.JSONEq(t, `{"running":true,"container":"havn-dolt","image":"dolthub/dolt-sql-server:latest","port":3308,"network":"havn-net","managed_by_havn":true}`+"\n", stdout)
+	assert.JSONEq(t, `{"running":true,"container":"havn-dolt","image":"dolthub/dolt-sql-server:latest","network":"havn-net","managed_by_havn":true}`+"\n", stdout)
 }
 
 func TestDoltDatabasesCommand_ReturnsNotImplemented(t *testing.T) {

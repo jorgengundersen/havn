@@ -261,6 +261,16 @@ func TestSpecs_BuildAndTestMergeGateRequirementsMatchEnforcement(t *testing.T) {
 	assert.Contains(t, qualityGates, "`integration-tests` and `boundary-confidence` are required merge checks")
 }
 
+func TestSpecs_SharedDoltStatusContractNarrowlyExcludesRuntimePort(t *testing.T) {
+	sharedDoltPath := filepath.Join("..", "..", "specs", "shared-dolt-server.md")
+	sharedDoltContent, err := os.ReadFile(sharedDoltPath)
+	require.NoError(t, err)
+
+	sharedDolt := string(sharedDoltContent)
+	assert.Contains(t, sharedDolt, "`havn dolt status` currently does not report a runtime port")
+	assert.NotContains(t, sharedDolt, "\"port\": 3308")
+}
+
 func TestDocs_RequiredMergeChecksListIncludesCoreAndDedicatedSuites(t *testing.T) {
 	qualityGatesPath := filepath.Join("..", "..", "specs", "quality-gates.md")
 	qualityGatesContent, err := os.ReadFile(qualityGatesPath)
