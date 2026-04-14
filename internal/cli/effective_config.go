@@ -45,7 +45,12 @@ func (o effectiveConfigOrchestrator) ResolveWithSource(projectCtx projectContext
 		return config.Config{}, nil, err
 	}
 
-	cfg, src := config.ResolveWithMetadata(global, globalMeta, project, projectMeta, config.EnvOverrides(), flagOv)
+	envOverrides, err := config.EnvOverrides()
+	if err != nil {
+		return config.Config{}, nil, err
+	}
+
+	cfg, src := config.ResolveWithMetadata(global, globalMeta, project, projectMeta, envOverrides, flagOv)
 
 	if _, err := os.Stat(projectCtx.ProjectFlakePath()); err == nil {
 		cfg.Env = config.ResolveFlake(cfg, src, true)

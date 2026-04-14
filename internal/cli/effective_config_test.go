@@ -32,3 +32,22 @@ func TestEffectiveConfigOrchestrator_Resolve_UsesSharedPrecedence(t *testing.T) 
 	assert.Equal(t, "fish", cfg.Shell)
 	assert.Equal(t, "flag", src["shell"])
 }
+
+func TestEffectiveConfigOrchestrator_ResolveWithSource_ErrorsOnMalformedEnvOverride(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	t.Setenv("HAVN_CPUS", "not-a-number")
+
+	globalPath := filepath.Join(t.TempDir(), "global.toml")
+	require.NoError(t, os.WriteFile(globalPath, []byte(""), 0o644))
+
+	projectPath := filepath.Join(homeDir, "workspace", "sample")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectPath, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "config.toml"), []byte(""), 0o644))
+
+	orchestrator := newEffectiveConfigOrchestrator(globalPath)
+	_, _, err := orchestrator.ResolveWithSource(projectContext{Path: projectPath}, config.Overrides{})
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "HAVN_CPUS")
+}

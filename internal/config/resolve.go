@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 )
@@ -174,7 +175,7 @@ func applyOverrides(cfg *Config, ov Overrides, label string, src Source) {
 
 // EnvOverrides reads the documented HAVN_* environment variables and returns
 // an Overrides with non-nil fields for those that are set.
-func EnvOverrides() Overrides {
+func EnvOverrides() (Overrides, error) {
 	var ov Overrides
 	if v, ok := os.LookupEnv("HAVN_SHELL"); ok {
 		ov.Shell = &v
@@ -183,9 +184,14 @@ func EnvOverrides() Overrides {
 		ov.Env = &v
 	}
 	if v, ok := os.LookupEnv("HAVN_CPUS"); ok {
-		if n, err := strconv.Atoi(v); err == nil {
-			ov.CPUs = &n
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return Overrides{}, &ValidationError{
+				Field:  "env.HAVN_CPUS",
+				Reason: fmt.Sprintf("must be an integer, got %q", v),
+			}
 		}
+		ov.CPUs = &n
 	}
 	if v, ok := os.LookupEnv("HAVN_MEMORY"); ok {
 		ov.Memory = &v
@@ -196,5 +202,5 @@ func EnvOverrides() Overrides {
 	if v, ok := os.LookupEnv("HAVN_IMAGE"); ok {
 		ov.Image = &v
 	}
-	return ov
+	return ov, nil
 }

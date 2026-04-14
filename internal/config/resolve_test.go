@@ -171,7 +171,9 @@ func TestEnvOverrides_ReadsSetVars(t *testing.T) {
 	t.Setenv("HAVN_SSH_PORT", "2222")
 	t.Setenv("HAVN_IMAGE", "custom:v2")
 
-	ov := config.EnvOverrides()
+	ov, err := config.EnvOverrides()
+
+	assert.NoError(t, err)
 
 	assert.NotNil(t, ov.Shell)
 	assert.Equal(t, "rust", *ov.Shell)
@@ -188,7 +190,9 @@ func TestEnvOverrides_ReadsSetVars(t *testing.T) {
 }
 
 func TestEnvOverrides_IgnoresUnsetVars(t *testing.T) {
-	ov := config.EnvOverrides()
+	ov, err := config.EnvOverrides()
+
+	assert.NoError(t, err)
 
 	assert.Nil(t, ov.Shell)
 	assert.Nil(t, ov.Env)
@@ -196,6 +200,15 @@ func TestEnvOverrides_IgnoresUnsetVars(t *testing.T) {
 	assert.Nil(t, ov.Memory)
 	assert.Nil(t, ov.SSHPort)
 	assert.Nil(t, ov.Image)
+}
+
+func TestEnvOverrides_InvalidCPUsReturnsError(t *testing.T) {
+	t.Setenv("HAVN_CPUS", "not-a-number")
+
+	_, err := config.EnvOverrides()
+
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "env.HAVN_CPUS")
 }
 
 func TestResolve_NilOverrideFieldsDoNotOverride(t *testing.T) {
