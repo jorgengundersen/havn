@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,9 @@ import (
 
 	"github.com/jorgengundersen/havn/internal/cli"
 	"github.com/jorgengundersen/havn/internal/config"
+	"github.com/jorgengundersen/havn/internal/container"
 	"github.com/jorgengundersen/havn/internal/docker"
+	"github.com/jorgengundersen/havn/internal/mount"
 )
 
 type fakeStartService struct {
@@ -22,6 +25,118 @@ type fakeStartService struct {
 	lastProject string
 	exitCode    int
 	err         error
+}
+
+type rootBoundaryStartService struct {
+	doltSetup *rootBoundaryFakeDoltSetup
+	container *rootBoundaryFakeStartBackend
+}
+
+func newRootBoundaryStartService() *rootBoundaryStartService {
+	return &rootBoundaryStartService{
+		doltSetup: &rootBoundaryFakeDoltSetup{},
+		container: &rootBoundaryFakeStartBackend{},
+	}
+}
+
+func (s *rootBoundaryStartService) StartOrAttach(ctx context.Context, cfg config.Config, projectPath string, _ func(string)) (int, error) {
+	return container.StartOrAttach(ctx, container.StartDeps{
+		Container: s.container,
+		Image:     rootBoundaryFakeImageBackend{},
+		Network:   rootBoundaryFakeNetworkBackend{},
+		Volume:    rootBoundaryFakeVolumeEnsurer{},
+		Mount: rootBoundaryFakeMountResolver{result: mount.ResolveResult{
+			Env: map[string]string{},
+		}},
+		Dolt:   s.doltSetup,
+		Exec:   rootBoundaryFakeExecBackend{},
+		Status: func(string) {},
+	}, cfg, projectPath)
+}
+
+type rootBoundaryFakeStartBackend struct {
+	createdOpts container.CreateOpts
+	createCalls int
+}
+
+func (b *rootBoundaryFakeStartBackend) ContainerInspect(_ context.Context, name string) (container.State, error) {
+	return container.State{}, &container.NotFoundError{Name: name}
+}
+
+func (b *rootBoundaryFakeStartBackend) ContainerCreate(_ context.Context, opts container.CreateOpts) (string, error) {
+	b.createCalls++
+	b.createdOpts = opts
+	return "created-id", nil
+}
+
+func (b *rootBoundaryFakeStartBackend) ContainerStart(_ context.Context, _ string) error {
+	return nil
+}
+
+type rootBoundaryFakeImageBackend struct{}
+
+func (rootBoundaryFakeImageBackend) ImageBuild(_ context.Context, _ container.ImageBuildOpts) error {
+	return nil
+}
+
+func (rootBoundaryFakeImageBackend) ImageExists(_ context.Context, _ string) (bool, error) {
+	return true, nil
+}
+
+type rootBoundaryFakeNetworkBackend struct{}
+
+func (rootBoundaryFakeNetworkBackend) NetworkInspect(_ context.Context, _ string) error {
+	return nil
+}
+
+func (rootBoundaryFakeNetworkBackend) NetworkCreate(_ context.Context, _ string) error {
+	return nil
+}
+
+type rootBoundaryFakeVolumeEnsurer struct{}
+
+func (rootBoundaryFakeVolumeEnsurer) EnsureExists(_ context.Context, _ string) error {
+	return nil
+}
+
+type rootBoundaryFakeMountResolver struct {
+	result mount.ResolveResult
+}
+
+func (r rootBoundaryFakeMountResolver) Resolve(_ config.Config, _ string) (mount.ResolveResult, error) {
+	return r.result, nil
+}
+
+type rootBoundaryFakeDoltSetup struct {
+	called  bool
+	lastCfg config.Config
+}
+
+func (d *rootBoundaryFakeDoltSetup) EnsureReady(_ context.Context, cfg config.Config) (map[string]string, error) {
+	d.called = true
+	d.lastCfg = cfg
+	return map[string]string{
+		"BEADS_DOLT_SHARED_SERVER":   "1",
+		"BEADS_DOLT_SERVER_HOST":     "havn-dolt",
+		"BEADS_DOLT_SERVER_PORT":     strconv.Itoa(cfg.Dolt.Port),
+		"BEADS_DOLT_SERVER_USER":     "root",
+		"BEADS_DOLT_SERVER_DATABASE": cfg.Dolt.Database,
+		"BEADS_DOLT_AUTO_START":      "0",
+	}, nil
+}
+
+func (d *rootBoundaryFakeDoltSetup) MigrationNotice(context.Context, config.Config, string) (string, error) {
+	return "", nil
+}
+
+type rootBoundaryFakeExecBackend struct{}
+
+func (rootBoundaryFakeExecBackend) ContainerExec(_ context.Context, _ string, _ []string) error {
+	return nil
+}
+
+func (rootBoundaryFakeExecBackend) ContainerExecInteractive(_ context.Context, _ string, _ []string, _ string) (int, error) {
+	return 0, nil
 }
 
 func (f *fakeStartService) StartOrAttach(_ context.Context, cfg config.Config, projectPath string, _ func(string)) (int, error) {
@@ -195,6 +310,32 @@ func TestNewRoot_RunE_DefaultsDoltDatabaseToProjectNameWhenEnabled(t *testing.T)
 	assert.True(t, svc.called)
 	assert.True(t, svc.lastCfg.Dolt.Enabled)
 	assert.Equal(t, "sample-project", svc.lastCfg.Dolt.Database)
+}
+
+func TestNewRoot_RunE_DoltEnabledStartupPerformsSharedSetupAndInjectsBeadsEnv(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectPath, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "config.toml"), []byte("[dolt]\nenabled = true\nport = 3308\n"), 0o644))
+
+	svc := newRootBoundaryStartService()
+	root := cli.NewRoot(cli.Deps{StartService: svc})
+	root.SetArgs([]string{projectPath})
+
+	err := root.Execute()
+
+	require.NoError(t, err)
+	assert.True(t, svc.doltSetup.called)
+	assert.Equal(t, "sample-project", svc.doltSetup.lastCfg.Dolt.Database)
+	assert.Equal(t, 1, svc.container.createCalls)
+	assert.Equal(t, "1", svc.container.createdOpts.Env["BEADS_DOLT_SHARED_SERVER"])
+	assert.Equal(t, "havn-dolt", svc.container.createdOpts.Env["BEADS_DOLT_SERVER_HOST"])
+	assert.Equal(t, "3308", svc.container.createdOpts.Env["BEADS_DOLT_SERVER_PORT"])
+	assert.Equal(t, "root", svc.container.createdOpts.Env["BEADS_DOLT_SERVER_USER"])
+	assert.Equal(t, "sample-project", svc.container.createdOpts.Env["BEADS_DOLT_SERVER_DATABASE"])
+	assert.Equal(t, "0", svc.container.createdOpts.Env["BEADS_DOLT_AUTO_START"])
 }
 
 func TestNewRoot_RunE_ProjectExplicitFalseOverridesGlobalTrueForStartupBooleans(t *testing.T) {
