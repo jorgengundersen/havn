@@ -363,6 +363,32 @@ func TestNewRoot_RunE_ProjectExplicitFalseOverridesGlobalTrueForStartupBooleans(
 	assert.False(t, svc.lastCfg.Mounts.SSH.AuthorizedKeys)
 }
 
+func TestNewRoot_RunE_ConfigFlagOverridesDefaultGlobalConfigPathForStartup(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	defaultGlobalDir := filepath.Join(homeDir, ".config", "havn")
+	require.NoError(t, os.MkdirAll(defaultGlobalDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(defaultGlobalDir, "config.toml"), []byte("shell = \"default-global-shell\"\n"), 0o644))
+
+	customGlobalPath := filepath.Join(homeDir, "custom", "global.toml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(customGlobalPath), 0o755))
+	require.NoError(t, os.WriteFile(customGlobalPath, []byte("shell = \"custom-global-shell\"\n"), 0o644))
+
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := &fakeStartService{}
+	root := cli.NewRoot(cli.Deps{StartService: svc})
+	root.SetArgs([]string{"--config", customGlobalPath, projectPath})
+
+	err := root.Execute()
+
+	require.NoError(t, err)
+	assert.True(t, svc.called)
+	assert.Equal(t, "custom-global-shell", svc.lastCfg.Shell)
+}
+
 func TestNewRoot_RunE_AppliesRootRuntimeFlagsToStartupConfig(t *testing.T) {
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
