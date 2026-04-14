@@ -47,6 +47,16 @@ func TestSpecs_PortExposureContractIsExplicitAndCoherent(t *testing.T) {
 	assert.Contains(t, cli, "- `--port <port>`")
 }
 
+func TestSpecs_StartupPathAndConfigMountHomeScopeAreExplicit(t *testing.T) {
+	configPath := filepath.Join("..", "..", "specs", "configuration.md")
+	configContent, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+
+	configuration := string(configContent)
+	assert.Contains(t, configuration, "For `havn [path]` startup, the resolved project path must be under the user's home directory")
+	assert.Contains(t, configuration, "`mounts.config` entries must resolve to paths under the user's home directory")
+}
+
 func TestSpecs_InterfaceAssertionImplementorStrategyIsExplicit(t *testing.T) {
 	codeStandardsPath := filepath.Join("..", "..", "specs", "code-standards.md")
 	codeStandardsContent, err := os.ReadFile(codeStandardsPath)

@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"regexp"
+	"strconv"
+	"strings"
 )
 
 var (
@@ -47,9 +49,40 @@ func Validate(cfg Config) error {
 				Reason: fmt.Sprintf("%q is not a valid port mapping (expected host:container or host:container/proto)", p),
 			}
 		}
+
+		hostPort, containerPort, err := parsePortMapping(p)
+		if err != nil {
+			return &ValidationError{Field: "ports", Reason: err.Error()}
+		}
+		if hostPort < 1 || hostPort > 65535 {
+			return &ValidationError{Field: "ports", Reason: fmt.Sprintf("%q host port must be between 1 and 65535", p)}
+		}
+		if containerPort < 1 || containerPort > 65535 {
+			return &ValidationError{Field: "ports", Reason: fmt.Sprintf("%q container port must be between 1 and 65535", p)}
+		}
 	}
 	if _, err := ResolveProjectEnvironment(cfg.Environment); err != nil {
 		return err
 	}
 	return nil
+}
+
+func parsePortMapping(mapping string) (int, int, error) {
+	parts := strings.SplitN(mapping, "/", 2)
+	hostAndContainer := strings.SplitN(parts[0], ":", 2)
+	if len(hostAndContainer) != 2 {
+		return 0, 0, fmt.Errorf("%q is not a valid port mapping", mapping)
+	}
+
+	hostPort, err := strconv.Atoi(hostAndContainer[0])
+	if err != nil {
+		return 0, 0, fmt.Errorf("%q host port must be numeric", mapping)
+	}
+
+	containerPort, err := strconv.Atoi(hostAndContainer[1])
+	if err != nil {
+		return 0, 0, fmt.Errorf("%q container port must be numeric", mapping)
+	}
+
+	return hostPort, containerPort, nil
 }

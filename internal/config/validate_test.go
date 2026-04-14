@@ -136,6 +136,10 @@ func TestValidate_InvalidPorts(t *testing.T) {
 		{name: "not a number container", port: "8080:abc"},
 		{name: "empty string", port: ""},
 		{name: "triple colon", port: "80:80:80"},
+		{name: "host port too high", port: "70000:22"},
+		{name: "container port too high", port: "22:70000"},
+		{name: "host port zero", port: "0:22"},
+		{name: "container port zero", port: "22:0"},
 	}
 
 	for _, tt := range tests {

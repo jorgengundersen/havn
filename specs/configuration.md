@@ -97,6 +97,7 @@ project config, environment, or flags.
 
 - `havn [path]` accepts root-only runtime flags such as `--shell`, `--env`,
   `--cpus`, `--memory`, `--port`, `--no-dolt`, and `--image`.
+- For `havn [path]` startup, the resolved project path must be under the user's home directory.
 - `havn build` may honor `--image` and `--config` because they affect build-time
   image selection.
 - `havn config show` reports the effective config for the command invocation.
@@ -150,6 +151,8 @@ Lower-precedence entries appear first, then higher-precedence entries.
 `--port` is SSH-only. It accepts a single host port number and contributes one
 effective publish entry that maps `<host>:22`. That derived SSH publish entry is
 merged with any configured `ports` entries into the final Docker publish set.
+
+`mounts.config` entries must resolve to paths under the user's home directory.
 
 Startup fails if any requested host port in the final Docker publish set is not
 available on the host.
@@ -219,6 +222,7 @@ At minimum, validation must reject:
 - unreadable or invalid config syntax
 - invalid resource values such as negative CPUs
 - invalid `--port` values or malformed `ports` entries
+- `mounts.config` entries that resolve outside the user's home directory
 - reserved `[environment]` keys that collide with havn-managed runtime env vars
 - `${VAR}` passthrough entries that reference unset host variables
 
