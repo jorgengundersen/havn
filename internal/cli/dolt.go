@@ -36,32 +36,22 @@ func newDoltStartCmd(manager *dolt.Manager) *cobra.Command {
 		Use:   "start",
 		Short: "Start shared Dolt server",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if manager == nil {
-				return fmt.Errorf("havn dolt start: %w", ErrNotImplemented)
+			if err := ensureDoltManager("start", manager); err != nil {
+				return err
 			}
 
-			projectCtx, err := projectContextFromWorkingDir()
+			cfg, err := resolveDoltConfigFromWorkingDir("start")
 			if err != nil {
-				return fmt.Errorf("havn dolt start: %w", err)
-			}
-
-			orchestrator := newEffectiveConfigOrchestrator("")
-			cfg, err := orchestrator.Resolve(projectCtx, config.Overrides{})
-			if err != nil {
-				return fmt.Errorf("havn dolt start: %w", err)
+				return err
 			}
 
 			out := commandOutput(cmd)
 			out.Status("Starting shared Dolt server...")
 			if err := manager.Start(cmd.Context(), cfg); err != nil {
-				return fmt.Errorf("havn dolt start: %w", err)
+				return doltCommandError("start", err)
 			}
 
-			if out.IsJSON() {
-				return out.DataJSON(map[string]string{"status": "ok", "message": "dolt server started"})
-			}
-
-			return nil
+			return doltOKResponse(out, "dolt server started")
 		},
 	}
 }
@@ -71,21 +61,17 @@ func newDoltStopCmd(manager *dolt.Manager) *cobra.Command {
 		Use:   "stop",
 		Short: "Stop shared Dolt server",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if manager == nil {
-				return fmt.Errorf("havn dolt stop: %w", ErrNotImplemented)
+			if err := ensureDoltManager("stop", manager); err != nil {
+				return err
 			}
 
 			out := commandOutput(cmd)
 			out.Status("Stopping shared Dolt server...")
 			if err := manager.Stop(cmd.Context()); err != nil {
-				return fmt.Errorf("havn dolt stop: %w", err)
+				return doltCommandError("stop", err)
 			}
 
-			if out.IsJSON() {
-				return out.DataJSON(map[string]string{"status": "ok", "message": "dolt server stopped"})
-			}
-
-			return nil
+			return doltOKResponse(out, "dolt server stopped")
 		},
 	}
 }
@@ -95,14 +81,14 @@ func newDoltStatusCmd(manager *dolt.Manager) *cobra.Command {
 		Use:   "status",
 		Short: "Show Dolt server status",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if manager == nil {
-				return fmt.Errorf("havn dolt status: %w", ErrNotImplemented)
+			if err := ensureDoltManager("status", manager); err != nil {
+				return err
 			}
 
 			out := commandOutput(cmd)
 			status, err := manager.Status(cmd.Context())
 			if err != nil {
-				return fmt.Errorf("havn dolt status: %w", err)
+				return doltCommandError("status", err)
 			}
 
 			if out.IsJSON() {
@@ -141,14 +127,14 @@ func newDoltDatabasesCmd(manager *dolt.Manager) *cobra.Command {
 		Use:   "databases",
 		Short: "List databases",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if manager == nil {
-				return fmt.Errorf("havn dolt databases: %w", ErrNotImplemented)
+			if err := ensureDoltManager("databases", manager); err != nil {
+				return err
 			}
 
 			out := commandOutput(cmd)
 			databases, err := manager.Databases(cmd.Context())
 			if err != nil {
-				return fmt.Errorf("havn dolt databases: %w", err)
+				return doltCommandError("databases", err)
 			}
 
 			if out.IsJSON() {
@@ -176,8 +162,8 @@ func newDoltDropCmd(manager *dolt.Manager) *cobra.Command {
 		Short: "Drop a project database",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if manager == nil {
-				return fmt.Errorf("havn dolt drop: %w", ErrNotImplemented)
+			if err := ensureDoltManager("drop", manager); err != nil {
+				return err
 			}
 			if !opts.Yes {
 				return errors.New("havn dolt drop requires --yes")
@@ -187,14 +173,10 @@ func newDoltDropCmd(manager *dolt.Manager) *cobra.Command {
 			out := commandOutput(cmd)
 			out.Status(fmt.Sprintf("Dropping database %s...", name))
 			if err := manager.Drop(cmd.Context(), name); err != nil {
-				return fmt.Errorf("havn dolt drop: %w", err)
+				return doltCommandError("drop", err)
 			}
 
-			if out.IsJSON() {
-				return out.DataJSON(map[string]string{"status": "ok", "message": "database dropped"})
-			}
-
-			return nil
+			return doltOKResponse(out, "database dropped")
 		},
 	}
 
@@ -208,14 +190,14 @@ func newDoltConnectCmd(manager *dolt.Manager) *cobra.Command {
 		Use:   "connect",
 		Short: "Open SQL shell",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if manager == nil {
-				return fmt.Errorf("havn dolt connect: %w", ErrNotImplemented)
+			if err := ensureDoltManager("connect", manager); err != nil {
+				return err
 			}
 
 			out := commandOutput(cmd)
 			out.Status("Connecting to shared Dolt SQL shell...")
 			if err := manager.Connect(cmd.Context()); err != nil {
-				return fmt.Errorf("havn dolt connect: %w", err)
+				return doltCommandError("connect", err)
 			}
 
 			return nil
@@ -229,6 +211,56 @@ func commandOutput(cmd *cobra.Command) *Output {
 	return NewOutput(cmd.OutOrStdout(), cmd.ErrOrStderr(), jsonMode, verbose)
 }
 
+func ensureDoltManager(command string, manager *dolt.Manager) error {
+	if manager == nil {
+		return doltCommandError(command, ErrNotImplemented)
+	}
+
+	return nil
+}
+
+func doltCommandError(command string, err error) error {
+	return fmt.Errorf("havn dolt %s: %w", command, err)
+}
+
+func resolveDoltConfigFromWorkingDir(command string) (config.Config, error) {
+	projectCtx, err := projectContextFromWorkingDir()
+	if err != nil {
+		return config.Config{}, doltCommandError(command, err)
+	}
+
+	orchestrator := newEffectiveConfigOrchestrator("")
+	cfg, err := orchestrator.Resolve(projectCtx, config.Overrides{})
+	if err != nil {
+		return config.Config{}, doltCommandError(command, err)
+	}
+
+	return cfg, nil
+}
+
+func resolveDoltConfigFromTarget(command, target string) (string, config.Config, error) {
+	projectCtx, err := projectContextFromTarget(target)
+	if err != nil {
+		return "", config.Config{}, doltCommandError(command, err)
+	}
+
+	orchestrator := newEffectiveConfigOrchestrator("")
+	cfg, err := orchestrator.Resolve(projectCtx, config.Overrides{})
+	if err != nil {
+		return "", config.Config{}, doltCommandError(command, err)
+	}
+
+	return projectCtx.Path, cfg, nil
+}
+
+func doltOKResponse(out *Output, message string) error {
+	if !out.IsJSON() {
+		return nil
+	}
+
+	return out.DataJSON(map[string]string{"status": "ok", "message": message})
+}
+
 func newDoltImportCmd(manager *dolt.Manager, _ *dolt.Setup) *cobra.Command {
 	var force bool
 
@@ -237,32 +269,25 @@ func newDoltImportCmd(manager *dolt.Manager, _ *dolt.Setup) *cobra.Command {
 		Short: "Import local database",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if manager == nil {
-				return fmt.Errorf("havn dolt import: %w", ErrNotImplemented)
+			if err := ensureDoltManager("import", manager); err != nil {
+				return err
 			}
 
-			projectCtx, err := projectContextFromTarget(args[0])
+			projectPath, cfg, err := resolveDoltConfigFromTarget("import", args[0])
 			if err != nil {
-				return fmt.Errorf("havn dolt import: %w", err)
-			}
-			projectPath := projectCtx.Path
-
-			orchestrator := newEffectiveConfigOrchestrator("")
-			cfg, err := orchestrator.Resolve(projectContext{Path: projectPath}, config.Overrides{})
-			if err != nil {
-				return fmt.Errorf("havn dolt import: %w", err)
+				return err
 			}
 
 			out := commandOutput(cmd)
 			out.Status(fmt.Sprintf("Importing Dolt database from %s...", projectPath))
 
 			if err := manager.Start(cmd.Context(), cfg); err != nil {
-				return fmt.Errorf("havn dolt import: %w", err)
+				return doltCommandError("import", err)
 			}
 
 			result, err := manager.Import(cmd.Context(), projectPath, cfg, force)
 			if err != nil {
-				return fmt.Errorf("havn dolt import: %w", err)
+				return doltCommandError("import", err)
 			}
 
 			if result.Overwrote {
@@ -305,13 +330,13 @@ func newDoltExportCmd(manager *dolt.Manager) *cobra.Command {
 		Short: "Export database",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if manager == nil {
-				return fmt.Errorf("havn dolt export: %w", ErrNotImplemented)
+			if err := ensureDoltManager("export", manager); err != nil {
+				return err
 			}
 
 			destPath, err := filepath.Abs(opts.Dest)
 			if err != nil {
-				return fmt.Errorf("havn dolt export: %w", err)
+				return doltCommandError("export", err)
 			}
 
 			name := args[0]
@@ -319,7 +344,7 @@ func newDoltExportCmd(manager *dolt.Manager) *cobra.Command {
 			out.Status(fmt.Sprintf("Exporting Dolt database %s to %s...", name, destPath))
 
 			if err := manager.Export(cmd.Context(), name, destPath); err != nil {
-				return fmt.Errorf("havn dolt export: %w", err)
+				return doltCommandError("export", err)
 			}
 
 			if out.IsJSON() {
