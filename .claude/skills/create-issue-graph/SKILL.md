@@ -45,14 +45,14 @@ Ready to file? (yes / revise / cancel)
 ### 1. Priority = urgency, not ordering
 P0 crit · P1 high · **P2 default** · P3 low · P4 backlog. Children inherit parent prio; bump only for genuinely different urgency. Never use prio to serialize.
 
-### 2. `blocks` = real tech dep only
-Add `blocks` only when B literally can't compile/run or needs A's runtime state. Never for preference/cleanliness/phase ordering.
+### 2. `blocks` = actual blocker only
+Add `blocks` only when B literally cannot make meaningful progress until A lands: e.g. B can't compile/run, cannot validate behavior, or truly needs A's artifact/runtime state/contract decision first. If A and B can be worked in parallel, they must not be linked with `blocks`. Never use `blocks` for preference, cleanliness, review order, batching, or phase ordering.
 
 ### 3. Cross-epic deps on LEAF, not parent
 Bd propagates block state parent → children. Epic-level `blocks` blocks *every* child. Put cross-graph deps on specific leaf that needs the prereq. Epic-level only when *every* child needs it (rare).
 
 ### 4. `--parent` = containment, not blocking
-Open parent doesn't block children. Blocked parent blocks all children transitively. Sibling ordering needs explicit `blocks` between specific siblings (subject to Rule 2).
+Open parent doesn't block children. Blocked parent blocks all children transitively. Sibling ordering needs explicit `blocks` between specific siblings only when one sibling is an actual blocker under Rule 2; otherwise keep them parallel.
 
 ### 5. Leaf size = one agent context window
 One cohesive behavior. Fits in one context window without derailing. Vertical slice, ~2–5 TDD cycles. Merge if splitting leaves sub-tasks with no observable result on their own (skeleton — anti-pattern 6).
@@ -135,7 +135,7 @@ bd ready -n 100
 
 1. Phase ordering (Design → Impl → Test).
 2. Separate "write tests" tasks.
-3. `blocks` between siblings just for `bd ready` order.
+3. `blocks` between siblings just to force a preferred execution chain or `bd ready` order.
 4. Priority tiers to serialize within epic.
 5. Epic-level `blocks` when only some children need prereq.
 6. Skeleton/scaffolding tasks (create dir, add empty file).
