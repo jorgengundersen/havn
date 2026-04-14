@@ -260,6 +260,17 @@ func TestSpecs_BuildAndTestMergeGateRequirementsMatchEnforcement(t *testing.T) {
 	assert.Contains(t, qualityGates, "`integration-tests` and `boundary-confidence` are required merge checks")
 }
 
+func TestSpecs_QualityGatesDocumentToolchainDependencyJustificationDecision(t *testing.T) {
+	qualityGatesPath := filepath.Join("..", "..", "specs", "quality-gates.md")
+	qualityGatesContent, err := os.ReadFile(qualityGatesPath)
+	require.NoError(t, err)
+
+	qualityGates := string(qualityGatesContent)
+	assert.Contains(t, qualityGates, "## Toolchain dependency-surface decision")
+	assert.Contains(t, qualityGates, "The current toolchain dependency surface is justified by active quality gates")
+	assert.Contains(t, qualityGates, "No safe reduction is currently accepted that preserves all active gates")
+}
+
 func TestSpecs_SharedDoltStatusContractNarrowlyExcludesRuntimePort(t *testing.T) {
 	sharedDoltPath := filepath.Join("..", "..", "specs", "shared-dolt-server.md")
 	sharedDoltContent, err := os.ReadFile(sharedDoltPath)

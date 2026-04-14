@@ -106,6 +106,28 @@ validated as an explicit merge signal.
 `quality-gates`, `integration-tests`, and `boundary-confidence` are required merge checks for `main`, matching `.github/settings.yml` branch protection.
 At minimum, `integration-tests` and `boundary-confidence` are required merge checks.
 
+## Toolchain dependency-surface decision
+
+The current toolchain dependency surface is justified by active quality gates.
+`make check` and pre-commit both require formatting, linting, unit tests, and
+binary build validation. In practice this means both `gci` and
+`golangci-lint` are actively exercised on every change, and each is pinned in
+the `go.mod` `tool` block to keep the quality-gate behavior reproducible.
+
+`golangci-lint` carries a large transitive graph even when havn enables a small
+curated linter set. That graph is accepted because the project standard is a
+single orchestrated lint gate (`go tool golangci-lint run`) that keeps local
+and CI behavior aligned.
+
+No safe reduction is currently accepted that preserves all active gates,
+including reproducible local/CI parity and the same lint orchestration
+contract.
+
+Revisit this decision only if one of the following changes:
+- active merge gates are reduced by spec change
+- the lint orchestration contract changes away from `golangci-lint`
+- the Go toolchain gains equivalent built-in checks that replace external tools
+
 ## Tool versions
 
 Tool versions are pinned in `go.mod` under the `tool` directive:
