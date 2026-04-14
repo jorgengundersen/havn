@@ -60,19 +60,19 @@ func (m *Manager) Connect(ctx context.Context) error {
 	return m.backend.ContainerExecInteractive(ctx, containerName, []string{"dolt", "sql"})
 }
 
-// parseDatabaseNames extracts database names from dolt sql tabular output,
+// ParseDatabaseNames extracts database names from dolt sql output,
 // filtering out system databases.
-func parseDatabaseNames(output string) []string {
+func ParseDatabaseNames(output string) []string {
 	var names []string
 	for _, line := range strings.Split(output, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || strings.HasPrefix(trimmed, "+") {
 			continue
 		}
-		if !strings.HasPrefix(trimmed, "|") {
-			continue
+		name := trimmed
+		if strings.HasPrefix(trimmed, "|") {
+			name = strings.TrimSpace(strings.Trim(trimmed, "|"))
 		}
-		name := strings.TrimSpace(strings.Trim(trimmed, "|"))
 		if name == "Database" || name == "" {
 			continue
 		}
@@ -82,4 +82,8 @@ func parseDatabaseNames(output string) []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+func parseDatabaseNames(output string) []string {
+	return ParseDatabaseNames(output)
 }

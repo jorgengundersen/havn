@@ -378,6 +378,21 @@ func TestDoltDatabaseCheck_Exists(t *testing.T) {
 	assert.Equal(t, doctor.StatusPass, result.Status)
 }
 
+func TestDoltDatabaseCheck_ExistsWithTabularOutput(t *testing.T) {
+	backend := newFakeBackend()
+	backend.execResults["SHOW DATABASES"] = "+--------------------+\n" +
+		"| Database           |\n" +
+		"+--------------------+\n" +
+		"| information_schema |\n" +
+		"| mydb               |\n" +
+		"+--------------------+\n"
+	check := doctor.NewDoltDatabaseCheck(backend, true, "mydb")
+
+	result := check.Run(context.Background())
+
+	assert.Equal(t, doctor.StatusPass, result.Status)
+}
+
 func TestDoltDatabaseCheck_Missing(t *testing.T) {
 	backend := newFakeBackend()
 	backend.execResults["SHOW DATABASES"] = "information_schema\n"

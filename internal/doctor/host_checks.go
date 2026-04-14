@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jorgengundersen/havn/internal/config"
+	"github.com/jorgengundersen/havn/internal/dolt"
 )
 
 // --- 1.1 docker_daemon ---
@@ -396,8 +397,8 @@ func (c *doltDatabaseCheck) Run(ctx context.Context) CheckResult {
 		}
 	}
 
-	for _, line := range strings.Split(output, "\n") {
-		if strings.TrimSpace(line) == c.database {
+	for _, name := range dolt.ParseDatabaseNames(output) {
+		if name == c.database {
 			return CheckResult{
 				Status:  StatusPass,
 				Message: fmt.Sprintf("Dolt database '%s' exists", c.database),
