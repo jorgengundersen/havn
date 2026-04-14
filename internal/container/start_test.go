@@ -173,7 +173,7 @@ func TestStartOrAttach_RunningContainer(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
-	assert.Equal(t, []string{"nix", "develop", "github:user/env#default", "-c", "bash"}, exec.interactiveCmd)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "develop", "github:user/env#default", "-c", "bash"}, exec.interactiveCmd)
 	assert.Equal(t, "/home/devuser/Repos/github.com/user/project", exec.interactiveWorkdir)
 }
 

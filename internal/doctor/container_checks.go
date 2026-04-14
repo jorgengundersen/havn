@@ -65,7 +65,7 @@ func NewNixDevshellCheck(backend Backend, container, flakeRef, shell string) Che
 
 func (c *nixDevshellCheck) Run(ctx context.Context) CheckResult {
 	ref := fmt.Sprintf("%s#%s", c.flakeRef, c.shell)
-	_, err := c.backend.ContainerExec(ctx, c.container, []string{"nix", "develop", ref, "--command", "true"})
+	_, err := c.backend.ContainerExec(ctx, c.container, []string{"nix", "--extra-experimental-features", "nix-command flakes", "develop", ref, "--command", "true"})
 	if err != nil {
 		return CheckResult{
 			Status:         StatusWarn,

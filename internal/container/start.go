@@ -281,5 +281,5 @@ func attach(ctx context.Context, exec ExecBackend, containerName string, cfg con
 }
 
 func shellCmd(cfg config.Config) []string {
-	return []string{"nix", "develop", cfg.Env + "#" + cfg.Shell, "-c", "bash"}
+	return []string{"nix", "--extra-experimental-features", "nix-command flakes", "develop", cfg.Env + "#" + cfg.Shell, "-c", "bash"}
 }
