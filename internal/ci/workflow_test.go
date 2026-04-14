@@ -1,8 +1,6 @@
 package ci_test
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,18 +8,21 @@ import (
 )
 
 func TestCIWorkflow_CoreAndIntegrationJobsConfigured(t *testing.T) {
-	workflowPath := filepath.Join("..", "..", ".github", "workflows", "ci.yml")
+	workflow := requireCIWorkflow(t)
 
-	content, err := os.ReadFile(workflowPath)
-	require.NoError(t, err)
+	require.Contains(t, workflow.On, "push")
+	require.Contains(t, workflow.On, "pull_request")
 
-	workflow := string(content)
-	assert.Contains(t, workflow, "on:")
-	assert.Contains(t, workflow, "push:")
-	assert.Contains(t, workflow, "pull_request:")
-	assert.Contains(t, workflow, "make check")
-	assert.Contains(t, workflow, "make test-integration")
-	assert.Contains(t, workflow, "docker info")
-	assert.Contains(t, workflow, "boundary-confidence")
-	assert.Contains(t, workflow, "make test-boundary-confidence")
+	qualityGatesJob := workflow.requiredJob(t, "quality-gates")
+	assert.Contains(t, qualityGatesJob.runCommands(), "make check")
+
+	integrationTestsJob := workflow.requiredJob(t, "integration-tests")
+	assert.Equal(t, "quality-gates", integrationTestsJob.Needs)
+	assert.Contains(t, integrationTestsJob.runCommands(), "docker info")
+	assert.Contains(t, integrationTestsJob.runCommands(), "make test-integration")
+
+	boundaryConfidenceJob := workflow.requiredJob(t, "boundary-confidence")
+	assert.Equal(t, "quality-gates", boundaryConfidenceJob.Needs)
+	assert.Contains(t, boundaryConfidenceJob.runCommands(), "docker info")
+	assert.Contains(t, boundaryConfidenceJob.runCommands(), "make test-boundary-confidence")
 }
