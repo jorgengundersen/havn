@@ -64,11 +64,20 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 			projectConfigPath := projectCtx.ProjectConfigPath()
 
 			checks := doctor.HostChecks(backend, cfg, globalConfigPath, projectConfigPath, effectiveValidationErr, hasEffectiveConfig)
+			targetConfigResolutionFailures := make([]doctor.ReportCheck, 0)
 
 			targets := resolveContainerTargets(ctx, backend, opts.All, projectPath)
 			for _, target := range targets {
 				targetCfg, err := orchestrator.Resolve(projectContext{Path: target.Project}, config.Overrides{})
 				if err != nil {
+					targetConfigResolutionFailures = append(targetConfigResolutionFailures, doctor.ReportCheck{
+						Tier:      "container",
+						Container: target.Name,
+						Name:      "project_config",
+						Status:    doctor.StatusError,
+						Message:   "Target project config resolution failed",
+						Detail:    err.Error(),
+					})
 					continue
 				}
 
@@ -92,6 +101,7 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 			runner := doctor.NewRunner(checks)
 			report := runner.Run(ctx)
 			report = addContainerTierSkipIfNeeded(report, targets)
+			report = addTargetConfigResolutionFailures(report, targetConfigResolutionFailures)
 
 			return outputReport(out, report)
 		},
@@ -197,6 +207,33 @@ func addContainerTierSkipIfNeeded(report doctor.Report, targets []doctorContaine
 		Status:  doctor.StatusSkip,
 		Message: "No relevant running havn-managed project containers; tier 2 skipped",
 	})
+
+	return report
+}
+
+func addTargetConfigResolutionFailures(report doctor.Report, failures []doctor.ReportCheck) doctor.Report {
+	if len(failures) == 0 {
+		return report
+	}
+
+	report.Checks = append(report.Checks, failures...)
+	report.Summary = doctor.Summary{}
+	report.Status = doctor.StatusPass
+
+	for _, check := range report.Checks {
+		switch check.Status {
+		case doctor.StatusPass:
+			report.Summary.Passed++
+		case doctor.StatusWarn:
+			report.Summary.Warnings++
+			if report.Status == doctor.StatusPass {
+				report.Status = doctor.StatusWarn
+			}
+		case doctor.StatusError:
+			report.Summary.Errors++
+			report.Status = doctor.StatusError
+		}
+	}
 
 	return report
 }

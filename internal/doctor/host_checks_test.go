@@ -153,7 +153,7 @@ func TestBaseImageCheck_Missing(t *testing.T) {
 
 	result := check.Run(context.Background())
 
-	assert.Equal(t, doctor.StatusWarn, result.Status)
+	assert.Equal(t, doctor.StatusSkip, result.Status)
 	assert.Contains(t, result.Recommendation, "havn build")
 }
 
@@ -181,7 +181,7 @@ func TestNetworkCheck_Missing(t *testing.T) {
 
 	result := check.Run(context.Background())
 
-	assert.Equal(t, doctor.StatusWarn, result.Status)
+	assert.Equal(t, doctor.StatusSkip, result.Status)
 	assert.Contains(t, result.Recommendation, "auto-created")
 }
 
@@ -209,7 +209,7 @@ func TestVolumesCheck_SomeMissing(t *testing.T) {
 
 	result := check.Run(context.Background())
 
-	assert.Equal(t, doctor.StatusWarn, result.Status)
+	assert.Equal(t, doctor.StatusSkip, result.Status)
 	assert.Contains(t, result.Detail, "havn-cache")
 	assert.Contains(t, result.Detail, "havn-state")
 }

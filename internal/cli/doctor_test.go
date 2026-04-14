@@ -231,6 +231,41 @@ func TestDoctorCommand_AllFlagUsesPerContainerProjectPath(t *testing.T) {
 	assert.Contains(t, stdout, "/home/devuser/myproject")
 }
 
+func TestDoctorCommand_AllFlagReportsTargetConfigResolutionFailure(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectPath := filepath.Join(homeDir, "broken-project")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectPath, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "config.toml"), []byte("[broken"), 0o644))
+
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectPath))
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	backend := &fakeDoctorBackend{
+		listContainers: []string{"havn-user-broken"},
+		containerInfos: map[string]doctor.ContainerInfo{
+			"havn-user-broken": {
+				Running: true,
+				Labels:  map[string]string{"havn.path": projectPath},
+			},
+		},
+	}
+
+	stdout, _, err := executeDoctorCommand(backend, "--all", "--verbose")
+
+	require.Error(t, err)
+	assert.Equal(t, 2, cli.ExitCode(err))
+	assert.Contains(t, stdout, "Target project config resolution failed")
+	assert.Contains(t, stdout, projectPath)
+	assert.Contains(t, stdout, "Container: havn-user-broken")
+	assert.NotContains(t, stdout, "Nix store mounted")
+}
+
 func TestDoctorCommand_NoContainersSkipsTier2(t *testing.T) {
 	backend := &fakeDoctorBackend{}
 	stdout, _, _ := executeDoctorCommand(backend, "--all")

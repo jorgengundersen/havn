@@ -36,7 +36,7 @@ func sampleReport() doctor.Report {
 			{
 				Tier:           "host",
 				Name:           "network",
-				Status:         doctor.StatusWarn,
+				Status:         doctor.StatusSkip,
 				Message:        "Network does not exist",
 				Recommendation: "Network is auto-created on first 'havn' start",
 			},
@@ -48,7 +48,7 @@ func TestFormatHuman_ContainsStatusPrefixes(t *testing.T) {
 	output := doctor.FormatHuman(sampleReport())
 
 	assert.Contains(t, output, "[pass]")
-	assert.Contains(t, output, "[warn]")
+	assert.Contains(t, output, "[skip]")
 	assert.Contains(t, output, "Host")
 	assert.Contains(t, output, "->")
 }
@@ -65,7 +65,7 @@ func TestFormatVerbose_IncludesDetail(t *testing.T) {
 
 	assert.Contains(t, output, "Docker 24.0.7")
 	assert.Contains(t, output, "[pass]")
-	assert.Contains(t, output, "[warn]")
+	assert.Contains(t, output, "[skip]")
 }
 
 func TestFormatJSON_MatchesSchema(t *testing.T) {

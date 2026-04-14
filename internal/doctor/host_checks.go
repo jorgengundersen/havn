@@ -86,7 +86,7 @@ func (c *baseImageCheck) Run(ctx context.Context) CheckResult {
 	}
 	if !found {
 		return CheckResult{
-			Status:         StatusWarn,
+			Status:         StatusSkip,
 			Message:        "Base image not found",
 			Detail:         c.image,
 			Recommendation: "Run 'havn build'",
@@ -132,7 +132,7 @@ func (c *networkCheck) Run(ctx context.Context) CheckResult {
 	}
 	if !found {
 		return CheckResult{
-			Status:         StatusWarn,
+			Status:         StatusSkip,
 			Message:        "Network does not exist",
 			Detail:         c.network,
 			Recommendation: "Network is auto-created on first 'havn' start",
@@ -184,7 +184,7 @@ func (c *volumesCheck) Run(ctx context.Context) CheckResult {
 	}
 	if len(missing) > 0 {
 		return CheckResult{
-			Status:         StatusWarn,
+			Status:         StatusSkip,
 			Message:        "Volumes missing",
 			Detail:         strings.Join(missing, ", "),
 			Recommendation: "Volumes are auto-created on first 'havn' start",
