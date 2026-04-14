@@ -94,5 +94,5 @@ func TestListCommand_HumanOutput(t *testing.T) {
 	require.NoError(t, err)
 	lines := strings.Split(strings.TrimSpace(stdout), "\n")
 	require.Len(t, lines, 1)
-	assert.Equal(t, "havn-user-api\t/home/devuser/Repos/github.com/user/api\thavn-base:latest\trunning\tgo\t4\t8g\tfalse", lines[0])
+	assert.Equal(t, "havn-user-api\t/home/devuser/Repos/github.com/user/api", lines[0])
 }

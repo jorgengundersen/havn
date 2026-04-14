@@ -32,12 +32,6 @@ func newListCmd(backend container.Backend) *cobra.Command {
 				out.Data(strings.Join([]string{
 					string(c.Name),
 					c.Path,
-					c.Image,
-					c.Status,
-					c.Shell,
-					fmt.Sprintf("%d", c.CPUs),
-					c.Memory,
-					fmt.Sprintf("%t", c.Dolt),
 				}, "\t"))
 			}
 
