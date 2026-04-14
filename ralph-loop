@@ -12,5 +12,5 @@ while :; do
     continue
   fi
 
-  opencode run --model github-copilot/gpt-5.3-codex "follow @PROMPT.md"
+  opencode run --model openai/gpt-5.3-codex "follow @PROMPT.md"
 done
