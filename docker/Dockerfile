@@ -16,19 +16,34 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tini \
     && rm -rf /var/lib/apt/lists/*
 
-RUN if ! getent group "${GID}" >/dev/null; then \
-      groupadd --gid "${GID}" devuser; \
+RUN if ! getent group "${GID}" >/dev/null 2>&1; then \
+      if getent group devuser >/dev/null 2>&1; then \
+        groupmod --gid "${GID}" devuser; \
+      else \
+        groupadd --gid "${GID}" devuser; \
+      fi; \
+    else \
+      existing_gid_group="$(getent group "${GID}" | cut -d: -f1)"; \
+      if [ "${existing_gid_group}" != "devuser" ] && ! getent group devuser >/dev/null 2>&1; then \
+        groupmod -n devuser "${existing_gid_group}"; \
+      fi; \
     fi \
-    && existing_user="$(getent passwd "${UID}" | cut -d: -f1 || true)" \
-    && if [ -n "${existing_user}" ] && [ "${existing_user}" != "devuser" ]; then \
-         usermod --login devuser --home /home/devuser --move-home --shell /bin/bash --gid "${GID}" "${existing_user}"; \
-       elif id -u devuser >/dev/null 2>&1; then \
-         usermod --uid "${UID}" --gid "${GID}" --home /home/devuser --move-home --shell /bin/bash devuser; \
+    && existing_uid_user="$(getent passwd "${UID}" | cut -d: -f1 || true)" \
+    && if id -u devuser >/dev/null 2>&1; then \
+         usermod --uid "${UID}" --gid "${GID}" --shell /bin/bash devuser; \
+         usermod --home /home/devuser devuser; \
+       elif [ -n "${existing_uid_user}" ]; then \
+         if [ "${existing_uid_user}" != "devuser" ]; then \
+           usermod -l devuser --gid "${GID}" --shell /bin/bash "${existing_uid_user}"; \
+         fi; \
+         usermod --home /home/devuser devuser; \
        else \
-         useradd --uid "${UID}" --gid "${GID}" --create-home --shell /bin/bash devuser; \
-       fi
+         useradd --uid "${UID}" --gid "${GID}" --shell /bin/bash --create-home devuser; \
+       fi \
+    && install -d -m 0755 -o devuser -g "${GID}" /home/devuser
 
-RUN install -d -m 0755 /run/sshd /nix \
+RUN install -d -m 0755 /run/sshd \
+    && install -d -m 0755 -o devuser -g "${GID}" /nix /nix/var /nix/var/nix \
     && install -d -m 0700 -o devuser -g "${GID}" /home/devuser/.ssh \
     && install -d -m 0755 -o devuser -g "${GID}" /home/devuser/.local/share /home/devuser/.cache /home/devuser/.local/state
 

@@ -108,6 +108,7 @@ func (c *Client) ImageBuild(ctx context.Context, opts BuildOpts) error {
 		Tags:       []string{opts.Tag},
 		Dockerfile: dockerfile,
 		BuildArgs:  buildArgs,
+		Version:    build.BuilderV1,
 		Remove:     true,
 	})
 	if err != nil {
