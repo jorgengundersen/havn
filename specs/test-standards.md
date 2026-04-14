@@ -306,6 +306,27 @@ func TestMain(m *testing.M) {
 
 _Ref: [Principles 5, 2](architecture-principles.md)_
 
+### Repository prose is not a test oracle
+
+Required tests must not use exact prose from authoritative specs,
+`README.md`, or `docs/` files as a pass/fail oracle. Editorial rewrites,
+heading changes, and wording cleanup are expected maintenance and must not
+break CI.
+
+Documentation can inform what behaviors should be covered, but tests assert
+runtime behavior, machine-readable output, typed errors, or stable
+configuration/state artifacts.
+
+Acceptable repository-level checks are narrowly structural and should verify
+stable, non-prose invariants only. Examples:
+
+- required workflow files exist at expected paths
+- required CI jobs or status checks are configured
+- command contracts are validated through JSON shape or typed errors
+
+Non-acceptable checks include exact sentence, paragraph, or heading matching
+in markdown files.
+
 ### Error contracts are testable
 
 If a function's contract says "returns `NotFoundError` when the container
