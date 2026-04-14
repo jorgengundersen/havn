@@ -1,7 +1,10 @@
 .PHONY: build test test-integration test-boundary-confidence lint fmt fmt-check check install clean
 
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS := -ldflags "-X github.com/jorgengundersen/havn/internal/cli.version=$(VERSION)"
+
 build:
-	go build -o bin/havn ./cmd/havn
+	go build $(LDFLAGS) -o bin/havn ./cmd/havn
 
 test:
 	go test ./...
@@ -25,7 +28,7 @@ fmt-check:
 	@out="$$(go tool gci list --section standard --section default --section 'prefix(github.com/jorgengundersen/havn)' .)"; [ -z "$$out" ] || { echo "gci import order check failed - run 'make fmt'"; exit 1; }
 
 install:
-	go install ./cmd/havn/
+	go install $(LDFLAGS) ./cmd/havn/
 
 check: fmt-check lint test build
 
