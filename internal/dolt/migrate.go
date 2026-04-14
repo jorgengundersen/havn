@@ -45,14 +45,14 @@ func (m *Manager) Import(ctx context.Context, projectPath string, cfg config.Con
 		return ImportResult{}, &DatabaseNotFoundError{Name: dbName}
 	}
 
-	exists, err := m.databaseExists(ctx, dbName)
+	destinationExisted, err := m.databaseExists(ctx, dbName)
 	if err != nil {
 		return ImportResult{}, &ImportError{Err: fmt.Errorf("check database: %w", err)}
 	}
-	if exists && !force {
+	if destinationExisted && !force {
 		return ImportResult{}, &DatabaseExistsError{Name: dbName}
 	}
-	if exists && force {
+	if destinationExisted && force {
 		destinationPath := filepath.Join(doltDataDir, dbName)
 		if _, err := m.backend.ContainerExec(ctx, containerName, []string{"rm", "-rf", destinationPath}); err != nil {
 			return ImportResult{}, &ImportError{Err: fmt.Errorf("remove existing database: %w", err)}
@@ -68,7 +68,7 @@ func (m *Manager) Import(ctx context.Context, projectPath string, cfg config.Con
 		return ImportResult{}, &ImportError{Err: fmt.Errorf("copy to container: %w", err)}
 	}
 
-	exists, err = m.databaseExists(ctx, dbName)
+	exists, err := m.databaseExists(ctx, dbName)
 	if err != nil {
 		return ImportResult{}, &ImportError{Err: fmt.Errorf("verify database: %w", err)}
 	}
@@ -76,7 +76,7 @@ func (m *Manager) Import(ctx context.Context, projectPath string, cfg config.Con
 		return ImportResult{}, &ImportError{Err: fmt.Errorf("database %q not visible after import", dbName)}
 	}
 
-	result := ImportResult{DatabaseName: dbName, Overwrote: exists && force}
+	result := ImportResult{DatabaseName: dbName, Overwrote: destinationExisted && force}
 
 	warnings := m.verifyProjectID(ctx, projectPath, dbName)
 	result.Warnings = warnings
