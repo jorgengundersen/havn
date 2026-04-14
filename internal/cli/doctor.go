@@ -49,24 +49,27 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 
 			projectPath := projectCtx.Path
 			var effectiveValidationErr error
+			hasEffectiveConfig := true
 			orchestrator := newEffectiveConfigOrchestrator(globalConfigPath)
 			cfg, err := orchestrator.Resolve(projectContext{Path: projectPath}, config.Overrides{})
 			if err != nil {
+				hasEffectiveConfig = false
 				var validationErr *config.ValidationError
 				if errors.As(err, &validationErr) {
 					effectiveValidationErr = err
+					hasEffectiveConfig = true
+					cfg = config.Default()
 				}
-				cfg = config.Default()
 			}
 			projectConfigPath := projectCtx.ProjectConfigPath()
 
-			checks := doctor.HostChecks(backend, cfg, globalConfigPath, projectConfigPath, effectiveValidationErr)
+			checks := doctor.HostChecks(backend, cfg, globalConfigPath, projectConfigPath, effectiveValidationErr, hasEffectiveConfig)
 
 			targets := resolveContainerTargets(ctx, backend, opts.All, projectPath)
 			for _, target := range targets {
 				targetCfg, err := orchestrator.Resolve(projectContext{Path: target.Project}, config.Overrides{})
 				if err != nil {
-					targetCfg = cfg
+					continue
 				}
 
 				mountResult, err := resolveMountsForDoctor(targetCfg, target.Project)

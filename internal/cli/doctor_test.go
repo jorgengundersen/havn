@@ -141,6 +141,33 @@ func TestDoctorCommand_UsesConfigFlagForGlobalConfigCheck(t *testing.T) {
 	assert.Contains(t, stdout, "Global config syntax error")
 }
 
+func TestDoctorCommand_DoesNotRunDefaultDerivedChecksWhenEffectiveConfigResolutionFails(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectDir := filepath.Join(homeDir, "project")
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectDir))
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	badGlobalPath := filepath.Join(t.TempDir(), "bad-global.toml")
+	require.NoError(t, os.WriteFile(badGlobalPath, []byte("[broken"), 0o644))
+
+	backend := &fakeDoctorBackend{}
+	stdout, _, err := executeDoctorCommand(backend, "--config", badGlobalPath)
+
+	require.Error(t, err)
+	assert.Equal(t, 2, cli.ExitCode(err))
+	assert.Contains(t, stdout, "Global config syntax error")
+	assert.NotContains(t, stdout, "Base image")
+	assert.NotContains(t, stdout, "Network")
+	assert.NotContains(t, stdout, "Volumes")
+}
+
 func TestDoctorCommand_AllFlagRunsContainerChecks(t *testing.T) {
 	backend := &fakeDoctorBackend{
 		listContainers: []string{"havn-user-myproject"},
