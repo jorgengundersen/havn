@@ -158,7 +158,7 @@ func TestDocs_PartialDerivativeGuidesCallOutConcreteCurrentGaps(t *testing.T) {
 
 	cliRef := string(cliRefContent)
 	assert.Contains(t, cliRef, "## Current partial-support gaps")
-	assert.Contains(t, cliRef, "`havn doctor` currently reports an extra container-tier skip check")
+	assert.Contains(t, cliRef, "`havn config show` currently publishes source provenance")
 
 	doltGuidePath := filepath.Join("..", "..", "docs", "dolt-beads-guide.md")
 	doltGuideContent, err := os.ReadFile(doltGuidePath)
@@ -166,7 +166,7 @@ func TestDocs_PartialDerivativeGuidesCallOutConcreteCurrentGaps(t *testing.T) {
 
 	doltGuide := string(doltGuideContent)
 	assert.Contains(t, doltGuide, "## Current partial-support gaps")
-	assert.Contains(t, doltGuide, "`havn doctor` may report a missing project database")
+	assert.Contains(t, doltGuide, "project-identity verification during import currently reports mismatch as warnings")
 
 	configGuidePath := filepath.Join("..", "..", "docs", "configuration-guide.md")
 	configGuideContent, err := os.ReadFile(configGuidePath)
@@ -181,8 +181,7 @@ func TestDocs_PartialDerivativeGuidesCallOutConcreteCurrentGaps(t *testing.T) {
 	require.NoError(t, err)
 
 	doctorGuide := string(doctorGuideContent)
-	assert.Contains(t, doctorGuide, "## Current partial-support gaps")
-	assert.Contains(t, doctorGuide, "`havn doctor` currently reports an extra container-tier skip check")
+	assert.NotContains(t, doctorGuide, "## Current partial-support gaps")
 }
 
 func TestSpecs_CodeStandardsDocumentsSharedCLIOrchestrationBoundary(t *testing.T) {

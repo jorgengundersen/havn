@@ -103,6 +103,7 @@ Stable check identifiers:
 | container | `ssh_agent` | SSH agent forwarding is functional |
 | container | `dolt_connectivity` | container can reach shared Dolt network path |
 | container | `beads_health` | `bd doctor` succeeds or reports its own warnings/errors |
+| container | `container_tier` | no relevant running havn-managed project containers, so tier 2 is skipped informationally |
 
 ## Prerequisites And Skip Rules
 

@@ -226,10 +226,8 @@ func (m *Manager) databaseExists(ctx context.Context, dbName string) (bool, erro
 		return false, fmt.Errorf("show databases: %w", err)
 	}
 
-	for _, line := range strings.Split(output, "\n") {
-		trimmed := strings.TrimSpace(line)
-		trimmed = strings.Trim(trimmed, "| ")
-		if trimmed == dbName {
+	for _, name := range ParseDatabaseNames(output) {
+		if name == dbName {
 			return true, nil
 		}
 	}

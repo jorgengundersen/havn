@@ -157,7 +157,6 @@ commands.
 ## Current partial-support gaps
 
 - project-identity verification during import currently reports mismatch as warnings (not a hard failure), and only when both metadata sources are available
-- `havn doctor` may report a missing project database based on direct `SHOW DATABASES` output parsing, which can miss formatted-table rows in some daemon output shapes
 - `havn dolt status` currently does not report a runtime port field
 
 When this guide and the spec disagree, follow `specs/shared-dolt-server.md`.

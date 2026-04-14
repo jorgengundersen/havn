@@ -98,7 +98,3 @@ havn doctor --json
 ```
 
 Use this sequence when triaging hard-to-reproduce issues: quick status, deep detail, then structured output for sharing or automation.
-
-## Current partial-support gaps
-
-- `havn doctor` currently reports an extra container-tier skip check (`container_tier`) when no relevant container is running; this check identifier is not part of the published doctor check catalog yet

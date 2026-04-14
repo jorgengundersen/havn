@@ -102,7 +102,6 @@ flag.
 
 ## Current partial-support gaps
 
-- `havn doctor` currently reports an extra container-tier skip check (`container_tier`) when no relevant container is running; this check identifier is not part of the published doctor check catalog yet
 - `havn config show` currently publishes source provenance for core scalar/resource/Dolt fields, but not for every effective-config field in the output
 
 When this guide and a spec disagree, follow the relevant spec in `specs/`.
