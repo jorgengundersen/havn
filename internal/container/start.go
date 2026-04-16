@@ -292,7 +292,11 @@ func attach(ctx context.Context, exec ExecBackend, containerName string, cfg con
 }
 
 func shellCmd(cfg config.Config, opts StartOptions) []string {
-	cmd := []string{"nix", "--extra-experimental-features", "nix-command flakes"}
+	cmd := []string{
+		"nix",
+		"--extra-experimental-features", "nix-command flakes",
+		"--option", "keep-build-log", "true",
+	}
 	if opts.VerboseStartup {
 		cmd = append(cmd, "-v", "-L")
 	}
