@@ -14,6 +14,7 @@ var _ doctor.Backend = (*dockerDoctorBackend)(nil)
 var _ volume.Backend = (*dockerVolumeBackend)(nil)
 var _ dolt.Backend = (*dockerDoltBackend)(nil)
 var _ StartService = dockerStartService{}
+var _ EnterService = dockerEnterService{}
 var _ container.StartBackend = dockerStartBackend{}
 var _ container.NetworkBackend = dockerStartBackend{}
 var _ container.VolumeEnsurer = (*volume.Manager)(nil)

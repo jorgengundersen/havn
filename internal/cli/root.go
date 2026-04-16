@@ -73,6 +73,7 @@ type Deps struct {
 	DoltSetup     *dolt.Setup
 	BuildService  BuildService
 	StartService  StartService
+	EnterService  EnterService
 	Logger        *slog.Logger
 }
 
@@ -126,6 +127,9 @@ func NewRoot(deps Deps) *cobra.Command {
 	}
 	if deps.StartService == nil && deps.Docker != nil {
 		deps.StartService = dockerStartService{docker: deps.Docker}
+	}
+	if deps.EnterService == nil && deps.Docker != nil {
+		deps.EnterService = dockerEnterService{docker: deps.Docker}
 	}
 
 	root := &cobra.Command{
@@ -193,6 +197,7 @@ func NewRoot(deps Deps) *cobra.Command {
 	root.Flags().StringVar(&opts.Image, "image", "", "override base image")
 
 	root.AddCommand(newListCmd(deps.ContainerList))
+	root.AddCommand(newEnterCmd(deps.EnterService))
 	root.AddCommand(newStopCmd(deps.ContainerStop))
 
 	buildService := deps.BuildService
