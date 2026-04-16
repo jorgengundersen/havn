@@ -37,7 +37,8 @@ That means doctor:
 
 - resolves project context from the current working directory when `--all` is
   not set
-- interprets global config, project config, discovered `.havn/flake.nix`, and
+- interprets global config, project config, discovered project-local flake
+  entrypoints (`.havn/flake.nix` and `.havn/environments/default/flake.nix`), and
   environment overrides using `specs/configuration.md`
 - uses the same project-identity expectations that startup and shared-Dolt
   wiring use for project-specific checks

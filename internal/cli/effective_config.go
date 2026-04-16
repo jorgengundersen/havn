@@ -52,13 +52,14 @@ func (o effectiveConfigOrchestrator) ResolveWithSource(projectCtx projectContext
 
 	cfg, src := config.ResolveWithMetadata(global, globalMeta, project, projectMeta, envOverrides, flagOv)
 
-	if _, err := os.Stat(projectCtx.ProjectFlakePath()); err == nil {
-		cfg.Env = config.ResolveFlake(cfg, src, true)
+	discoveredFlakeRef := discoveredProjectFlakeRef(projectCtx)
+	if discoveredFlakeRef != "" {
+		cfg.Env = config.ResolveFlake(cfg, src, discoveredFlakeRef)
 		if src["env"] == "default" || src["env"] == "global" {
 			src["env"] = "project"
 		}
 	} else {
-		cfg.Env = config.ResolveFlake(cfg, src, false)
+		cfg.Env = config.ResolveFlake(cfg, src, "")
 	}
 
 	if cfg.Dolt.Enabled && cfg.Dolt.Database == "" {
@@ -70,4 +71,22 @@ func (o effectiveConfigOrchestrator) ResolveWithSource(projectCtx projectContext
 	}
 
 	return cfg, src, nil
+}
+
+func discoveredProjectFlakeRef(projectCtx projectContext) string {
+	candidates := []struct {
+		path string
+		ref  string
+	}{
+		{path: projectCtx.ProjectFlakePath(), ref: "path:./.havn"},
+		{path: projectCtx.ProjectDefaultEnvironmentFlakePath(), ref: "path:./.havn/environments/default"},
+	}
+
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate.path); err == nil {
+			return candidate.ref
+		}
+	}
+
+	return ""
 }

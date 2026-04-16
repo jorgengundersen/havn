@@ -6,12 +6,13 @@ package config
 //  1. --env flag
 //  2. HAVN_ENV env var
 //  3. env in .havn/config.toml (project)
-//  4. .havn/flake.nix (if exists → "path:./.havn")
+//  4. discovered project flake (if present)
 //  5. env in ~/.config/havn/config.toml (global default)
 //
 // The caller supplies the resolved Config, its Source map, and whether
-// .havn/flake.nix exists on disk.
-func ResolveFlake(cfg Config, src Source, flakeExists bool) string {
+// a discovered project flake reference exists on disk. Current discovered refs
+// are path:./.havn and path:./.havn/environments/default.
+func ResolveFlake(cfg Config, src Source, discoveredFlakeRef string) string {
 	envSource := src["env"]
 
 	// Levels 1-3: flag, env var, or project config explicitly set env.
@@ -19,9 +20,9 @@ func ResolveFlake(cfg Config, src Source, flakeExists bool) string {
 		return cfg.Env
 	}
 
-	// Level 4: .havn/flake.nix exists.
-	if flakeExists {
-		return "path:./.havn"
+	// Level 4: discovered project flake exists.
+	if discoveredFlakeRef != "" {
+		return discoveredFlakeRef
 	}
 
 	// Level 5: global config or built-in default.

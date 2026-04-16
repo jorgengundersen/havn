@@ -77,6 +77,10 @@ func (p projectContext) ProjectFlakePath() string {
 	return filepath.Join(p.Path, ".havn", "flake.nix")
 }
 
+func (p projectContext) ProjectDefaultEnvironmentFlakePath() string {
+	return filepath.Join(p.Path, ".havn", "environments", "default", "flake.nix")
+}
+
 func (p projectContext) DefaultDoltDatabase() string {
 	return filepath.Base(p.Path)
 }

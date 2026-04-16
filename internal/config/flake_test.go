@@ -17,7 +17,7 @@ func TestResolveFlake_FlagWins(t *testing.T) {
 		config.Overrides{Env: &flagEnv},
 	)
 
-	got := config.ResolveFlake(cfg, src, true)
+	got := config.ResolveFlake(cfg, src, "path:./.havn")
 	assert.Equal(t, "path:./custom", got)
 }
 
@@ -30,7 +30,7 @@ func TestResolveFlake_EnvVarWins(t *testing.T) {
 		config.Overrides{},
 	)
 
-	got := config.ResolveFlake(cfg, src, true)
+	got := config.ResolveFlake(cfg, src, "path:./.havn")
 	assert.Equal(t, "github:envvar/env", got)
 }
 
@@ -42,7 +42,7 @@ func TestResolveFlake_ProjectConfigWins(t *testing.T) {
 		config.Overrides{},
 	)
 
-	got := config.ResolveFlake(cfg, src, true)
+	got := config.ResolveFlake(cfg, src, "path:./.havn")
 	assert.Equal(t, "github:project/env", got)
 }
 
@@ -54,8 +54,20 @@ func TestResolveFlake_FlakeNixFallback(t *testing.T) {
 		config.Overrides{},
 	)
 
-	got := config.ResolveFlake(cfg, src, true)
+	got := config.ResolveFlake(cfg, src, "path:./.havn")
 	assert.Equal(t, "path:./.havn", got)
+}
+
+func TestResolveFlake_DefaultEnvironmentFlakeFallback(t *testing.T) {
+	cfg, src := config.Resolve(
+		config.Config{Env: "github:global/env"},
+		config.Config{},
+		config.Overrides{},
+		config.Overrides{},
+	)
+
+	got := config.ResolveFlake(cfg, src, "path:./.havn/environments/default")
+	assert.Equal(t, "path:./.havn/environments/default", got)
 }
 
 func TestResolveFlake_GlobalDefault(t *testing.T) {
@@ -66,7 +78,7 @@ func TestResolveFlake_GlobalDefault(t *testing.T) {
 		config.Overrides{},
 	)
 
-	got := config.ResolveFlake(cfg, src, false)
+	got := config.ResolveFlake(cfg, src, "")
 	assert.Equal(t, "github:global/env", got)
 }
 
@@ -78,6 +90,6 @@ func TestResolveFlake_DefaultWhenNothingSet(t *testing.T) {
 		config.Overrides{},
 	)
 
-	got := config.ResolveFlake(cfg, src, false)
+	got := config.ResolveFlake(cfg, src, "")
 	assert.Equal(t, "path:.", got)
 }

@@ -29,6 +29,7 @@ func TestProjectContextFromWorkingDir_ResolvesPathsAndIdentity(t *testing.T) {
 	assert.Equal(t, projectPath, ctx.Path)
 	assert.Equal(t, filepath.Join(projectPath, ".havn", "config.toml"), ctx.ProjectConfigPath())
 	assert.Equal(t, filepath.Join(projectPath, ".havn", "flake.nix"), ctx.ProjectFlakePath())
+	assert.Equal(t, filepath.Join(projectPath, ".havn", "environments", "default", "flake.nix"), ctx.ProjectDefaultEnvironmentFlakePath())
 	assert.Equal(t, "myproject", ctx.DefaultDoltDatabase())
 
 	containerName, err := ctx.ContainerName()

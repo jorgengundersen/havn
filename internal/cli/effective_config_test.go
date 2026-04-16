@@ -51,3 +51,41 @@ func TestEffectiveConfigOrchestrator_ResolveWithSource_ErrorsOnMalformedEnvOverr
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "HAVN_CPUS")
 }
+
+func TestEffectiveConfigOrchestrator_ResolveWithSource_UsesDefaultEnvironmentSubflakeWhenPresent(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	globalPath := filepath.Join(t.TempDir(), "global.toml")
+	require.NoError(t, os.WriteFile(globalPath, []byte(""), 0o644))
+
+	projectPath := filepath.Join(homeDir, "workspace", "sample")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectPath, ".havn", "environments", "default"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "environments", "default", "flake.nix"), []byte("{}"), 0o644))
+
+	orchestrator := newEffectiveConfigOrchestrator(globalPath)
+	cfg, src, err := orchestrator.ResolveWithSource(projectContext{Path: projectPath}, config.Overrides{})
+
+	require.NoError(t, err)
+	assert.Equal(t, "path:./.havn/environments/default", cfg.Env)
+	assert.Equal(t, "project", src["env"])
+}
+
+func TestEffectiveConfigOrchestrator_ResolveWithSource_PrefersLegacyProjectFlakeWhenBothExist(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	globalPath := filepath.Join(t.TempDir(), "global.toml")
+	require.NoError(t, os.WriteFile(globalPath, []byte(""), 0o644))
+
+	projectPath := filepath.Join(homeDir, "workspace", "sample")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectPath, ".havn", "environments", "default"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "environments", "default", "flake.nix"), []byte("{}"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "flake.nix"), []byte("{}"), 0o644))
+
+	orchestrator := newEffectiveConfigOrchestrator(globalPath)
+	cfg, _, err := orchestrator.ResolveWithSource(projectContext{Path: projectPath}, config.Overrides{})
+
+	require.NoError(t, err)
+	assert.Equal(t, "path:./.havn", cfg.Env)
+}

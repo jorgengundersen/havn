@@ -61,12 +61,15 @@ Examples:
 
 ### Flake resolution
 
-`env` has one extra discovered source, `.havn/flake.nix`. Resolution order is:
+`env` has one extra discovered source from project-local flake entrypoints.
+Resolution order is:
 
 1. `--env`
 2. `HAVN_ENV`
 3. `env` in `<project>/.havn/config.toml`
-4. `<project>/.havn/flake.nix` resolved as `path:./.havn`
+4. discovered project flake, in this order:
+   - `<project>/.havn/flake.nix` resolved as `path:./.havn`
+   - `<project>/.havn/environments/default/flake.nix` resolved as `path:./.havn/environments/default`
 5. `env` in global config
 6. built-in default
 
