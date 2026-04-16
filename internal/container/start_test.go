@@ -199,6 +199,28 @@ func TestStartOrAttach_RunningContainer_VerboseStartupEnablesDetailedNixLogs(t *
 	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "-v", "-L", "develop", "github:user/env#default", "-c", "bash"}, exec.interactiveCmd)
 }
 
+func TestStart_RunningContainer_CompletesWithoutInteractiveAttach(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:   exec,
+		Status: func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	err := container.Start(ctx, deps, cfg, testProjectPath)
+
+	require.NoError(t, err)
+	assert.Empty(t, exec.interactiveName)
+	assert.Empty(t, exec.execCalls)
+}
+
 func TestStartOrAttach_NewContainer(t *testing.T) {
 	ctx := context.Background()
 	cb := &fakeStartBackend{
@@ -264,6 +286,41 @@ func TestStartOrAttach_NewContainer(t *testing.T) {
 	assert.Equal(t, testProjectPath, exec.interactiveWorkdir)
 }
 
+func TestStart_NewContainer_StartsAndInitsWithoutInteractiveAttach(t *testing.T) {
+	ctx := context.Background()
+	cb := &fakeStartBackend{
+		inspectErr: &container.NotFoundError{Name: "havn-user-project"},
+		createID:   "new-123",
+	}
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	mounts := &fakeMountResolver{
+		result: mount.ResolveResult{
+			Mounts: []mount.Spec{
+				{Source: testProjectPath, Target: testProjectPath, Type: "bind"},
+			},
+			Env: map[string]string{"SSH_AUTH_SOCK": "/ssh-agent"},
+		},
+	}
+	cfg := defaultTestConfig()
+	deps := container.StartDeps{
+		Container: cb,
+		Image:     &fakeImageBackend{existsResult: true},
+		Network:   &fakeNetworkBackend{},
+		Volume:    &fakeVolumeEnsurer{},
+		Mount:     mounts,
+		Exec:      exec,
+		Status:    func(string) {},
+	}
+
+	err := container.Start(ctx, deps, cfg, testProjectPath)
+
+	require.NoError(t, err)
+	assert.Equal(t, "new-123", cb.startedID)
+	require.Len(t, exec.execCalls, 1)
+	assert.Equal(t, "havn-user-project", exec.execCalls[0].name)
+	assert.Empty(t, exec.interactiveName)
+}
+
 func TestStartOrAttach_StoppedContainer_StartsExisting(t *testing.T) {
 	ctx := context.Background()
 	cb := &fakeStartBackend{
@@ -284,6 +341,28 @@ func TestStartOrAttach_StoppedContainer_StartsExisting(t *testing.T) {
 	assert.Equal(t, "stopped-123", cb.startedID)
 	assert.Empty(t, cb.createdOpts.Name, "should not create a new container when an existing one is stopped")
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
+}
+
+func TestStart_StoppedContainer_StartsAndInitsWithoutInteractiveAttach(t *testing.T) {
+	ctx := context.Background()
+	cb := &fakeStartBackend{
+		inspectState: container.State{ID: "stopped-123", Running: false},
+	}
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	deps := container.StartDeps{
+		Container: cb,
+		Exec:      exec,
+		Status:    func(string) {},
+	}
+	cfg := defaultTestConfig()
+
+	err := container.Start(ctx, deps, cfg, testProjectPath)
+
+	require.NoError(t, err)
+	assert.Equal(t, "stopped-123", cb.startedID)
+	require.Len(t, exec.execCalls, 1)
+	assert.Equal(t, "havn-user-project", exec.execCalls[0].name)
+	assert.Empty(t, exec.interactiveName)
 }
 
 func TestStartOrAttach_StoppedContainer_InitFailure_AbortsStartup(t *testing.T) {

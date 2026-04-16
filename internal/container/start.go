@@ -91,7 +91,18 @@ type StartDeps struct {
 // StartOptions controls startup behavior that is invocation-scoped.
 type StartOptions struct {
 	VerboseStartup bool
+	Mode           StartupMode
 }
+
+// StartupMode selects whether startup enters an interactive shell.
+type StartupMode int
+
+const (
+	// StartupModeAttach runs startup then enters the configured dev shell.
+	StartupModeAttach StartupMode = iota
+	// StartupModeNoAttach runs lifecycle startup and exits without shell attach.
+	StartupModeNoAttach
+)
 
 // StartOrAttach implements the startup orchestration (steps 3-10).
 // If the container is already running, it attaches to it. Otherwise, it
@@ -99,6 +110,19 @@ type StartOptions struct {
 // and attaches to the devShell. Returns the exit code from the shell session.
 func StartOrAttach(ctx context.Context, deps StartDeps, cfg config.Config, projectPath string) (int, error) {
 	return StartOrAttachWithOptions(ctx, deps, cfg, projectPath, StartOptions{})
+}
+
+// Start runs startup orchestration without interactive shell attach.
+func Start(ctx context.Context, deps StartDeps, cfg config.Config, projectPath string) error {
+	return StartWithOptions(ctx, deps, cfg, projectPath, StartOptions{})
+}
+
+// StartWithOptions runs startup orchestration without interactive shell attach
+// and supports invocation-scoped options.
+func StartWithOptions(ctx context.Context, deps StartDeps, cfg config.Config, projectPath string, opts StartOptions) error {
+	opts.Mode = StartupModeNoAttach
+	_, err := StartOrAttachWithOptions(ctx, deps, cfg, projectPath, opts)
+	return err
 }
 
 // StartOrAttachWithOptions runs startup orchestration with invocation-scoped
@@ -118,6 +142,9 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		}
 		// Container doesn't exist — proceed to create.
 	} else if state.Running {
+		if opts.Mode == StartupModeNoAttach {
+			return 0, nil
+		}
 		return attach(ctx, deps.Exec, string(cname), cfg, projectPath, opts)
 	} else {
 		if err := deps.Container.ContainerStart(ctx, state.ID); err != nil {
@@ -129,6 +156,9 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 			return 0, fmt.Errorf("init sshd in container %q: %w", cname, err)
 		}
 
+		if opts.Mode == StartupModeNoAttach {
+			return 0, nil
+		}
 		return attach(ctx, deps.Exec, string(cname), cfg, projectPath, opts)
 	}
 
@@ -149,6 +179,10 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 	// Step 9: post-start init (sshd).
 	if err := deps.Exec.ContainerExec(ctx, string(cname), sshdCmd); err != nil {
 		return 0, fmt.Errorf("init sshd in container %q: %w", cname, err)
+	}
+
+	if opts.Mode == StartupModeNoAttach {
+		return 0, nil
 	}
 
 	// Step 10: attach to devShell.
