@@ -45,6 +45,14 @@ Ready to file? (yes / revise / cancel)
 ### 1. Priority = urgency, not ordering
 P0 crit · P1 high · **P2 default** · P3 low · P4 backlog. Children inherit parent prio; bump only for genuinely different urgency. Never use prio to serialize.
 
+Priority evaluation checklist:
+- Start at **P2**.
+- Use **P0** only for critical breakage (security/data loss/broken default workflow/build).
+- Use **P1** only when it must preempt current repo focus immediately.
+- Use **P3** for non-urgent or non-current-stream improvements.
+- Use **P4** for deferred parking-lot ideas.
+- If a child differs from parent priority, add a short reason in notes.
+
 ### 2. `blocks` = actual blocker only
 Add `blocks` only when B literally cannot make meaningful progress until A lands: e.g. B can't compile/run, cannot validate behavior, or truly needs A's artifact/runtime state/contract decision first. If A and B can be worked in parallel, they must not be linked with `blocks`. Never use `blocks` for preference, cleanliness, review order, batching, or phase ordering.
 

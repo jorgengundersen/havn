@@ -93,6 +93,16 @@ bd close bd-42 --reason "Completed" --json
 - `3` - Low (polish, optimization)
 - `4` - Backlog (future ideas)
 
+### Priority Evaluation (required)
+
+- Start from `P2` by default.
+- Use `P0` only for critical breakage (security, data loss, broken default workflows/builds).
+- Use `P1` only when work must preempt current repo focus now.
+- Use `P3` for non-urgent or non-current-stream improvements.
+- Use `P4` for deferred ideas or parking-lot items.
+- Priority is urgency, not sequencing; use `blocks` for ordering/dependencies.
+- Child issues inherit parent priority unless there is a conscious urgency difference; if changed, add a short reason in issue notes.
+
 ### Workflow for AI Agents
 
 1. **Check ready work**: `bd ready` shows unblocked issues
