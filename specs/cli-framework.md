@@ -88,18 +88,27 @@ Persistent flags are defined on the root command and inherited by subcommands.
 
 These are the only global flags.
 
-### Root-only flags
+### Startup runtime flags
 
-Root-only flags apply only to `havn [path]` and are not inherited by
-subcommands.
+Startup runtime flags are non-persistent flags used by startup-oriented command
+surfaces.
 
-- `--shell <name>`
+Shared startup runtime flags (accepted by `havn [path]` and planned
+`havn up [path]`) are:
+
 - `--env <flake-ref>`
 - `--cpus <n>`
 - `--memory <size>`
 - `--port <port>`
 - `--no-dolt`
 - `--image <name>`
+
+Attach-only startup runtime flag:
+
+- `--shell <name>` (accepted by `havn [path]` only)
+
+Planned `havn up [path]` must not accept `--shell` because `up` does not attach
+to an interactive shell session.
 
 `havn build` may also honor `--image` because build-time image selection is part
 of its own contract, but that does not make `--image` a persistent flag.
@@ -128,8 +137,8 @@ havn [flags] [path]
 - successful interactive attach exits with the shell session's exit code
 - startup failure exits through normal CLI error handling
 
-The root command is the only entry point that accepts the root-only runtime
-flags listed above.
+The root command is the only implemented startup entry point today. Planned
+`havn up [path]` shares startup runtime flags except `--shell`.
 
 ### Startup and entry workflow split
 

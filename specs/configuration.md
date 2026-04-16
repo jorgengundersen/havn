@@ -79,14 +79,16 @@ the shared-Dolt settings that expose the same override surfaces.
 
 ### Flake resolution
 
-`env` has one extra discovered source: `.havn/flake.nix`.
+`env` has one extra discovered source from project-local flake entrypoints.
 
 Resolution order is:
 
 1. `--env`
 2. `HAVN_ENV`
 3. `env` in `<project>/.havn/config.toml`
-4. `<project>/.havn/flake.nix`, resolved as `path:./.havn`
+4. discovered project flake, in this order:
+   - `<project>/.havn/flake.nix`, resolved as `path:./.havn`
+   - `<project>/.havn/environments/default/flake.nix`, resolved as `path:./.havn/environments/default`
 5. `env` in global config
 6. built-in default
 
@@ -95,9 +97,12 @@ project config, environment, or flags.
 
 ### Command-specific runtime overrides
 
-- `havn [path]` accepts root-only runtime flags such as `--shell`, `--env`,
-  `--cpus`, `--memory`, `--port`, `--no-dolt`, and `--image`.
-- For `havn [path]` startup, the resolved project path must be under the user's home directory.
+- `havn [path]` accepts startup runtime flags `--shell`, `--env`, `--cpus`,
+  `--memory`, `--port`, `--no-dolt`, and `--image`.
+- Planned `havn up [path]` accepts the same startup runtime overrides except
+  `--shell`.
+- For `havn [path]` startup and planned `havn up [path]` startup, the resolved
+  project path must be under the user's home directory.
 - `havn build` may honor `--image` and `--config` because they affect build-time
   image selection.
 - `havn config show` reports the effective config for the command invocation.
@@ -136,8 +141,9 @@ This rule applies to:
 - `mounts.ssh.authorized_keys`
 - `dolt.enabled`
 
-`--no-dolt` is a root-only runtime override that forces the effective value of
-`dolt.enabled` to `false` for that startup invocation.
+`--no-dolt` is a startup runtime override for `havn [path]` and planned
+`havn up [path]` that forces the effective value of `dolt.enabled` to `false`
+for that startup invocation.
 
 ### Lists
 
@@ -327,10 +333,10 @@ publishes source data. Source labels are:
 - `dolt.port`
 - `dolt.image`
 
-When the effective flake comes from discovered `.havn/flake.nix`, the returned
-`env` value is `path:./.havn` and the provenance for `env` remains `project`
-scope for user interpretation purposes because the discovered flake is a
-project-local source.
+When the effective flake comes from discovered project-local entrypoints, the
+returned `env` value is either `path:./.havn` or
+`path:./.havn/environments/default` and the provenance for `env` remains
+`project` scope for user interpretation purposes.
 
 ## Relationship to Other Specs
 

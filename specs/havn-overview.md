@@ -48,6 +48,11 @@ At overview level, the user-facing workflow split is:
 - `havn up [path]` (planned): lifecycle startup only (no interactive attach)
 - `havn enter [path]` (planned): plain interactive shell entry (`bash`) without automatic `nix develop`
 
+Planned `havn up [path]` uses the same startup override surface as
+`havn [path]` for `--env`, `--cpus`, `--memory`, `--port`, `--no-dolt`, and
+`--image`. `--shell` remains exclusive to `havn [path]` because `up` does not
+start an interactive shell session.
+
 Planned `havn enter [path]` behavior requires the project container to already be
 running. If the container is missing or stopped, the command returns actionable
 guidance to run `havn up <path>`.
@@ -70,6 +75,9 @@ At overview level, startup works like this:
 4. attach if the project container is already running
 5. otherwise ensure shared prerequisites exist and start the project container
 6. exec into the configured dev shell
+
+Planned `havn up [path]` runs the same startup orchestration through step 5 and
+then exits without entering a shell.
 
 On successful attach, the root command exits with the shell session's exit code.
 
