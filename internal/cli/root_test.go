@@ -23,6 +23,7 @@ type fakeStartService struct {
 	called      bool
 	lastCfg     config.Config
 	lastProject string
+	lastOpts    container.StartOptions
 	exitCode    int
 	err         error
 }
@@ -39,8 +40,8 @@ func newRootBoundaryStartService() *rootBoundaryStartService {
 	}
 }
 
-func (s *rootBoundaryStartService) StartOrAttach(ctx context.Context, cfg config.Config, projectPath string, _ func(string)) (int, error) {
-	return container.StartOrAttach(ctx, container.StartDeps{
+func (s *rootBoundaryStartService) StartOrAttach(ctx context.Context, cfg config.Config, projectPath string, _ func(string), opts container.StartOptions) (int, error) {
+	return container.StartOrAttachWithOptions(ctx, container.StartDeps{
 		Container: s.container,
 		Image:     rootBoundaryFakeImageBackend{},
 		Network:   rootBoundaryFakeNetworkBackend{},
@@ -51,7 +52,7 @@ func (s *rootBoundaryStartService) StartOrAttach(ctx context.Context, cfg config
 		Dolt:   s.doltSetup,
 		Exec:   rootBoundaryFakeExecBackend{},
 		Status: func(string) {},
-	}, cfg, projectPath)
+	}, cfg, projectPath, opts)
 }
 
 type rootBoundaryFakeStartBackend struct {
@@ -139,10 +140,11 @@ func (rootBoundaryFakeExecBackend) ContainerExecInteractive(_ context.Context, _
 	return 0, nil
 }
 
-func (f *fakeStartService) StartOrAttach(_ context.Context, cfg config.Config, projectPath string, _ func(string)) (int, error) {
+func (f *fakeStartService) StartOrAttach(_ context.Context, cfg config.Config, projectPath string, _ func(string), opts container.StartOptions) (int, error) {
 	f.called = true
 	f.lastCfg = cfg
 	f.lastProject = projectPath
+	f.lastOpts = opts
 	return f.exitCode, f.err
 }
 
@@ -290,6 +292,18 @@ func TestNewRoot_RunE_InvokesStartService(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.True(t, svc.called)
+}
+
+func TestNewRoot_RunE_VerboseFlagEnablesVerboseStartupMode(t *testing.T) {
+	svc := &fakeStartService{}
+	root := cli.NewRoot(cli.Deps{StartService: svc})
+	root.SetArgs([]string{"--verbose", "."})
+
+	err := root.Execute()
+
+	require.NoError(t, err)
+	assert.True(t, svc.called)
+	assert.True(t, svc.lastOpts.VerboseStartup)
 }
 
 func TestNewRoot_RunE_DefaultsDoltDatabaseToProjectNameWhenEnabled(t *testing.T) {

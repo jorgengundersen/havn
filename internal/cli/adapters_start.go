@@ -22,7 +22,7 @@ type dockerStartService struct {
 	docker *docker.Client
 }
 
-func (s dockerStartService) StartOrAttach(ctx context.Context, cfg config.Config, projectPath string, status func(msg string)) (int, error) {
+func (s dockerStartService) StartOrAttach(ctx context.Context, cfg config.Config, projectPath string, status func(msg string), opts container.StartOptions) (int, error) {
 	startBackend := dockerStartBackend(s)
 	doltBackend := dockerDoltBackend(s)
 	volumeBackend := dockerVolumeBackend(s)
@@ -41,7 +41,7 @@ func (s dockerStartService) StartOrAttach(ctx context.Context, cfg config.Config
 		Status:      status,
 	}
 
-	return container.StartOrAttach(ctx, deps, cfg, projectPath)
+	return container.StartOrAttachWithOptions(ctx, deps, cfg, projectPath, opts)
 }
 
 type dockerStartBackend struct {

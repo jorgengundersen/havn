@@ -88,11 +88,22 @@ type StartDeps struct {
 	Status      func(msg string)
 }
 
+// StartOptions controls startup behavior that is invocation-scoped.
+type StartOptions struct {
+	VerboseStartup bool
+}
+
 // StartOrAttach implements the startup orchestration (steps 3-10).
 // If the container is already running, it attaches to it. Otherwise, it
 // ensures all infrastructure exists, creates the container, runs init,
 // and attaches to the devShell. Returns the exit code from the shell session.
 func StartOrAttach(ctx context.Context, deps StartDeps, cfg config.Config, projectPath string) (int, error) {
+	return StartOrAttachWithOptions(ctx, deps, cfg, projectPath, StartOptions{})
+}
+
+// StartOrAttachWithOptions runs startup orchestration with invocation-scoped
+// runtime options.
+func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Config, projectPath string, opts StartOptions) (int, error) {
 	cname, err := deriveContainerName(projectPath)
 	if err != nil {
 		return 0, err
@@ -107,7 +118,7 @@ func StartOrAttach(ctx context.Context, deps StartDeps, cfg config.Config, proje
 		}
 		// Container doesn't exist — proceed to create.
 	} else if state.Running {
-		return attach(ctx, deps.Exec, string(cname), cfg, projectPath)
+		return attach(ctx, deps.Exec, string(cname), cfg, projectPath, opts)
 	} else {
 		if err := deps.Container.ContainerStart(ctx, state.ID); err != nil {
 			return 0, fmt.Errorf("start container %q: %w", cname, err)
@@ -118,7 +129,7 @@ func StartOrAttach(ctx context.Context, deps StartDeps, cfg config.Config, proje
 			return 0, fmt.Errorf("init sshd in container %q: %w", cname, err)
 		}
 
-		return attach(ctx, deps.Exec, string(cname), cfg, projectPath)
+		return attach(ctx, deps.Exec, string(cname), cfg, projectPath, opts)
 	}
 
 	// Steps 4-7: ensure infrastructure.
@@ -141,7 +152,7 @@ func StartOrAttach(ctx context.Context, deps StartDeps, cfg config.Config, proje
 	}
 
 	// Step 10: attach to devShell.
-	return attach(ctx, deps.Exec, string(cname), cfg, projectPath)
+	return attach(ctx, deps.Exec, string(cname), cfg, projectPath, opts)
 }
 
 var sshdCmd = []string{"sudo", "/usr/sbin/sshd"}
@@ -276,10 +287,15 @@ func deriveContainerName(projectPath string) (name.ContainerName, error) {
 	return cname, nil
 }
 
-func attach(ctx context.Context, exec ExecBackend, containerName string, cfg config.Config, projectPath string) (int, error) {
-	return exec.ContainerExecInteractive(ctx, containerName, shellCmd(cfg), projectPath)
+func attach(ctx context.Context, exec ExecBackend, containerName string, cfg config.Config, projectPath string, opts StartOptions) (int, error) {
+	return exec.ContainerExecInteractive(ctx, containerName, shellCmd(cfg, opts), projectPath)
 }
 
-func shellCmd(cfg config.Config) []string {
-	return []string{"nix", "--extra-experimental-features", "nix-command flakes", "develop", cfg.Env + "#" + cfg.Shell, "-c", "bash"}
+func shellCmd(cfg config.Config, opts StartOptions) []string {
+	cmd := []string{"nix", "--extra-experimental-features", "nix-command flakes"}
+	if opts.VerboseStartup {
+		cmd = append(cmd, "-v", "-L")
+	}
+	cmd = append(cmd, "develop", cfg.Env+"#"+cfg.Shell, "-c", "bash")
+	return cmd
 }

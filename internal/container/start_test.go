@@ -177,6 +177,28 @@ func TestStartOrAttach_RunningContainer(t *testing.T) {
 	assert.Equal(t, "/home/devuser/Repos/github.com/user/project", exec.interactiveWorkdir)
 }
 
+func TestStartOrAttach_RunningContainer_VerboseStartupEnablesDetailedNixLogs(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:   exec,
+		Status: func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	exitCode, err := container.StartOrAttachWithOptions(ctx, deps, cfg, testProjectPath, container.StartOptions{VerboseStartup: true})
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "-v", "-L", "develop", "github:user/env#default", "-c", "bash"}, exec.interactiveCmd)
+}
+
 func TestStartOrAttach_NewContainer(t *testing.T) {
 	ctx := context.Background()
 	cb := &fakeStartBackend{
