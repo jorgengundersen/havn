@@ -71,3 +71,29 @@ func (e *BuildError) Error() string {
 func (e *BuildError) Unwrap() error {
 	return e.Err
 }
+
+// EnterContainerNotRunningError indicates plain-shell entry was requested while
+// the project container is missing or stopped.
+type EnterContainerNotRunningError struct {
+	Name        string
+	ProjectPath string
+	State       string
+}
+
+func (e *EnterContainerNotRunningError) Error() string {
+	return fmt.Sprintf("container %q is %s; run 'havn up %s' first", e.Name, e.State, e.ProjectPath)
+}
+
+// ErrorType returns the stable snake_case identifier for this error.
+func (e *EnterContainerNotRunningError) ErrorType() string {
+	return "enter_container_not_running"
+}
+
+// ErrorDetails returns structured fields for JSON error output.
+func (e *EnterContainerNotRunningError) ErrorDetails() map[string]any {
+	return map[string]any{
+		"name":         e.Name,
+		"project_path": e.ProjectPath,
+		"state":        e.State,
+	}
+}
