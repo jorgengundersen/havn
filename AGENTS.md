@@ -2,6 +2,12 @@
 
 - use `uv` for any python needs (even runtime)
 
+## Debugging Guidance
+
+- Prefer standard, upstream-safe fixes first.
+- If you must diverge from the common path (environment-specific workaround), state that explicitly and call out tradeoffs.
+- If a failure appears host/network/mirror related, explain that clearly so the user can address root cause; do not bake workaround defaults into shared project config unless explicitly requested.
+
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
 ## Quick Reference

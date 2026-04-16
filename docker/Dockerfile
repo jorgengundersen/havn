@@ -5,8 +5,8 @@ ARG GID=1000
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN sed -i 's|https://archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g; s|https://security.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g; s|http://security.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources \
-    && apt-get update -o Acquire::Retries=3 && apt-get install -y --no-install-recommends \
+RUN apt-get update -o Acquire::Retries=3 \
+    && apt-get install -y --no-install-recommends \
     bash \
     ca-certificates \
     coreutils \
