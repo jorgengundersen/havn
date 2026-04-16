@@ -27,6 +27,8 @@ The command tree is:
 
 ```text
 havn
+  up
+  enter
   list
   stop
   build
@@ -58,6 +60,8 @@ havn
 | Surface | Status |
 |------|------|
 | `havn [path]` | Implemented |
+| `havn up [path]` | Planned |
+| `havn enter [path]` | Planned |
 | `havn list` | Implemented |
 | `havn stop` | Implemented |
 | `havn build` | Implemented |
@@ -126,6 +130,20 @@ havn [flags] [path]
 
 The root command is the only entry point that accepts the root-only runtime
 flags listed above.
+
+### Startup and entry workflow split
+
+`havn` has three workflow surfaces with distinct intent:
+
+- `havn [path]`: start-or-attach, then enter `nix develop <ref>#<shell> -c bash`
+- `havn up [path]`: lifecycle startup without interactive attach
+- `havn enter [path]`: interactive plain `bash` entry without `nix develop`
+
+`havn up [path]` and `havn enter [path]` are planned surfaces. Until they ship,
+the root command remains the only implemented startup-and-entry path.
+
+Planned `havn enter [path]` behavior for missing or stopped project containers is
+an actionable CLI error that includes `havn up <path>` guidance.
 
 ### Startup logging contract
 

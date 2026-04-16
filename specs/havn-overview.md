@@ -12,8 +12,8 @@ contracts.
 
 `havn` is a Go CLI for reproducible development environments built on Docker and
 Nix. It manages one container per project, reuses shared host-side
-infrastructure where possible, and attaches the user directly into the selected
-dev shell.
+infrastructure where possible, and supports separate startup and entry
+workflows.
 
 At a high level, `havn` owns:
 
@@ -39,6 +39,18 @@ environment comes from the selected Nix flake and shell.
 - Base image and runtime assumptions: `specs/base-image.md`
 
 ## Core Workflow
+
+### Workflow surfaces
+
+At overview level, the user-facing workflow split is:
+
+- `havn [path]` (implemented): start or attach, then enter the configured Nix dev shell
+- `havn up [path]` (planned): lifecycle startup only (no interactive attach)
+- `havn enter [path]` (planned): plain interactive shell entry (`bash`) without automatic `nix develop`
+
+Planned `havn enter [path]` behavior requires the project container to already be
+running. If the container is missing or stopped, the command returns actionable
+guidance to run `havn up <path>`.
 
 ### Start or attach
 

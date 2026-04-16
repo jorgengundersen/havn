@@ -104,7 +104,9 @@ mounts.
 The image does not own project startup behavior. havn does.
 
 - havn creates the container with `tini -- sleep infinity`
-- havn attaches later with `nix develop <ref>#<shell> -c bash`
+- root startup (`havn [path]`) attaches with `nix develop <ref>#<shell> -c bash`
+- plain entry (`havn enter [path]`) attaches with `bash` without automatic
+  `nix develop`
 - havn performs post-start init by running `sudo /usr/sbin/sshd`
 
 There is no required custom image entrypoint script for the initial
