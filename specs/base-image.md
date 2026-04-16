@@ -55,6 +55,8 @@ The base image must provide the minimum runtime needed by havn startup:
 
 - Ubuntu 24.04 as the base OS
 - Nix installed and usable with the shared `/nix` volume model
+- Nix configured with `experimental-features = nix-command flakes` in
+  `/etc/nix/nix.conf` so flake workflows work without per-command overrides
 - a `devuser` account whose UID/GID match the detected host user
 - `bash`
 - `tini`

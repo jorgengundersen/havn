@@ -16,6 +16,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tini \
     && rm -rf /var/lib/apt/lists/*
 
+RUN mkdir -p /etc/nix \
+    && printf 'experimental-features = nix-command flakes\n' >/etc/nix/nix.conf
+
 RUN if ! getent group "${GID}" >/dev/null 2>&1; then \
       if getent group devuser >/dev/null 2>&1; then \
         groupmod --gid "${GID}" devuser; \

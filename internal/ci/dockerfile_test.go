@@ -29,3 +29,13 @@ func TestDockerfile_BuildSupportsExistingUIDAndGID(t *testing.T) {
 	assert.Contains(t, dockerfile, "install -d -m 0700 -o devuser -g \"${GID}\" /home/devuser/.ssh")
 	assert.Contains(t, dockerfile, "install -d -m 0755 -o devuser -g \"${GID}\" /home/devuser/.local/share /home/devuser/.cache /home/devuser/.local/state")
 }
+
+func TestDockerfile_EnablesNixFlakeFeaturesByDefault(t *testing.T) {
+	dockerfilePath := filepath.Join("..", "..", "docker", "Dockerfile")
+
+	content, err := os.ReadFile(dockerfilePath)
+	require.NoError(t, err)
+
+	dockerfile := string(content)
+	assert.Contains(t, dockerfile, "printf 'experimental-features = nix-command flakes\\n' >/etc/nix/nix.conf")
+}
