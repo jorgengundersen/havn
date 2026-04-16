@@ -40,6 +40,7 @@ flag.
 - normal mode writes concise human-readable output
 - `--verbose` adds detailed diagnostics to `stderr`
 - `--json` writes structured JSON to `stdout` for data-producing commands
+- root startup (`havn [path]`) retains baseline Nix diagnostics for post-run troubleshooting even in normal output mode
 - action commands return JSON result objects in JSON mode, typically:
 
 ```json
@@ -48,6 +49,8 @@ flag.
 
 - JSON errors are emitted on `stderr` and include `error`; typed errors may also
   include `type` and `details`
+
+For retained startup-log investigation and cleanup workflow, see `docs/doctor-troubleshooting.md`.
 
 ## Command reference
 

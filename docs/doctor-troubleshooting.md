@@ -98,3 +98,79 @@ havn doctor --json
 ```
 
 Use this sequence when triaging hard-to-reproduce issues: quick status, deep detail, then structured output for sharing or automation.
+
+## Startup build log troubleshooting
+
+Root startup (`havn [path]`) retains baseline Nix build logs by default. This gives you a post-failure investigation path without writing project-local log files.
+
+Use this workflow when startup fails or is interrupted during long builds.
+
+### 1) Get the project container and Nix volume names
+
+List running havn containers:
+
+```bash
+havn list
+```
+
+Pick your project container name from the list, then resolve the mounted Nix volume:
+
+```bash
+docker inspect <project-container> --format '{{range .Mounts}}{{if eq .Destination "/nix"}}{{.Name}}{{end}}{{end}}'
+```
+
+If startup has never run for the project and no container exists yet, use your configured shared Nix volume name directly (default: `havn-nix`).
+
+### 2) Inspect retained startup logs from the shared Nix volume
+
+List retained build-log files:
+
+```bash
+docker run --rm -v <nix-volume>:/nix nixos/nix:latest sh -lc 'find /nix/var/log/nix/drvs -type f | sort | tail -n 40'
+```
+
+Read one retained log file directly:
+
+```bash
+docker run --rm -v <nix-volume>:/nix nixos/nix:latest sh -lc 'bzcat /nix/var/log/nix/drvs/<prefix>/<name>.bz2'
+```
+
+If you have a derivation path from startup output (for example `/nix/store/<hash>-<name>.drv`), read its retained log via Nix:
+
+```bash
+docker run --rm -v <nix-volume>:/nix nixos/nix:latest sh -lc 'nix-store --read-log /nix/store/<hash>-<name>.drv'
+```
+
+### 3) Extract logs for sharing or incident notes
+
+Write a retained log to a host file in your current directory:
+
+```bash
+docker run --rm -v <nix-volume>:/nix -v "$PWD":/out nixos/nix:latest sh -lc 'nix-store --read-log /nix/store/<hash>-<name>.drv > /out/startup-build.log'
+```
+
+This keeps troubleshooting artifacts operator-controlled and outside project source files.
+
+### 4) Manual cleanup for accumulated retained logs
+
+Retained logs are useful for diagnostics but can accumulate over time in the shared Nix volume.
+
+Estimate current retained-log footprint:
+
+```bash
+docker run --rm -v <nix-volume>:/nix nixos/nix:latest sh -lc 'du -sh /nix/var/log/nix/drvs'
+```
+
+Remove old retained log files manually (example: older than 14 days):
+
+```bash
+docker run --rm -v <nix-volume>:/nix nixos/nix:latest sh -lc 'find /nix/var/log/nix/drvs -type f -mtime +14 -delete'
+```
+
+Re-check usage after cleanup:
+
+```bash
+docker run --rm -v <nix-volume>:/nix nixos/nix:latest sh -lc 'du -sh /nix/var/log/nix/drvs'
+```
+
+Do not remove the whole `/nix` tree or shared Nix volume unless you intentionally want a full cache reset.
