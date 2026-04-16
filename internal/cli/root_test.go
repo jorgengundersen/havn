@@ -306,6 +306,18 @@ func TestNewRoot_RunE_VerboseFlagEnablesVerboseStartupMode(t *testing.T) {
 	assert.True(t, svc.lastOpts.VerboseStartup)
 }
 
+func TestNewRoot_RunE_UsesAttachStartupMode(t *testing.T) {
+	svc := &fakeStartService{}
+	root := cli.NewRoot(cli.Deps{StartService: svc})
+	root.SetArgs([]string{"."})
+
+	err := root.Execute()
+
+	require.NoError(t, err)
+	assert.True(t, svc.called)
+	assert.Equal(t, container.StartupModeAttach, svc.lastOpts.Mode)
+}
+
 func TestNewRoot_RunE_DefaultsDoltDatabaseToProjectNameWhenEnabled(t *testing.T) {
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)

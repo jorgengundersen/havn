@@ -197,6 +197,7 @@ func NewRoot(deps Deps) *cobra.Command {
 	root.Flags().StringVar(&opts.Image, "image", "", "override base image")
 
 	root.AddCommand(newListCmd(deps.ContainerList))
+	root.AddCommand(newUpCmd(deps.StartService))
 	root.AddCommand(newEnterCmd(deps.EnterService))
 	root.AddCommand(newStopCmd(deps.ContainerStop))
 
@@ -214,25 +215,25 @@ func NewRoot(deps Deps) *cobra.Command {
 }
 
 func resolveStartConfig(cmd *cobra.Command, opts rootOpts, projectCtx projectContext) (config.Config, error) {
-	globalPath := opts.Config
+	globalPath, _ := cmd.Flags().GetString("config")
 
 	flagOv := config.Overrides{}
-	if cmd.Flags().Changed("shell") {
+	if changed(cmd, "shell") {
 		flagOv.Shell = &opts.Shell
 	}
-	if cmd.Flags().Changed("env") {
+	if changed(cmd, "env") {
 		flagOv.Env = &opts.Env
 	}
-	if cmd.Flags().Changed("cpus") {
+	if changed(cmd, "cpus") {
 		flagOv.CPUs = &opts.CPUs
 	}
-	if cmd.Flags().Changed("memory") {
+	if changed(cmd, "memory") {
 		flagOv.Memory = &opts.Memory
 	}
-	if cmd.Flags().Changed("image") {
+	if changed(cmd, "image") {
 		flagOv.Image = &opts.Image
 	}
-	if cmd.Flags().Changed("port") {
+	if changed(cmd, "port") {
 		flagOv.SSHPort = &opts.Port
 	}
 
@@ -247,4 +248,13 @@ func resolveStartConfig(cmd *cobra.Command, opts rootOpts, projectCtx projectCon
 	}
 
 	return cfg, nil
+}
+
+func changed(cmd *cobra.Command, flagName string) bool {
+	flag := cmd.Flags().Lookup(flagName)
+	if flag == nil {
+		return false
+	}
+
+	return flag.Changed
 }
