@@ -45,6 +45,12 @@ func newUpCmd(startService StartService) *cobra.Command {
 				return fmt.Errorf("havn up: %w", err)
 			}
 
+			containerName, err := projectCtx.ContainerName()
+			if err != nil {
+				return fmt.Errorf("havn up: %w", err)
+			}
+			out.Status(fmt.Sprintf("Container %s is running for project %s", containerName, projectCtx.Path))
+
 			return nil
 		},
 	}

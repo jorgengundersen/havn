@@ -10,6 +10,7 @@ import (
 
 	"github.com/jorgengundersen/havn/internal/cli"
 	"github.com/jorgengundersen/havn/internal/container"
+	"github.com/jorgengundersen/havn/internal/name"
 )
 
 func TestUpCommand_IsRegistered(t *testing.T) {
@@ -101,4 +102,19 @@ func TestUpCommand_VerboseFlagEnablesVerboseStartupMode(t *testing.T) {
 	assert.True(t, svc.called)
 	assert.True(t, svc.lastOpts.VerboseStartup)
 	assert.Equal(t, container.StartupModeNoAttach, svc.lastOpts.Mode)
+}
+
+func TestUpCommand_PrintsContainerRunningConfirmationOnSuccess(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := &fakeStartService{}
+	_, stderr, err := executeCommandWithDeps(cli.Deps{StartService: svc}, "up", projectPath)
+
+	require.NoError(t, err)
+	containerName, nameErr := name.DeriveContainerName("work", "sample-project")
+	require.NoError(t, nameErr)
+	assert.Contains(t, stderr, "Container "+string(containerName)+" is running for project "+projectPath)
 }
