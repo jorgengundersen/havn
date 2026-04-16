@@ -14,6 +14,7 @@ This spec owns:
 - the command tree
 - flag scope terminology
 - stream separation and output modes
+- startup logging mode boundaries for root startup
 - JSON contract ownership at the CLI boundary
 - CLI error formatting and exit-code rules
 
@@ -126,6 +127,18 @@ havn [flags] [path]
 The root command is the only entry point that accepts the root-only runtime
 flags listed above.
 
+### Startup logging contract
+
+For root startup (`havn [path]`), logging behavior is:
+
+- baseline startup diagnostics are retained by default for post-run investigation
+- default terminal UX stays concise (status-focused)
+- `--verbose` is an opt-in startup mode that streams detailed diagnostics to
+  `stderr` during startup
+
+Verbose startup is intentionally flag-only. No config key or environment
+variable changes startup diagnostic verbosity.
+
 ## Output Contract
 
 ### Stream separation
@@ -149,6 +162,10 @@ the attached shell session.
 
 `--verbose --json` is valid. Verbose diagnostics stay on `stderr`; JSON data is
 written to `stdout`.
+
+For root startup, retained baseline diagnostics are independent of output mode:
+normal, verbose, and json all keep retained startup diagnostics for later
+investigation.
 
 ### JSON ownership
 

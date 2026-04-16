@@ -64,6 +64,12 @@ On successful attach, the root command exits with the shell session's exit code.
 Detailed config resolution lives in `specs/configuration.md`. Detailed CLI and
 error behavior lives in `specs/cli-framework.md`.
 
+Startup observability at overview level:
+
+- baseline startup diagnostics are retained by default for investigation
+- default terminal output remains concise
+- `--verbose` is the opt-in mode for detailed startup diagnostics in terminal
+
 ### Shared infrastructure
 
 Startup may create or reuse:
