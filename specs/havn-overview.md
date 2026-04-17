@@ -46,16 +46,21 @@ At overview level, the user-facing workflow split is:
 
 - `havn [path]` (implemented): start or attach, then enter the configured Nix dev shell
 - `havn up [path]` (planned): lifecycle startup only (no interactive attach)
-- `havn enter [path]` (planned): plain interactive shell entry (`bash`) without automatic `nix develop`
+- `havn enter [path]` (implemented): plain interactive shell entry (`bash`) without automatic `nix develop`
 
 Planned `havn up [path]` uses the same startup override surface as
 `havn [path]` for `--env`, `--cpus`, `--memory`, `--port`, `--no-dolt`, and
 `--image`. `--shell` remains exclusive to `havn [path]` because `up` does not
 start an interactive shell session.
 
-Planned `havn enter [path]` behavior requires the project container to already be
-running. If the container is missing or stopped, the command returns actionable
-guidance to run `havn up <path>`.
+`havn enter [path]` requires the project container to already be running. If the
+container is missing or stopped, the command returns actionable guidance to run
+`havn up <path>`.
+
+When entering an existing running container, `havn enter [path]` also performs
+Nix registry persistence preparation before shell entry, so users do not need a
+prior startup run just to make in-container `nix registry` alias changes
+persist.
 
 ### Start or attach
 

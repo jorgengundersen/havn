@@ -61,7 +61,7 @@ havn
 |------|------|
 | `havn [path]` | Implemented |
 | `havn up [path]` | Planned |
-| `havn enter [path]` | Planned |
+| `havn enter [path]` | Implemented |
 | `havn list` | Implemented |
 | `havn stop` | Implemented |
 | `havn build` | Implemented |
@@ -156,11 +156,15 @@ The root command is the only implemented startup entry point today. Planned
 - `havn up [path]`: lifecycle startup without interactive attach
 - `havn enter [path]`: interactive plain `bash` entry without `nix develop`
 
-`havn up [path]` and `havn enter [path]` are planned surfaces. Until they ship,
-the root command remains the only implemented startup-and-entry path.
+`havn up [path]` is a planned surface. The root command and
+`havn enter [path]` are implemented.
 
-Planned `havn enter [path]` behavior for missing or stopped project containers is
-an actionable CLI error that includes `havn up <path>` guidance.
+`havn enter [path]` returns an actionable CLI error for missing or stopped
+project containers that includes `havn up <path>` guidance.
+
+Before plain-shell attach, `havn enter [path]` performs the same in-container
+Nix registry persistence preparation as startup-oriented entry, so users do not
+need to run startup first solely for registry alias persistence.
 
 ### Startup logging contract
 
