@@ -229,6 +229,62 @@ Source labels are `default`, `global`, `project`, `env`, and `flag`.
 4. use flags for one-off overrides
 5. confirm with `havn config show --json`
 
+## Persistent Nix alias workflow in havn
+
+If your `env` points at a remote flake (for example
+`github:jorgengundersen/dev-environments?dir=environments/default`), the
+supported shortcut is to manage aliases from inside havn sessions.
+
+### Why this workflow
+
+- aliases are stored at `/home/devuser/.local/state/nix/registry.json` inside
+  the container
+- this path is under the mounted `volumes.state` location, so aliases persist
+  across container recreation
+- havn does not persist aliases by rewriting host-global Nix config
+
+### Register and use an alias
+
+1. start a havn session for the target project (`havn .`)
+2. add the alias inside that session:
+
+```bash
+nix registry add flake:devenv "github:jorgengundersen/dev-environments?dir=environments/default"
+```
+
+3. use it normally:
+
+```bash
+nix develop devenv#codex
+nix flake show devenv
+```
+
+4. exit, start a new havn session, and verify the alias is still present:
+
+```bash
+nix registry list
+```
+
+### Sharing model
+
+- projects that resolve to the same `volumes.state` value share one alias set
+- updates from one session are visible to later sessions that mount that same
+  state volume
+- if two sessions update the same alias, last write wins
+
+### Migration notes
+
+If you previously relied on host-global alias persistence for havn work:
+
+1. start havn for the project that should own the alias behavior
+2. re-add the aliases inside havn with `nix registry add`
+3. verify with `nix registry list` from a fresh havn session
+4. optionally remove obsolete host-global aliases to avoid ambiguity between
+   host and havn-managed state
+
+This migration keeps alias persistence scoped to havn state volumes and avoids
+broad host-global side effects.
+
 ## Current partial-support gaps
 
 - `havn config show` does not yet expose every provenance detail for all returned fields; the stable `source` map currently focuses on core scalar/resource and Dolt fields
