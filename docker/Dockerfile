@@ -5,16 +5,20 @@ ARG GID=1000
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update -o Acquire::Retries=3 \
+RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     bash \
     ca-certificates \
     coreutils \
     curl \
-    nix-bin \
     openssh-server \
     sudo \
     tini \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    nix-bin \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /etc/nix \
