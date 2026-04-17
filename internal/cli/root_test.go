@@ -338,6 +338,29 @@ func TestNewRoot_RunE_DefaultsDoltDatabaseToProjectNameWhenEnabled(t *testing.T)
 	assert.Equal(t, "sample-project", svc.lastCfg.Dolt.Database)
 }
 
+func TestNewRoot_RunE_NewContainerUsesEffectiveDefaultResourceLimits(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := newRootBoundaryStartService()
+	root := cli.NewRoot(cli.Deps{StartService: svc})
+	root.SetArgs([]string{projectPath})
+
+	err := root.Execute()
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, svc.container.createCalls)
+	assert.Equal(t, 4, svc.container.createdOpts.CPUs)
+	assert.Equal(t, "8g", svc.container.createdOpts.Memory)
+	assert.Equal(t, "12g", svc.container.createdOpts.MemorySwap)
+	assert.Equal(t, "4", svc.container.createdOpts.Labels["havn.cpus"])
+	assert.Equal(t, "8g", svc.container.createdOpts.Labels["havn.memory"])
+	assert.Equal(t, "12g", svc.container.createdOpts.Labels["havn.memory_swap"])
+}
+
 func TestNewRoot_RunE_DoltEnabledStartupPerformsSharedSetupAndInjectsBeadsEnv(t *testing.T) {
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)

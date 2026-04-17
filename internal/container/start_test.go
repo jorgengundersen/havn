@@ -375,6 +375,33 @@ func TestStartOrAttach_StoppedContainer_StartsExisting(t *testing.T) {
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
 }
 
+func TestStartOrAttach_StoppedContainer_ReusesExistingResourceLimits(t *testing.T) {
+	ctx := context.Background()
+	cb := &fakeStartBackend{
+		inspectState: container.State{ID: "stopped-123", Running: false},
+	}
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	var statusMessages []string
+	deps := container.StartDeps{
+		Container: cb,
+		Exec:      exec,
+		Status:    func(msg string) { statusMessages = append(statusMessages, msg) },
+	}
+	cfg := defaultTestConfig()
+	cfg.Resources.CPUs = 9
+	cfg.Resources.Memory = "20g"
+	cfg.Resources.MemorySwap = "24g"
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	assert.Equal(t, "stopped-123", cb.startedID)
+	assert.Empty(t, cb.createdOpts.Name, "should not recreate existing container with new resource config")
+	assert.NotContains(t, statusMessages, "Created container")
+	assert.Equal(t, "havn-user-project", exec.interactiveName)
+}
+
 func TestStart_StoppedContainer_StartsAndInitsWithoutInteractiveAttach(t *testing.T) {
 	ctx := context.Background()
 	cb := &fakeStartBackend{
