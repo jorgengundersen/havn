@@ -51,11 +51,12 @@ func TestListCommand_JSONOutput(t *testing.T) {
 		Image:  "havn-base:latest",
 		Status: "running",
 		Labels: map[string]string{
-			container.LabelPath:   "/home/devuser/Repos/github.com/user/api",
-			container.LabelShell:  "go",
-			container.LabelCPUs:   "4",
-			container.LabelMemory: "8g",
-			container.LabelDolt:   "true",
+			container.LabelPath:       "/home/devuser/Repos/github.com/user/api",
+			container.LabelShell:      "go",
+			container.LabelCPUs:       "4",
+			container.LabelMemory:     "8g",
+			container.LabelMemorySwap: "12g",
+			container.LabelDolt:       "true",
 		},
 	}}}
 
@@ -72,6 +73,7 @@ func TestListCommand_JSONOutput(t *testing.T) {
 	assert.Equal(t, "go", got[0]["shell"])
 	assert.Equal(t, float64(4), got[0]["cpus"])
 	assert.Equal(t, "8g", got[0]["memory"])
+	assert.Equal(t, "12g", got[0]["memory_swap"])
 	assert.Equal(t, true, got[0]["dolt"])
 }
 

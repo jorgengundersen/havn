@@ -10,12 +10,13 @@ import (
 
 // Label keys used by havn to store container metadata.
 const (
-	LabelManagedBy = "managed-by"
-	LabelPath      = "havn.path"
-	LabelShell     = "havn.shell"
-	LabelCPUs      = "havn.cpus"
-	LabelMemory    = "havn.memory"
-	LabelDolt      = "havn.dolt"
+	LabelManagedBy  = "managed-by"
+	LabelPath       = "havn.path"
+	LabelShell      = "havn.shell"
+	LabelCPUs       = "havn.cpus"
+	LabelMemory     = "havn.memory"
+	LabelMemorySwap = "havn.memory_swap"
+	LabelDolt       = "havn.dolt"
 )
 
 // List returns all havn-managed containers by querying the backend for
@@ -54,13 +55,14 @@ func containerInfoFromRaw(r RawContainer) Info {
 	dolt, _ := strconv.ParseBool(r.Labels[LabelDolt])
 
 	return Info{
-		Name:   name.ContainerName(r.Name),
-		Path:   r.Labels[LabelPath],
-		Image:  r.Image,
-		Status: r.Status,
-		Shell:  r.Labels[LabelShell],
-		CPUs:   cpus,
-		Memory: r.Labels[LabelMemory],
-		Dolt:   dolt,
+		Name:       name.ContainerName(r.Name),
+		Path:       r.Labels[LabelPath],
+		Image:      r.Image,
+		Status:     r.Status,
+		Shell:      r.Labels[LabelShell],
+		CPUs:       cpus,
+		Memory:     r.Labels[LabelMemory],
+		MemorySwap: r.Labels[LabelMemorySwap],
+		Dolt:       dolt,
 	}
 }

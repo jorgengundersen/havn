@@ -41,12 +41,13 @@ func TestList_PopulatesFieldsFromLabels(t *testing.T) {
 				Image:  "havn-base:latest",
 				Status: "running",
 				Labels: map[string]string{
-					"managed-by":  "havn",
-					"havn.path":   "/home/devuser/Repos/github.com/user/api",
-					"havn.shell":  "go",
-					"havn.cpus":   "4",
-					"havn.memory": "8g",
-					"havn.dolt":   "true",
+					"managed-by":       "havn",
+					"havn.path":        "/home/devuser/Repos/github.com/user/api",
+					"havn.shell":       "go",
+					"havn.cpus":        "4",
+					"havn.memory":      "8g",
+					"havn.memory_swap": "12g",
+					"havn.dolt":        "true",
 				},
 			},
 		},
@@ -63,6 +64,7 @@ func TestList_PopulatesFieldsFromLabels(t *testing.T) {
 	assert.Equal(t, "go", got[0].Shell)
 	assert.Equal(t, 4, got[0].CPUs)
 	assert.Equal(t, "8g", got[0].Memory)
+	assert.Equal(t, "12g", got[0].MemorySwap)
 	assert.True(t, got[0].Dolt)
 }
 
@@ -85,12 +87,13 @@ func TestList_MultipleContainers(t *testing.T) {
 				Image:  "havn-base:latest",
 				Status: "running",
 				Labels: map[string]string{
-					"managed-by":  "havn",
-					"havn.path":   "/home/user/api",
-					"havn.shell":  "go",
-					"havn.cpus":   "4",
-					"havn.memory": "8g",
-					"havn.dolt":   "true",
+					"managed-by":       "havn",
+					"havn.path":        "/home/user/api",
+					"havn.shell":       "go",
+					"havn.cpus":        "4",
+					"havn.memory":      "8g",
+					"havn.memory_swap": "12g",
+					"havn.dolt":        "true",
 				},
 			},
 			{
@@ -98,12 +101,13 @@ func TestList_MultipleContainers(t *testing.T) {
 				Image:  "havn-base:latest",
 				Status: "running",
 				Labels: map[string]string{
-					"managed-by":  "havn",
-					"havn.path":   "/home/user/web",
-					"havn.shell":  "node",
-					"havn.cpus":   "2",
-					"havn.memory": "4g",
-					"havn.dolt":   "false",
+					"managed-by":       "havn",
+					"havn.path":        "/home/user/web",
+					"havn.shell":       "node",
+					"havn.cpus":        "2",
+					"havn.memory":      "4g",
+					"havn.memory_swap": "6g",
+					"havn.dolt":        "false",
 				},
 			},
 		},
@@ -116,6 +120,7 @@ func TestList_MultipleContainers(t *testing.T) {
 	assert.Equal(t, name.ContainerName("havn-user-api"), got[0].Name)
 	assert.Equal(t, name.ContainerName("havn-user-web"), got[1].Name)
 	assert.Equal(t, "node", got[1].Shell)
+	assert.Equal(t, "6g", got[1].MemorySwap)
 	assert.False(t, got[1].Dolt)
 }
 
@@ -143,6 +148,7 @@ func TestList_MissingMetadataLabelsDefaultToZeroValues(t *testing.T) {
 	assert.Equal(t, "", got[0].Shell)
 	assert.Equal(t, 0, got[0].CPUs)
 	assert.Equal(t, "", got[0].Memory)
+	assert.Equal(t, "", got[0].MemorySwap)
 	assert.False(t, got[0].Dolt)
 }
 

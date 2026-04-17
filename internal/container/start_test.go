@@ -269,6 +269,7 @@ func TestStartOrAttach_NewContainer(t *testing.T) {
 	assert.Equal(t, "default", cb.createdOpts.Labels["havn.shell"])
 	assert.Equal(t, "4", cb.createdOpts.Labels["havn.cpus"])
 	assert.Equal(t, "8g", cb.createdOpts.Labels["havn.memory"])
+	assert.Equal(t, "12g", cb.createdOpts.Labels["havn.memory_swap"])
 	assert.Equal(t, "false", cb.createdOpts.Labels["havn.dolt"])
 
 	// Env includes SSH from mount resolution.
@@ -284,6 +285,37 @@ func TestStartOrAttach_NewContainer(t *testing.T) {
 	// Interactive shell was attached.
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
 	assert.Equal(t, testProjectPath, exec.interactiveWorkdir)
+}
+
+func TestStartOrAttach_NewContainer_ReportsAppliedResourceLimits(t *testing.T) {
+	ctx := context.Background()
+	cb := &fakeStartBackend{
+		inspectErr: &container.NotFoundError{Name: "havn-user-project"},
+		createID:   "new-123",
+	}
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	mounts := &fakeMountResolver{
+		result: mount.ResolveResult{
+			Mounts: []mount.Spec{{Source: testProjectPath, Target: testProjectPath, Type: "bind"}},
+			Env:    map[string]string{"SSH_AUTH_SOCK": "/ssh-agent"},
+		},
+	}
+	var statusMessages []string
+
+	deps := container.StartDeps{
+		Container: cb,
+		Image:     &fakeImageBackend{existsResult: true},
+		Network:   &fakeNetworkBackend{},
+		Volume:    &fakeVolumeEnsurer{},
+		Mount:     mounts,
+		Exec:      exec,
+		Status:    func(msg string) { statusMessages = append(statusMessages, msg) },
+	}
+
+	_, err := container.StartOrAttach(ctx, deps, defaultTestConfig(), testProjectPath)
+
+	require.NoError(t, err)
+	assert.Contains(t, statusMessages, "Created container havn-user-project with resources cpus=4 memory=8g memory_swap=12g")
 }
 
 func TestStart_NewContainer_StartsAndInitsWithoutInteractiveAttach(t *testing.T) {

@@ -172,6 +172,13 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 	if err != nil {
 		return 0, err
 	}
+	deps.Status(fmt.Sprintf(
+		"Created container %s with resources cpus=%d memory=%s memory_swap=%s",
+		cname,
+		cfg.Resources.CPUs,
+		cfg.Resources.Memory,
+		cfg.Resources.MemorySwap,
+	))
 	if err := deps.Container.ContainerStart(ctx, id); err != nil {
 		return 0, fmt.Errorf("start container %q: %w", cname, err)
 	}
@@ -277,12 +284,13 @@ func createContainer(ctx context.Context, deps StartDeps, cfg config.Config, cna
 
 	// Build labels.
 	labels := map[string]string{
-		LabelManagedBy: "havn",
-		LabelPath:      projectPath,
-		LabelShell:     cfg.Shell,
-		LabelCPUs:      strconv.Itoa(cfg.Resources.CPUs),
-		LabelMemory:    cfg.Resources.Memory,
-		LabelDolt:      strconv.FormatBool(cfg.Dolt.Enabled),
+		LabelManagedBy:  "havn",
+		LabelPath:       projectPath,
+		LabelShell:      cfg.Shell,
+		LabelCPUs:       strconv.Itoa(cfg.Resources.CPUs),
+		LabelMemory:     cfg.Resources.Memory,
+		LabelMemorySwap: cfg.Resources.MemorySwap,
+		LabelDolt:       strconv.FormatBool(cfg.Dolt.Enabled),
 	}
 
 	opts := CreateOpts{
