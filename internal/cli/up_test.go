@@ -118,3 +118,20 @@ func TestUpCommand_PrintsContainerRunningConfirmationOnSuccess(t *testing.T) {
 	require.NoError(t, nameErr)
 	assert.Contains(t, stderr, "Container "+string(containerName)+" is running for project "+projectPath)
 }
+
+func TestUpCommand_HomeManagerActivationFailureReturnsCommandScopedErrorWithoutSuccessStatus(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := &fakeStartService{err: assert.AnError}
+	_, stderr, err := executeCommandWithDeps(cli.Deps{StartService: svc}, "up", projectPath)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, assert.AnError)
+	assert.Contains(t, err.Error(), "havn up:")
+	assert.True(t, svc.called)
+	assert.Equal(t, container.StartupModeNoAttach, svc.lastOpts.Mode)
+	assert.NotContains(t, stderr, "is running for project")
+}

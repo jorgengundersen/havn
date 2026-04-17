@@ -43,6 +43,15 @@ func TestEnterCommand_HelpIncludesManualHomeManagerActivationPath(t *testing.T) 
 	assert.Contains(t, enterCmd.Long, "home-manager switch --flake")
 }
 
+func TestEnterCommand_HelpDocumentsPlainShellWithoutAutomaticNixDevelop(t *testing.T) {
+	root := cli.NewRoot(cli.Deps{})
+	enterCmd, _, err := root.Find([]string{"enter"})
+
+	require.NoError(t, err)
+	assert.Contains(t, enterCmd.Short, "without nix develop")
+	assert.Contains(t, enterCmd.Long, "not activated automatically")
+}
+
 func TestEnterCommand_ReturnsNotImplemented(t *testing.T) {
 	_, _, err := executeCommand("enter")
 
@@ -63,6 +72,20 @@ func TestEnterCommand_CallsServiceWithResolvedPath(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, svc.called)
 	assert.Equal(t, projectPath, svc.lastProject)
+}
+
+func TestEnterCommand_DoesNotAcceptStartupRuntimeFlags(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := &fakeEnterService{}
+	_, _, err := executeCommandWithDeps(cli.Deps{EnterService: svc}, "enter", "--env", "github:custom/env", projectPath)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown flag: --env")
+	assert.False(t, svc.called)
 }
 
 func TestEnterCommand_PropagatesInteractiveExitCode(t *testing.T) {

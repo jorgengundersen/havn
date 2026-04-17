@@ -504,6 +504,25 @@ func TestNewRoot_RunE_PropagatesShellExitCode(t *testing.T) {
 	assert.Equal(t, 42, shellExit.Code)
 }
 
+func TestNewRoot_RunE_HomeManagerActivationFailureAbortsBeforeShellHandoff(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := &fakeStartService{err: assert.AnError}
+	root := cli.NewRoot(cli.Deps{StartService: svc})
+	root.SetArgs([]string{projectPath})
+
+	err := root.Execute()
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, assert.AnError)
+	assert.True(t, svc.called)
+	assert.Equal(t, projectPath, svc.lastProject)
+	assert.Equal(t, container.StartupModeAttach, svc.lastOpts.Mode)
+}
+
 func TestNewRoot_RejectsPathOutsideHome(t *testing.T) {
 	svc := &fakeStartService{}
 	root := cli.NewRoot(cli.Deps{StartService: svc})
