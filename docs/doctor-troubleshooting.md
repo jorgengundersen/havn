@@ -77,6 +77,85 @@ havn doctor [--all] [--verbose] [--json]
 2. If mounts still fail, verify the host path exists and permissions are correct.
 3. Rerun `havn doctor --verbose` to get the failing path/check details.
 
+### Nix build failures that look like OOM
+
+Use this flow when startup or in-container builds fail with messages like
+`killed`, `cannot allocate memory`, or abrupt compiler termination.
+
+1. Identify the project container: `havn list`.
+2. Check OOM and exit signals:
+
+   ```bash
+   docker inspect <project-container> --format 'oom_killed={{.State.OOMKilled}} exit_code={{.State.ExitCode}} error={{.State.Error}}'
+   ```
+
+3. Confirm applied resource limits on that container:
+
+   ```bash
+   docker inspect <project-container> --format 'nano_cpus={{.HostConfig.NanoCpus}} memory={{.HostConfig.Memory}} memory_swap={{.HostConfig.MemorySwap}}'
+   ```
+
+   Expected baseline values are approximately:
+   - `nano_cpus=4000000000` (4 CPUs)
+   - `memory=8589934592` (8 GiB)
+   - `memory_swap=12884901888` (12 GiB total memory+swap)
+
+4. Inspect recent logs for memory pressure signals:
+
+   ```bash
+   docker logs <project-container>
+   ```
+
+5. If limits are not what you expect, remember startup stickiness:
+   - reusing an existing container keeps its current limits
+   - changed config/flags apply only when a new container is created
+   - recreate the project container, then start again to apply new/effective limits
+
+## Codex validation flow under baseline limits
+
+Use this repeatable flow to validate codex-oriented work under the default
+resource baseline.
+
+### 1) Confirm effective startup resources
+
+```bash
+havn config show --json
+```
+
+Verify `resources.cpus=4`, `resources.memory="8g"`, and
+`resources.memory_swap="12g"` (unless you intentionally changed them in config).
+
+### 2) Recreate the project container to apply current effective values
+
+Find the container name with `havn list`, then recreate:
+
+```bash
+havn stop <name-or-path>
+docker rm -f <project-container>
+havn <path>
+```
+
+### 3) Validate the applied limits in Docker metadata
+
+```bash
+docker inspect <project-container> --format 'nano_cpus={{.HostConfig.NanoCpus}} memory={{.HostConfig.Memory}} memory_swap={{.HostConfig.MemorySwap}}'
+```
+
+### 4) Run your representative codex workload
+
+Run the same build/test flow codex uses for your task (for example
+`make check`, `go test ./...`, or your project's documented validation command).
+
+### 5) Re-check for OOM signals if the workload fails
+
+```bash
+docker inspect <project-container> --format 'oom_killed={{.State.OOMKilled}} exit_code={{.State.ExitCode}}'
+docker logs <project-container>
+```
+
+If OOM persists at baseline, capture logs and inspect retained startup logs (see
+startup build log troubleshooting below) before changing shared defaults.
+
 ### SSH agent check warned
 
 1. Confirm `ssh-agent` is running on the host.

@@ -73,6 +73,34 @@ Resolution order is:
 5. `env` in global config
 6. built-in default
 
+### Startup resources: precedence and stickiness
+
+For startup commands (`havn [path]`, and planned `havn up [path]`), resource
+values are resolved from the normal precedence chain and applied only when a
+project container is created.
+
+- if the project container already exists (running or stopped), startup reuses it
+  and keeps its current limits
+- new values from config/env/flags do not mutate existing container limits
+- if the container is missing and startup recreates it, startup applies the
+  invocation's effective resource values
+- when no custom resource values are set, recreate uses defaults:
+  `cpus=4`, `memory="8g"`, `memory_swap="12g"`
+
+`memory_swap` is config-only today: there is no env var or CLI flag override for
+it.
+
+#### Reuse vs recreate at a glance
+
+| Scenario | Result |
+|---|---|
+| Existing container is reused | Existing limits stay in place |
+| Missing container is recreated | Effective startup limits are applied |
+| Recreate with no resource overrides | Defaults `4 / 8g / 12g` are applied |
+
+If you expect updated resource values to take effect, remove the old project
+container first and then run startup again.
+
 ## Minimal examples
 
 ### Global defaults

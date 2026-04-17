@@ -33,6 +33,9 @@ These are accepted by `havn [path]` and are not global:
 `havn build` may also honor `--image`, but that does not make it a persistent
 flag.
 
+`memory_swap` has no runtime flag or environment-variable override surface.
+Adjust it through config files (`[resources].memory_swap`).
+
 ## Output modes and JSON conventions
 
 - stream separation is always enforced for normal command execution: status and
@@ -58,6 +61,15 @@ For retained startup-log investigation and cleanup workflow, see `docs/doctor-tr
 
 - `havn [path]`: start or attach to the project container
 - `havn --version`: print CLI version
+
+Root startup resource behavior:
+
+- `--cpus` and `--memory` apply when creating a new project container
+- reusing an existing running or stopped container keeps its existing limits
+- defaults on create are `cpus=4`, `memory=8g`, `memory_swap=12g` when no
+  override is supplied
+- to apply changed limits to an existing project, remove that project container
+  and run startup again
 
 ### Core commands
 
