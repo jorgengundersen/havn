@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path"
 	"strings"
 	"testing"
 
@@ -80,6 +81,177 @@ func TestNixRegistryPreparer_Prepare_NoRegistryFiles_WiresStateRegistryAndLegacy
 
 	assert.Contains(t, backend.execCalls, "mkdir -p '/home/devuser/.config/nix'")
 	assert.Contains(t, backend.execCalls, "ln -sfn '/home/devuser/.local/state/nix/registry.json' '/home/devuser/.config/nix/registry.json'")
+}
+
+type statefulNixRegistryRuntimeBackend struct {
+	files    map[string][]byte
+	symlinks map[string]string
+	dirs     map[string]struct{}
+
+	execCalls []string
+	copyCalls []copyCall
+}
+
+func newStatefulNixRegistryRuntimeBackend() *statefulNixRegistryRuntimeBackend {
+	return &statefulNixRegistryRuntimeBackend{
+		files:    make(map[string][]byte),
+		symlinks: make(map[string]string),
+		dirs:     make(map[string]struct{}),
+	}
+}
+
+func (f *statefulNixRegistryRuntimeBackend) ContainerExec(_ context.Context, _ string, opts docker.ExecOpts) (docker.ExecResult, error) {
+	if len(opts.Cmd) == 0 {
+		return docker.ExecResult{}, fmt.Errorf("missing exec command")
+	}
+
+	cmd := opts.Cmd[len(opts.Cmd)-1]
+	f.execCalls = append(f.execCalls, cmd)
+
+	switch {
+	case strings.HasPrefix(cmd, "test -f '"):
+		filePath, ok := singleQuotedArg(cmd, "test -f ")
+		if !ok {
+			return docker.ExecResult{}, fmt.Errorf("unsupported test command: %s", cmd)
+		}
+		resolved := f.resolvePath(filePath)
+		if _, exists := f.files[resolved]; exists {
+			return docker.ExecResult{ExitCode: 0}, nil
+		}
+		return docker.ExecResult{ExitCode: 1}, nil
+	case strings.HasPrefix(cmd, "cat '"):
+		filePath, ok := singleQuotedArg(cmd, "cat ")
+		if !ok {
+			return docker.ExecResult{}, fmt.Errorf("unsupported cat command: %s", cmd)
+		}
+		resolved := f.resolvePath(filePath)
+		data, exists := f.files[resolved]
+		if !exists {
+			return docker.ExecResult{ExitCode: 1, Stderr: []byte("No such file")}, nil
+		}
+		return docker.ExecResult{ExitCode: 0, Stdout: append([]byte(nil), data...)}, nil
+	case strings.HasPrefix(cmd, "mkdir -p '"):
+		dirPath, ok := singleQuotedArg(cmd, "mkdir -p ")
+		if !ok {
+			return docker.ExecResult{}, fmt.Errorf("unsupported mkdir command: %s", cmd)
+		}
+		f.dirs[dirPath] = struct{}{}
+		return docker.ExecResult{ExitCode: 0}, nil
+	case strings.HasPrefix(cmd, "ln -sfn '"):
+		src, dst, ok := twoQuotedArgs(cmd, "ln -sfn ")
+		if !ok {
+			return docker.ExecResult{}, fmt.Errorf("unsupported ln command: %s", cmd)
+		}
+		f.symlinks[dst] = src
+		return docker.ExecResult{ExitCode: 0}, nil
+	default:
+		return docker.ExecResult{}, fmt.Errorf("unexpected exec command: %s", cmd)
+	}
+}
+
+func (f *statefulNixRegistryRuntimeBackend) CopyToContainer(_ context.Context, _ string, dstPath string, tarStream io.Reader) error {
+	data, err := io.ReadAll(tarStream)
+	if err != nil {
+		return err
+	}
+
+	f.copyCalls = append(f.copyCalls, copyCall{dstPath: dstPath, tarData: data})
+
+	tr := tar.NewReader(bytes.NewReader(data))
+	header, err := tr.Next()
+	if err != nil {
+		return err
+	}
+	content, err := io.ReadAll(tr)
+	if err != nil {
+		return err
+	}
+
+	resolvedPath := path.Join(dstPath, strings.TrimPrefix(header.Name, "./"))
+	f.files[resolvedPath] = append([]byte(nil), content...)
+	return nil
+}
+
+func (f *statefulNixRegistryRuntimeBackend) setFile(filePath string, content []byte) {
+	f.files[filePath] = append([]byte(nil), content...)
+}
+
+func (f *statefulNixRegistryRuntimeBackend) fileContent(filePath string) ([]byte, bool) {
+	resolved := f.resolvePath(filePath)
+	content, ok := f.files[resolved]
+	if !ok {
+		return nil, false
+	}
+	return append([]byte(nil), content...), true
+}
+
+func (f *statefulNixRegistryRuntimeBackend) resolvePath(filePath string) string {
+	for {
+		target, ok := f.symlinks[filePath]
+		if !ok {
+			return filePath
+		}
+		filePath = target
+	}
+}
+
+func singleQuotedArg(cmd string, prefix string) (string, bool) {
+	trimmed := strings.TrimPrefix(cmd, prefix)
+	if !strings.HasPrefix(trimmed, "'") || !strings.HasSuffix(trimmed, "'") {
+		return "", false
+	}
+	return strings.Trim(trimmed, "'"), true
+}
+
+func twoQuotedArgs(cmd string, prefix string) (string, string, bool) {
+	trimmed := strings.TrimPrefix(cmd, prefix)
+	parts := strings.Split(trimmed, "' '")
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	src := strings.TrimPrefix(parts[0], "'")
+	dst := strings.TrimSuffix(parts[1], "'")
+	if src == parts[0] || dst == parts[1] {
+		return "", "", false
+	}
+	return src, dst, true
+}
+
+func TestNixRegistryPreparer_Prepare_RecreatedContainerWithSharedState_PreservesAliases(t *testing.T) {
+	backend := newStatefulNixRegistryRuntimeBackend()
+	preparer := nixRegistryPreparer{docker: backend}
+
+	err := preparer.Prepare(context.Background(), "havn-user-project")
+	require.NoError(t, err)
+	require.Len(t, backend.copyCalls, 1)
+
+	backend.setFile(stateRegistryPath, []byte(`{"version":2,"flakes":[{"from":{"id":"flake:devenv"},"to":{"type":"github","owner":"cachix","repo":"devenv"}}]}`))
+	delete(backend.symlinks, legacyRegistryPath)
+
+	err = preparer.Prepare(context.Background(), "havn-user-project")
+	require.NoError(t, err)
+
+	content, exists := backend.fileContent(stateRegistryPath)
+	require.True(t, exists)
+	assert.JSONEq(t, `{"version":2,"flakes":[{"from":{"id":"flake:devenv"},"to":{"type":"github","owner":"cachix","repo":"devenv"}}]}`,
+		string(content))
+	assert.Equal(t, stateRegistryPath, backend.symlinks[legacyRegistryPath])
+	assert.Len(t, backend.copyCalls, 1, "prepare should not rewrite shared state when aliases already exist")
+}
+
+func TestNixRegistryPreparer_Prepare_MalformedPersistentState_FailsSafely(t *testing.T) {
+	backend := newStatefulNixRegistryRuntimeBackend()
+	backend.setFile(stateRegistryPath, []byte(`{"version":2,"flakes":[`))
+
+	preparer := nixRegistryPreparer{docker: backend}
+
+	err := preparer.Prepare(context.Background(), "havn-user-project")
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "parse nix registry file")
+	assert.ErrorContains(t, err, stateRegistryPath)
+	assert.Empty(t, backend.copyCalls, "prepare must not overwrite malformed persistent state")
+	_, symlinkWritten := backend.symlinks[legacyRegistryPath]
+	assert.False(t, symlinkWritten, "prepare should fail before mutating legacy registry wiring")
 }
 
 func extractSingleTarFile(t *testing.T, tarData []byte) (string, []byte) {
