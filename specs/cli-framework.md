@@ -166,19 +166,26 @@ Before plain-shell attach, `havn enter [path]` performs the same in-container
 Nix registry persistence preparation as startup-oriented entry, so users do not
 need to run startup first solely for registry alias persistence.
 
-### Home Manager session lifecycle (Planned)
+### Home Manager session lifecycle contract
 
-Home Manager integration is a planned extension of the startup/entry split.
+Home Manager integration follows the startup/entry split with command-specific
+behavior:
 
-- `havn [path]` is the primary interactive flow and should perform Home Manager
-  user-configuration activation before presenting the session shell
-- `havn up [path]` stays non-interactive and should not attach or prompt; any
-  Home Manager activation tied to `up` must preserve that non-interactive
-  contract
-- `havn enter [path]` remains plain-shell entry and should offer a documented
-  manual activation path rather than silently changing plain-entry semantics
-- ad-hoc `nix develop` usage from an entered session remains valid and must not
-  be blocked by Home Manager lifecycle orchestration
+- `havn [path]` runs Home Manager activation before shell handoff. If
+  activation fails, `havn` exits with an actionable CLI error and must not
+  attach to `bash` or `nix develop`.
+- `havn up [path]` runs the same activation step but remains non-interactive.
+  It must not attach or prompt. Activation failure exits non-zero with
+  actionable guidance.
+- `havn enter [path]` remains plain-shell entry and does not run automatic Home
+  Manager activation. The command should expose a low-friction manual activation
+  path in user-facing guidance.
+- Home Manager lifecycle behavior must not invalidate ad-hoc `nix develop`
+  usage from entered sessions.
+
+Activation failures are command errors (standard CLI error path), not degraded
+interactive handoff. The only degraded path is manual activation from
+`havn enter [path]`, which is explicit by design.
 
 ### Startup logging contract
 

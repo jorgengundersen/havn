@@ -111,19 +111,25 @@ project config, environment, or flags.
 - Commands that do not accept a given runtime flag do not participate in that
   override surface.
 
-### Home Manager session activation (Planned)
+### Home Manager session activation
 
 Home Manager lifecycle integration is command-scoped behavior, not a separate
 global config source.
 
-- primary interactive startup (`havn [path]`) should activate Home Manager user
-  configuration as part of session entry
-- plain entry (`havn enter [path]`) should keep plain-shell semantics and expose
-  a documented manual activation path
+- `havn [path]` and `havn up [path]` run Home Manager activation as a startup
+  lifecycle step after startup prerequisites are ready and before command
+  completion (`havn up`) or shell handoff (`havn`).
+- `havn [path]` is fail-closed on activation failure: startup returns a normal
+  CLI error, does not attach to any shell, and includes actionable guidance.
+- `havn up [path]` stays non-interactive: it never attaches or prompts. If Home
+  Manager activation fails, `up` exits non-zero with actionable guidance.
+- `havn enter [path]` stays plain-shell entry and does not run Home Manager
+  activation automatically. It must expose a documented, low-friction manual
+  activation path from inside the session.
 - no new precedence layer is introduced by Home Manager activation; existing
   precedence remains `flag > env > project > global > default`
-- ad-hoc `nix develop` inside sessions remains supported; activation must not
-  invalidate existing `env` and `shell` resolution semantics
+- ad-hoc `nix develop` inside sessions remains supported. Home Manager
+  lifecycle behavior must not change `env`/`shell` resolution semantics.
 
 ### Startup resource application semantics
 
