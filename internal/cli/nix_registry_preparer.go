@@ -63,6 +63,9 @@ func (p nixRegistryPreparer) Prepare(ctx context.Context, containerName string) 
 	}
 
 	if !changed {
+		if err := p.ensureStateRegistryOwnership(ctx, containerName); err != nil {
+			return err
+		}
 		return p.ensureLegacyRegistrySymlink(ctx, containerName)
 	}
 
@@ -72,8 +75,28 @@ func (p nixRegistryPreparer) Prepare(ctx context.Context, containerName string) 
 	if err := p.writeFile(ctx, containerName, stateRegistryPath, registryData); err != nil {
 		return err
 	}
+	if err := p.ensureStateRegistryOwnership(ctx, containerName); err != nil {
+		return err
+	}
 
 	return p.ensureLegacyRegistrySymlink(ctx, containerName)
+}
+
+func (p nixRegistryPreparer) ensureStateRegistryOwnership(ctx context.Context, containerName string) error {
+	cmd := []string{"sh", "-c", "chown devuser:devuser " + shellQuote(stateRegistryPath)}
+	result, err := p.docker.ContainerExec(ctx, containerName, docker.ExecOpts{Cmd: cmd})
+	if err != nil {
+		return fmt.Errorf("set nix registry file ownership for %q in container %q: %w", stateRegistryPath, containerName, err)
+	}
+	if result.ExitCode != 0 {
+		stderr := strings.TrimSpace(string(result.Stderr))
+		if stderr == "" {
+			stderr = fmt.Sprintf("exit code %d", result.ExitCode)
+		}
+		return fmt.Errorf("set nix registry file ownership for %q in container %q: %s", stateRegistryPath, containerName, stderr)
+	}
+
+	return nil
 }
 
 func (p nixRegistryPreparer) ensureLegacyRegistrySymlink(ctx context.Context, containerName string) error {

@@ -62,6 +62,7 @@ func TestNixRegistryPreparer_Prepare_NoRegistryFiles_WiresStateRegistryAndLegacy
 			"test -f '/home/devuser/.local/state/nix/registry.json'":                                           {{ExitCode: 1}},
 			"test -f '/home/devuser/.config/nix/registry.json'":                                                {{ExitCode: 1}},
 			"mkdir -p '/home/devuser/.local/state/nix'":                                                        {{ExitCode: 0}},
+			"chown devuser:devuser '/home/devuser/.local/state/nix/registry.json'":                             {{ExitCode: 0}},
 			"mkdir -p '/home/devuser/.config/nix'":                                                             {{ExitCode: 0}},
 			"ln -sfn '/home/devuser/.local/state/nix/registry.json' '/home/devuser/.config/nix/registry.json'": {{ExitCode: 0}},
 		},
@@ -87,6 +88,7 @@ type statefulNixRegistryRuntimeBackend struct {
 	files    map[string][]byte
 	symlinks map[string]string
 	dirs     map[string]struct{}
+	owners   map[string]string
 
 	execCalls []string
 	copyCalls []copyCall
@@ -97,6 +99,7 @@ func newStatefulNixRegistryRuntimeBackend() *statefulNixRegistryRuntimeBackend {
 		files:    make(map[string][]byte),
 		symlinks: make(map[string]string),
 		dirs:     make(map[string]struct{}),
+		owners:   make(map[string]string),
 	}
 }
 
@@ -144,6 +147,17 @@ func (f *statefulNixRegistryRuntimeBackend) ContainerExec(_ context.Context, _ s
 		}
 		f.symlinks[dst] = src
 		return docker.ExecResult{ExitCode: 0}, nil
+	case strings.HasPrefix(cmd, "chown "):
+		owner, filePath, ok := ownerAndPathArg(cmd)
+		if !ok {
+			return docker.ExecResult{}, fmt.Errorf("unsupported chown command: %s", cmd)
+		}
+		resolved := f.resolvePath(filePath)
+		if _, exists := f.files[resolved]; !exists {
+			return docker.ExecResult{ExitCode: 1, Stderr: []byte("No such file")}, nil
+		}
+		f.owners[resolved] = owner
+		return docker.ExecResult{ExitCode: 0}, nil
 	default:
 		return docker.ExecResult{}, fmt.Errorf("unexpected exec command: %s", cmd)
 	}
@@ -169,11 +183,19 @@ func (f *statefulNixRegistryRuntimeBackend) CopyToContainer(_ context.Context, _
 
 	resolvedPath := path.Join(dstPath, strings.TrimPrefix(header.Name, "./"))
 	f.files[resolvedPath] = append([]byte(nil), content...)
+	f.owners[resolvedPath] = "root:root"
 	return nil
 }
 
 func (f *statefulNixRegistryRuntimeBackend) setFile(filePath string, content []byte) {
 	f.files[filePath] = append([]byte(nil), content...)
+	f.owners[filePath] = "devuser:devuser"
+}
+
+func (f *statefulNixRegistryRuntimeBackend) fileOwner(filePath string) (string, bool) {
+	resolved := f.resolvePath(filePath)
+	owner, ok := f.owners[resolved]
+	return owner, ok
 }
 
 func (f *statefulNixRegistryRuntimeBackend) fileContent(filePath string) ([]byte, bool) {
@@ -217,6 +239,19 @@ func twoQuotedArgs(cmd string, prefix string) (string, string, bool) {
 	return src, dst, true
 }
 
+func ownerAndPathArg(cmd string) (string, string, bool) {
+	parts := strings.SplitN(cmd, " ", 3)
+	if len(parts) != 3 {
+		return "", "", false
+	}
+	owner := parts[1]
+	pathArg := parts[2]
+	if !strings.HasPrefix(pathArg, "'") || !strings.HasSuffix(pathArg, "'") {
+		return "", "", false
+	}
+	return owner, strings.Trim(pathArg, "'"), true
+}
+
 func TestNixRegistryPreparer_Prepare_RecreatedContainerWithSharedState_PreservesAliases(t *testing.T) {
 	backend := newStatefulNixRegistryRuntimeBackend()
 	preparer := nixRegistryPreparer{docker: backend}
@@ -237,6 +272,19 @@ func TestNixRegistryPreparer_Prepare_RecreatedContainerWithSharedState_Preserves
 		string(content))
 	assert.Equal(t, stateRegistryPath, backend.symlinks[legacyRegistryPath])
 	assert.Len(t, backend.copyCalls, 1, "prepare should not rewrite shared state when aliases already exist")
+}
+
+func TestNixRegistryPreparer_Prepare_FixesStateRegistryOwnershipAfterWrite(t *testing.T) {
+	backend := newStatefulNixRegistryRuntimeBackend()
+	preparer := nixRegistryPreparer{docker: backend}
+
+	err := preparer.Prepare(context.Background(), "havn-user-project")
+
+	require.NoError(t, err)
+	owner, ok := backend.fileOwner(stateRegistryPath)
+	require.True(t, ok)
+	assert.Equal(t, "devuser:devuser", owner)
+	assert.Contains(t, backend.execCalls, "chown devuser:devuser '/home/devuser/.local/state/nix/registry.json'")
 }
 
 func TestNixRegistryPreparer_Prepare_MalformedPersistentState_FailsSafely(t *testing.T) {
