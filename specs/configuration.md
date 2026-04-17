@@ -238,6 +238,37 @@ enables Dolt and no explicit database name is supplied.
 `memory_swap` is intentionally config-only. It has no environment-variable or
 flag override surface unless a later spec revision adds one.
 
+## Nix Registry Persistence
+
+`havn` persists Nix flake registry aliases through the configured state volume,
+not through host-global Nix config.
+
+### Contract
+
+- During startup and interactive entry, havn configures in-container Nix to use
+  a user registry file at `/home/devuser/.local/state/nix/registry.json`.
+- This file path lives under the mounted `volumes.state` location and is the
+  authoritative persistence location for `nix registry` aliases inside havn.
+- `nix registry add`, `nix registry remove`, and related in-container registry
+  mutations persist automatically; users do not need extra bind mounts or
+  manual copy steps.
+
+### Sharing semantics
+
+- Project containers that resolve to the same `volumes.state` value share the
+  same registry alias state.
+- Alias updates become visible to later sessions that mount that same state
+  volume.
+- If two sessions mutate the same alias, the effective result follows Nix file
+  write behavior (last write wins).
+
+### Side-effect boundaries
+
+- havn must not mutate host-global Nix config as part of this persistence model.
+- havn runtime must not rewrite `/etc/nix/nix.conf` to persist user aliases.
+- Persistence is limited to paths under the mounted state volume for the target
+  container.
+
 ## Validation
 
 Configuration validation happens after merge and after flake resolution.

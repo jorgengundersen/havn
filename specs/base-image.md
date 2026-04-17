@@ -64,6 +64,10 @@ The base image must provide the minimum runtime needed by havn startup:
 - OpenSSH server with `/usr/sbin/sshd` available
 - `sleep` available for the long-running container process
 
+The image-level `/etc/nix/nix.conf` is baseline runtime config. User registry
+alias persistence is a havn runtime concern and must be directed to the mounted
+state path rather than persisted by mutating image-global config.
+
 The image intentionally does not include language toolchains, editors, or
 project-specific tools. Those come from `nix develop` at attach time.
 
@@ -150,3 +154,7 @@ Startup and diagnostics may rely on these being present in the image:
 
 Those assumptions are part of the base-image contract and should not be
 re-decided in container startup code.
+
+For Nix registry alias persistence, runtime wiring must support a
+per-container-user registry file under `/home/devuser/.local/state/nix/` so
+`nix registry add` persists through the shared state volume.

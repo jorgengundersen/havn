@@ -102,6 +102,9 @@ Startup may create or reuse:
 These resources are shared across projects. They are not torn down as part of a
 single project startup failure.
 
+When multiple projects share the same state volume (`volumes.state`), they also
+share Nix registry aliases persisted from in-container `nix registry` commands.
+
 ### Stop and maintenance workflows
 
 At overview level, `havn` provides command surfaces for:
@@ -140,6 +143,10 @@ Each project gets its own container. Project containers:
 - use the selected base image
 - share the configured Nix and XDG volumes
 - optionally receive shared-Dolt connectivity env vars
+
+Runtime-level Nix registry alias persistence is backed by the mounted state
+volume, so aliases survive container recreation and are shared by projects that
+mount the same state volume.
 
 Startup resource behavior at overview level:
 
