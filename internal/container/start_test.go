@@ -234,6 +234,31 @@ func TestStartOrAttach_RunningContainer_PreparesNixRegistry(t *testing.T) {
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
 }
 
+func TestStartOrAttach_RunningContainer_ActivatesHomeManagerBeforeAttach(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:   exec,
+		Status: func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	require.Len(t, exec.execCalls, 1)
+	assert.Equal(t, "havn-user-project", exec.execCalls[0].name)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "-c", "home-manager", "switch", "--flake", "github:user/env"}, exec.execCalls[0].cmd)
+	assert.Equal(t, "havn-user-project", exec.interactiveName)
+}
+
 func TestStartOrAttach_RunningContainer_NixRegistryPrepareFailure_Aborts(t *testing.T) {
 	ctx := context.Background()
 	exec := &fakeExecBackend{interactiveExitCode: 0}
@@ -255,6 +280,29 @@ func TestStartOrAttach_RunningContainer_NixRegistryPrepareFailure_Aborts(t *test
 	assert.Equal(t, 0, exitCode)
 	assert.ErrorContains(t, err, "prepare nix registry aliases in container \"havn-user-project\"")
 	assert.ErrorContains(t, err, "malformed nix registry data")
+	assert.Empty(t, exec.interactiveName)
+}
+
+func TestStartOrAttach_RunningContainer_HomeManagerActivationFailure_AbortsWithGuidance(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{execErr: fmt.Errorf("home-manager: no configuration found")}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:   exec,
+		Status: func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	assert.Equal(t, 0, exitCode)
+	assert.ErrorContains(t, err, "activate Home Manager in container \"havn-user-project\"")
+	assert.ErrorContains(t, err, "havn enter "+testProjectPath)
 	assert.Empty(t, exec.interactiveName)
 }
 
@@ -337,9 +385,12 @@ func TestStartOrAttach_NewContainer(t *testing.T) {
 	// Container was started.
 	assert.Equal(t, "new-123", cb.startedID)
 
-	// Sshd init was called (best-effort).
-	require.Len(t, exec.execCalls, 1)
+	// Sshd init and Home Manager activation were called.
+	require.Len(t, exec.execCalls, 2)
 	assert.Equal(t, "havn-user-project", exec.execCalls[0].name)
+	assert.Equal(t, []string{"sudo", "/usr/sbin/sshd"}, exec.execCalls[0].cmd)
+	assert.Equal(t, "havn-user-project", exec.execCalls[1].name)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "-c", "home-manager", "switch", "--flake", "github:user/env"}, exec.execCalls[1].cmd)
 
 	// Interactive shell was attached.
 	assert.Equal(t, "havn-user-project", exec.interactiveName)

@@ -154,6 +154,9 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		if opts.Mode == StartupModeNoAttach {
 			return 0, nil
 		}
+		if err := activateHomeManager(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
+			return 0, err
+		}
 		return attach(ctx, deps.Exec, string(cname), cfg, projectPath, opts)
 	} else {
 		if err := deps.Container.ContainerStart(ctx, state.ID); err != nil {
@@ -170,6 +173,9 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 
 		if opts.Mode == StartupModeNoAttach {
 			return 0, nil
+		}
+		if err := activateHomeManager(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
+			return 0, err
 		}
 		return attach(ctx, deps.Exec, string(cname), cfg, projectPath, opts)
 	}
@@ -208,6 +214,10 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		return 0, nil
 	}
 
+	if err := activateHomeManager(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
+		return 0, err
+	}
+
 	// Step 10: attach to devShell.
 	return attach(ctx, deps.Exec, string(cname), cfg, projectPath, opts)
 }
@@ -218,6 +228,13 @@ func prepareNixRegistry(ctx context.Context, deps StartDeps, containerName strin
 	}
 	if err := deps.NixRegistry.Prepare(ctx, containerName); err != nil {
 		return fmt.Errorf("prepare nix registry aliases in container %q: %w", containerName, err)
+	}
+	return nil
+}
+
+func activateHomeManager(ctx context.Context, deps StartDeps, containerName string, cfg config.Config, projectPath string, opts StartOptions) error {
+	if err := deps.Exec.ContainerExec(ctx, containerName, homeManagerActivationCmd(cfg, opts)); err != nil {
+		return fmt.Errorf("activate Home Manager in container %q: %w (run 'havn enter %s' to debug activation manually)", containerName, err, projectPath)
 	}
 	return nil
 }
@@ -369,5 +386,18 @@ func shellCmd(cfg config.Config, opts StartOptions) []string {
 		cmd = append(cmd, "-v", "-L")
 	}
 	cmd = append(cmd, "develop", cfg.Env+"#"+cfg.Shell, "-c", "bash")
+	return cmd
+}
+
+func homeManagerActivationCmd(cfg config.Config, opts StartOptions) []string {
+	cmd := []string{
+		"nix",
+		"--extra-experimental-features", "nix-command flakes",
+		"--option", "keep-build-log", "true",
+	}
+	if opts.VerboseStartup {
+		cmd = append(cmd, "-v", "-L")
+	}
+	cmd = append(cmd, "develop", cfg.Env+"#"+cfg.Shell, "-c", "home-manager", "switch", "--flake", cfg.Env)
 	return cmd
 }
