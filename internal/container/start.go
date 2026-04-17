@@ -53,6 +53,11 @@ type ExecBackend interface {
 	ContainerExecInteractive(ctx context.Context, name string, cmd []string, workdir string) (int, error)
 }
 
+// NixRegistryPreparer prepares persistent in-container registry aliases.
+type NixRegistryPreparer interface {
+	Prepare(ctx context.Context, containerName string) error
+}
+
 // CreateOpts holds parameters for creating a container.
 type CreateOpts struct {
 	Name       string
@@ -84,6 +89,7 @@ type StartDeps struct {
 	Mount       MountResolver
 	Dolt        DoltSetup // nil to skip Dolt setup
 	Exec        ExecBackend
+	NixRegistry NixRegistryPreparer
 	PortChecker PortChecker
 	Status      func(msg string)
 }
@@ -142,6 +148,9 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		}
 		// Container doesn't exist — proceed to create.
 	} else if state.Running {
+		if err := prepareNixRegistry(ctx, deps, string(cname)); err != nil {
+			return 0, err
+		}
 		if opts.Mode == StartupModeNoAttach {
 			return 0, nil
 		}
@@ -154,6 +163,9 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		// Step 9: post-start init (sshd).
 		if err := deps.Exec.ContainerExec(ctx, string(cname), sshdCmd); err != nil {
 			return 0, fmt.Errorf("init sshd in container %q: %w", cname, err)
+		}
+		if err := prepareNixRegistry(ctx, deps, string(cname)); err != nil {
+			return 0, err
 		}
 
 		if opts.Mode == StartupModeNoAttach {
@@ -188,12 +200,26 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		return 0, fmt.Errorf("init sshd in container %q: %w", cname, err)
 	}
 
+	if err := prepareNixRegistry(ctx, deps, string(cname)); err != nil {
+		return 0, err
+	}
+
 	if opts.Mode == StartupModeNoAttach {
 		return 0, nil
 	}
 
 	// Step 10: attach to devShell.
 	return attach(ctx, deps.Exec, string(cname), cfg, projectPath, opts)
+}
+
+func prepareNixRegistry(ctx context.Context, deps StartDeps, containerName string) error {
+	if deps.NixRegistry == nil {
+		return nil
+	}
+	if err := deps.NixRegistry.Prepare(ctx, containerName); err != nil {
+		return fmt.Errorf("prepare nix registry aliases in container %q: %w", containerName, err)
+	}
+	return nil
 }
 
 var sshdCmd = []string{"sudo", "/usr/sbin/sshd"}

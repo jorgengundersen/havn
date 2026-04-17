@@ -107,6 +107,16 @@ type fakePortChecker struct {
 	err          error
 }
 
+type fakeNixRegistryPreparer struct {
+	calls []string
+	err   error
+}
+
+func (f *fakeNixRegistryPreparer) Prepare(_ context.Context, containerName string) error {
+	f.calls = append(f.calls, containerName)
+	return f.err
+}
+
 func (f *fakePortChecker) EnsureAvailable(ports []string) error {
 	f.checkedPorts = append([]string(nil), ports...)
 	return f.err
@@ -197,6 +207,55 @@ func TestStartOrAttach_RunningContainer_VerboseStartupEnablesDetailedNixLogs(t *
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
 	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "-v", "-L", "develop", "github:user/env#default", "-c", "bash"}, exec.interactiveCmd)
+}
+
+func TestStartOrAttach_RunningContainer_PreparesNixRegistry(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	registry := &fakeNixRegistryPreparer{}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:        exec,
+		NixRegistry: registry,
+		Status:      func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	assert.Equal(t, []string{"havn-user-project"}, registry.calls)
+	assert.Equal(t, "havn-user-project", exec.interactiveName)
+}
+
+func TestStartOrAttach_RunningContainer_NixRegistryPrepareFailure_Aborts(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:        exec,
+		NixRegistry: &fakeNixRegistryPreparer{err: fmt.Errorf("malformed nix registry data")},
+		Status:      func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	assert.Equal(t, 0, exitCode)
+	assert.ErrorContains(t, err, "prepare nix registry aliases in container \"havn-user-project\"")
+	assert.ErrorContains(t, err, "malformed nix registry data")
+	assert.Empty(t, exec.interactiveName)
 }
 
 func TestStart_RunningContainer_CompletesWithoutInteractiveAttach(t *testing.T) {
