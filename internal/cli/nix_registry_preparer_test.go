@@ -90,6 +90,8 @@ type statefulNixRegistryRuntimeBackend struct {
 	dirs     map[string]struct{}
 	owners   map[string]string
 
+	chownError string
+
 	execCalls []string
 	copyCalls []copyCall
 }
@@ -122,6 +124,20 @@ func (f *statefulNixRegistryRuntimeBackend) ContainerExec(_ context.Context, _ s
 			return docker.ExecResult{ExitCode: 0}, nil
 		}
 		return docker.ExecResult{ExitCode: 1}, nil
+	case strings.HasPrefix(cmd, "test -w '"):
+		filePath, ok := singleQuotedArg(cmd, "test -w ")
+		if !ok {
+			return docker.ExecResult{}, fmt.Errorf("unsupported test command: %s", cmd)
+		}
+		resolved := f.resolvePath(filePath)
+		owner, exists := f.owners[resolved]
+		if !exists {
+			return docker.ExecResult{ExitCode: 1}, nil
+		}
+		if owner == "devuser:devuser" {
+			return docker.ExecResult{ExitCode: 0}, nil
+		}
+		return docker.ExecResult{ExitCode: 1}, nil
 	case strings.HasPrefix(cmd, "cat '"):
 		filePath, ok := singleQuotedArg(cmd, "cat ")
 		if !ok {
@@ -151,6 +167,9 @@ func (f *statefulNixRegistryRuntimeBackend) ContainerExec(_ context.Context, _ s
 		owner, filePath, ok := ownerAndPathArg(cmd)
 		if !ok {
 			return docker.ExecResult{}, fmt.Errorf("unsupported chown command: %s", cmd)
+		}
+		if f.chownError != "" {
+			return docker.ExecResult{ExitCode: 1, Stderr: []byte(f.chownError)}, nil
 		}
 		resolved := f.resolvePath(filePath)
 		if _, exists := f.files[resolved]; !exists {
@@ -285,6 +304,31 @@ func TestNixRegistryPreparer_Prepare_FixesStateRegistryOwnershipAfterWrite(t *te
 	require.True(t, ok)
 	assert.Equal(t, "devuser:devuser", owner)
 	assert.Contains(t, backend.execCalls, "chown devuser:devuser '/home/devuser/.local/state/nix/registry.json'")
+}
+
+func TestNixRegistryPreparer_Prepare_ChownFailsButWritable_Succeeds(t *testing.T) {
+	backend := newStatefulNixRegistryRuntimeBackend()
+	backend.chownError = "chown: changing ownership of '/home/devuser/.local/state/nix/registry.json': Read-only file system"
+	backend.setFile(stateRegistryPath, []byte(`{"version":2,"flakes":[]}`))
+	preparer := nixRegistryPreparer{docker: backend}
+
+	err := preparer.Prepare(context.Background(), "havn-user-project")
+
+	require.NoError(t, err)
+	assert.Equal(t, stateRegistryPath, backend.symlinks[legacyRegistryPath])
+	assert.Contains(t, backend.execCalls, "test -w '/home/devuser/.local/state/nix/registry.json'")
+}
+
+func TestNixRegistryPreparer_Prepare_ChownFailsAndNotWritable_Fails(t *testing.T) {
+	backend := newStatefulNixRegistryRuntimeBackend()
+	backend.chownError = "chown: changing ownership of '/home/devuser/.local/state/nix/registry.json': Operation not permitted"
+	preparer := nixRegistryPreparer{docker: backend}
+
+	err := preparer.Prepare(context.Background(), "havn-user-project")
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "Operation not permitted")
+	assert.ErrorContains(t, err, "not writable by devuser")
 }
 
 func TestNixRegistryPreparer_Prepare_MalformedPersistentState_FailsSafely(t *testing.T) {

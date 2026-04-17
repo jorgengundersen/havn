@@ -84,7 +84,7 @@ func (p nixRegistryPreparer) Prepare(ctx context.Context, containerName string) 
 
 func (p nixRegistryPreparer) ensureStateRegistryOwnership(ctx context.Context, containerName string) error {
 	cmd := []string{"sh", "-c", "chown devuser:devuser " + shellQuote(stateRegistryPath)}
-	result, err := p.docker.ContainerExec(ctx, containerName, docker.ExecOpts{Cmd: cmd})
+	result, err := p.docker.ContainerExec(ctx, containerName, docker.ExecOpts{Cmd: cmd, User: "root"})
 	if err != nil {
 		return fmt.Errorf("set nix registry file ownership for %q in container %q: %w", stateRegistryPath, containerName, err)
 	}
@@ -93,10 +93,37 @@ func (p nixRegistryPreparer) ensureStateRegistryOwnership(ctx context.Context, c
 		if stderr == "" {
 			stderr = fmt.Sprintf("exit code %d", result.ExitCode)
 		}
-		return fmt.Errorf("set nix registry file ownership for %q in container %q: %s", stateRegistryPath, containerName, stderr)
+
+		writable, writableErr := p.fileWritableByDevuser(ctx, containerName, stateRegistryPath)
+		if writableErr != nil {
+			return fmt.Errorf("set nix registry file ownership for %q in container %q: %s (and failed to verify write access for devuser: %w)", stateRegistryPath, containerName, stderr, writableErr)
+		}
+		if writable {
+			return nil
+		}
+		return fmt.Errorf("set nix registry file ownership for %q in container %q: %s (registry is not writable by devuser)", stateRegistryPath, containerName, stderr)
 	}
 
 	return nil
+}
+
+func (p nixRegistryPreparer) fileWritableByDevuser(ctx context.Context, containerName, filePath string) (bool, error) {
+	result, err := p.docker.ContainerExec(ctx, containerName, docker.ExecOpts{Cmd: []string{"sh", "-c", "test -w " + shellQuote(filePath)}, User: "devuser"})
+	if err != nil {
+		return false, fmt.Errorf("check writability for nix registry file %q in container %q: %w", filePath, containerName, err)
+	}
+	if result.ExitCode == 0 {
+		return true, nil
+	}
+	if result.ExitCode == 1 {
+		return false, nil
+	}
+
+	stderr := strings.TrimSpace(string(result.Stderr))
+	if stderr == "" {
+		stderr = fmt.Sprintf("exit code %d", result.ExitCode)
+	}
+	return false, fmt.Errorf("check writability for nix registry file %q in container %q: %s", filePath, containerName, stderr)
 }
 
 func (p nixRegistryPreparer) ensureLegacyRegistrySymlink(ctx context.Context, containerName string) error {
