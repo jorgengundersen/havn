@@ -306,7 +306,7 @@ func TestStartOrAttach_RunningContainer_HomeManagerActivationFailure_AbortsWithG
 	assert.Empty(t, exec.interactiveName)
 }
 
-func TestStart_RunningContainer_CompletesWithoutInteractiveAttach(t *testing.T) {
+func TestStart_RunningContainer_ActivatesHomeManagerWithoutInteractiveAttach(t *testing.T) {
 	ctx := context.Background()
 	exec := &fakeExecBackend{interactiveExitCode: 0}
 	deps := container.StartDeps{
@@ -325,7 +325,9 @@ func TestStart_RunningContainer_CompletesWithoutInteractiveAttach(t *testing.T) 
 
 	require.NoError(t, err)
 	assert.Empty(t, exec.interactiveName)
-	assert.Empty(t, exec.execCalls)
+	require.Len(t, exec.execCalls, 1)
+	assert.Equal(t, "havn-user-project", exec.execCalls[0].name)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "-c", "home-manager", "switch", "--flake", "github:user/env"}, exec.execCalls[0].cmd)
 }
 
 func TestStartOrAttach_NewContainer(t *testing.T) {
@@ -428,7 +430,7 @@ func TestStartOrAttach_NewContainer_ReportsAppliedResourceLimits(t *testing.T) {
 	assert.Contains(t, statusMessages, "Created container havn-user-project with resources cpus=4 memory=8g memory_swap=12g")
 }
 
-func TestStart_NewContainer_StartsAndInitsWithoutInteractiveAttach(t *testing.T) {
+func TestStart_NewContainer_StartsInitsAndActivatesHomeManagerWithoutInteractiveAttach(t *testing.T) {
 	ctx := context.Background()
 	cb := &fakeStartBackend{
 		inspectErr: &container.NotFoundError{Name: "havn-user-project"},
@@ -458,8 +460,11 @@ func TestStart_NewContainer_StartsAndInitsWithoutInteractiveAttach(t *testing.T)
 
 	require.NoError(t, err)
 	assert.Equal(t, "new-123", cb.startedID)
-	require.Len(t, exec.execCalls, 1)
+	require.Len(t, exec.execCalls, 2)
 	assert.Equal(t, "havn-user-project", exec.execCalls[0].name)
+	assert.Equal(t, []string{"sudo", "/usr/sbin/sshd"}, exec.execCalls[0].cmd)
+	assert.Equal(t, "havn-user-project", exec.execCalls[1].name)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "-c", "home-manager", "switch", "--flake", "github:user/env"}, exec.execCalls[1].cmd)
 	assert.Empty(t, exec.interactiveName)
 }
 
@@ -512,7 +517,7 @@ func TestStartOrAttach_StoppedContainer_ReusesExistingResourceLimits(t *testing.
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
 }
 
-func TestStart_StoppedContainer_StartsAndInitsWithoutInteractiveAttach(t *testing.T) {
+func TestStart_StoppedContainer_StartsInitsAndActivatesHomeManagerWithoutInteractiveAttach(t *testing.T) {
 	ctx := context.Background()
 	cb := &fakeStartBackend{
 		inspectState: container.State{ID: "stopped-123", Running: false},
@@ -529,8 +534,11 @@ func TestStart_StoppedContainer_StartsAndInitsWithoutInteractiveAttach(t *testin
 
 	require.NoError(t, err)
 	assert.Equal(t, "stopped-123", cb.startedID)
-	require.Len(t, exec.execCalls, 1)
+	require.Len(t, exec.execCalls, 2)
 	assert.Equal(t, "havn-user-project", exec.execCalls[0].name)
+	assert.Equal(t, []string{"sudo", "/usr/sbin/sshd"}, exec.execCalls[0].cmd)
+	assert.Equal(t, "havn-user-project", exec.execCalls[1].name)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "-c", "home-manager", "switch", "--flake", "github:user/env"}, exec.execCalls[1].cmd)
 	assert.Empty(t, exec.interactiveName)
 }
 

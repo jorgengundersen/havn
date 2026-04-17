@@ -151,11 +151,11 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		if err := prepareNixRegistry(ctx, deps, string(cname)); err != nil {
 			return 0, err
 		}
-		if opts.Mode == StartupModeNoAttach {
-			return 0, nil
-		}
 		if err := activateHomeManager(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
 			return 0, err
+		}
+		if opts.Mode == StartupModeNoAttach {
+			return 0, nil
 		}
 		return attach(ctx, deps.Exec, string(cname), cfg, projectPath, opts)
 	} else {
@@ -170,12 +170,12 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		if err := prepareNixRegistry(ctx, deps, string(cname)); err != nil {
 			return 0, err
 		}
+		if err := activateHomeManager(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
+			return 0, err
+		}
 
 		if opts.Mode == StartupModeNoAttach {
 			return 0, nil
-		}
-		if err := activateHomeManager(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
-			return 0, err
 		}
 		return attach(ctx, deps.Exec, string(cname), cfg, projectPath, opts)
 	}
@@ -210,12 +210,12 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		return 0, err
 	}
 
-	if opts.Mode == StartupModeNoAttach {
-		return 0, nil
-	}
-
 	if err := activateHomeManager(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
 		return 0, err
+	}
+
+	if opts.Mode == StartupModeNoAttach {
+		return 0, nil
 	}
 
 	// Step 10: attach to devShell.
