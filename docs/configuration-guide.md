@@ -90,14 +90,18 @@ project container is created.
 `memory_swap` is config-only today: there is no env var or CLI flag override for
 it.
 
-### Planned Home Manager session activation
+### Home Manager session activation
 
-Home Manager lifecycle integration is planned and command-scoped.
+Home Manager lifecycle integration is command-scoped.
 
-- primary interactive startup (`havn [path]`) is expected to activate Home
-  Manager user configuration as part of session entry
-- plain entry (`havn enter [path]`) is expected to keep plain-shell behavior and
-  provide a documented manual activation path
+- primary interactive startup (`havn [path]`) activates Home Manager user
+  configuration as part of session entry
+- plain entry (`havn enter [path]`) keeps plain-shell behavior and requires
+  manual activation from inside the session using:
+
+  `nix --extra-experimental-features "nix-command flakes" --option keep-build-log true develop <env>#<shell> -c home-manager switch --flake <env>`
+
+  Replace `<env>` and `<shell>` with the resolved values for the project.
 - no new configuration precedence layer is introduced by this lifecycle work;
   precedence remains `flag > env var > project config > global config > built-in default`
 - ad-hoc `nix develop` inside sessions remains supported

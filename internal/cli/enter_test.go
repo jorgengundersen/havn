@@ -34,6 +34,15 @@ func TestEnterCommand_IsRegistered(t *testing.T) {
 	assert.Equal(t, "enter [path]", enterCmd.Use)
 }
 
+func TestEnterCommand_HelpIncludesManualHomeManagerActivationPath(t *testing.T) {
+	root := cli.NewRoot(cli.Deps{})
+	enterCmd, _, err := root.Find([]string{"enter"})
+
+	require.NoError(t, err)
+	assert.Contains(t, enterCmd.Long, "manual Home Manager activation")
+	assert.Contains(t, enterCmd.Long, "home-manager switch --flake")
+}
+
 func TestEnterCommand_ReturnsNotImplemented(t *testing.T) {
 	_, _, err := executeCommand("enter")
 

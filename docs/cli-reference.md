@@ -62,14 +62,19 @@ For retained startup-log investigation and cleanup workflow, see `docs/doctor-tr
 - `havn [path]`: start or attach to the project container
 - `havn --version`: print CLI version
 
-Planned session-lifecycle direction for startup and entry:
+Home Manager session-lifecycle behavior for startup and entry:
 
-- primary interactive startup (`havn [path]`) should activate Home Manager user
+- primary interactive startup (`havn [path]`) activates Home Manager user
   configuration before handing control to the shell
-- `havn up [path]` should remain lifecycle-only and non-interactive; Home
-  Manager integration should preserve that no-attach contract
-- `havn enter [path]` should remain plain-shell entry and expose a documented
-  manual Home Manager activation path
+- `havn up [path]` remains lifecycle-only and non-interactive while running the
+  same Home Manager activation lifecycle step
+- `havn enter [path]` remains plain-shell entry and does not auto-activate Home
+  Manager; run this manually from inside the entered session:
+
+  `nix --extra-experimental-features "nix-command flakes" --option keep-build-log true develop <env>#<shell> -c home-manager switch --flake <env>`
+
+  Replace `<env>` and `<shell>` with the project's resolved values from
+  configuration precedence.
 - ad-hoc `nix develop` usage from entered sessions remains supported
 
 Normative behavior and scope live in `specs/cli-framework.md`.
@@ -134,7 +139,5 @@ Root startup resource behavior:
 ## Current partial-support gaps
 
 - `havn config show` currently publishes source provenance for core scalar/resource/Dolt fields, but not for every effective-config field in the output
-- Home Manager session lifecycle integration is currently planned direction, not
-  shipped behavior
 
 When this guide and a spec disagree, follow the relevant spec in `specs/`.
