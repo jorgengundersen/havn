@@ -108,3 +108,17 @@ func TestEnterCommand_PathDefaultsToDot(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, projectPath, svc.lastProject)
 }
+
+func TestEnterCommand_NixRegistryPrepareFailureIsWrapped(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := &fakeEnterService{err: assert.AnError}
+	_, _, err := executeCommandWithDeps(cli.Deps{EnterService: svc}, "enter", projectPath)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "havn enter:")
+	assert.ErrorIs(t, err, assert.AnError)
+}
