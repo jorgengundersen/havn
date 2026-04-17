@@ -30,6 +30,19 @@ func TestValidate_EnvironmentReservedKeyRejected(t *testing.T) {
 	assert.Equal(t, "environment.SSH_AUTH_SOCK", valErr.Field)
 }
 
+func TestValidate_EnvironmentNixConfigReservedKeyRejected(t *testing.T) {
+	cfg := config.Default()
+	cfg.Environment = map[string]string{
+		"NIX_CONFIG": "flake-registry = /tmp/registry.json",
+	}
+
+	err := config.Validate(cfg)
+
+	var valErr *config.ValidationError
+	require.ErrorAs(t, err, &valErr)
+	assert.Equal(t, "environment.NIX_CONFIG", valErr.Field)
+}
+
 func TestValidate_EnvironmentUnsetPassthroughRejected(t *testing.T) {
 	cfg := config.Default()
 	cfg.Environment = map[string]string{

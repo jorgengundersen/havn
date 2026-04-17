@@ -37,7 +37,7 @@ func (s dockerStartService) StartOrAttach(ctx context.Context, cfg config.Config
 		Mount:       hostMountResolver{},
 		Dolt:        dolt.NewSetup(dolt.NewManager(doltBackend), doltBackend),
 		Exec:        startBackend,
-		NixRegistry: nixRegistryPreparer(s),
+		NixRegistry: nixRegistryPreparer{docker: s.docker},
 		PortChecker: hostPortChecker{},
 		Status:      status,
 	}

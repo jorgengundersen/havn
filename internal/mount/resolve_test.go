@@ -208,6 +208,15 @@ func TestResolve_NamedVolumes(t *testing.T) {
 	}
 }
 
+func TestResolve_SetsNixRegistryRuntimeEnv(t *testing.T) {
+	cfg := config.Default()
+
+	result, err := mount.Resolve(cfg, "/projects/api", "/home/user", noopOpts())
+
+	require.NoError(t, err)
+	assert.Equal(t, "flake-registry = /home/devuser/.local/state/nix/registry.json", result.Env["NIX_CONFIG"])
+}
+
 func TestResolve_ProjectDirectoryAlwaysPresent(t *testing.T) {
 	cfg := config.Default()
 	result, err := mount.Resolve(cfg, "/home/user/projects/api", "/home/user", noopOpts())

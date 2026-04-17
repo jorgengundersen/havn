@@ -9,7 +9,7 @@ import (
 var passthroughValueRe = regexp.MustCompile(`^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$`)
 
 func isReservedRuntimeEnvKey(key string) bool {
-	if key == "SSH_AUTH_SOCK" {
+	if key == "SSH_AUTH_SOCK" || key == "NIX_CONFIG" {
 		return true
 	}
 	return len(key) >= len("BEADS_DOLT_") && key[:len("BEADS_DOLT_")] == "BEADS_DOLT_"

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"path"
 	"strings"
 
@@ -12,12 +13,18 @@ import (
 )
 
 type nixRegistryPreparer struct {
-	docker *docker.Client
+	docker nixRegistryRuntimeBackend
+}
+
+type nixRegistryRuntimeBackend interface {
+	ContainerExec(ctx context.Context, nameOrID string, opts docker.ExecOpts) (docker.ExecResult, error)
+	CopyToContainer(ctx context.Context, nameOrID string, dstPath string, tarStream io.Reader) error
 }
 
 const (
 	stateRegistryPath    = "/home/devuser/.local/state/nix/registry.json"
 	legacyRegistryPath   = "/home/devuser/.config/nix/registry.json"
+	nixUserConfigDir     = "/home/devuser/.config/nix"
 	emptyRegistryContent = `{"version":2,"flakes":[]}`
 )
 
@@ -51,11 +58,12 @@ func (p nixRegistryPreparer) Prepare(ctx context.Context, containerName string) 
 		changed = changed || mergeChanged
 	}
 
-	if !registryExists && !legacyExists {
-		return nil
+	if !registryExists {
+		changed = true
 	}
+
 	if !changed {
-		return nil
+		return p.ensureLegacyRegistrySymlink(ctx, containerName)
 	}
 
 	if err := p.ensureDirectory(ctx, containerName, path.Dir(stateRegistryPath)); err != nil {
@@ -63,6 +71,27 @@ func (p nixRegistryPreparer) Prepare(ctx context.Context, containerName string) 
 	}
 	if err := p.writeFile(ctx, containerName, stateRegistryPath, registryData); err != nil {
 		return err
+	}
+
+	return p.ensureLegacyRegistrySymlink(ctx, containerName)
+}
+
+func (p nixRegistryPreparer) ensureLegacyRegistrySymlink(ctx context.Context, containerName string) error {
+	if err := p.ensureDirectory(ctx, containerName, nixUserConfigDir); err != nil {
+		return err
+	}
+
+	cmd := []string{"sh", "-c", "ln -sfn " + shellQuote(stateRegistryPath) + " " + shellQuote(legacyRegistryPath)}
+	result, err := p.docker.ContainerExec(ctx, containerName, docker.ExecOpts{Cmd: cmd})
+	if err != nil {
+		return fmt.Errorf("wire nix registry symlink %q -> %q in container %q: %w", legacyRegistryPath, stateRegistryPath, containerName, err)
+	}
+	if result.ExitCode != 0 {
+		stderr := strings.TrimSpace(string(result.Stderr))
+		if stderr == "" {
+			stderr = fmt.Sprintf("exit code %d", result.ExitCode)
+		}
+		return fmt.Errorf("wire nix registry symlink %q -> %q in container %q: %s", legacyRegistryPath, stateRegistryPath, containerName, stderr)
 	}
 
 	return nil

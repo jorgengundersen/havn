@@ -30,8 +30,10 @@ func Resolve(cfg config.Config, projectPath, homeDir string, opts ResolveOpts) (
 	}
 	mounts = append(mounts, configMounts...)
 
-	// 3. SSH agent forwarding.
-	env := make(map[string]string)
+	// 3. Runtime environment and SSH agent forwarding.
+	env := map[string]string{
+		"NIX_CONFIG": "flake-registry = " + nixRegistryPath,
+	}
 	sshMounts := resolveSSHMounts(cfg.Mounts.SSH, homeDir, opts)
 	mounts = append(mounts, sshMounts.Mounts...)
 	for k, v := range sshMounts.Env {
@@ -53,7 +55,10 @@ func Resolve(cfg config.Config, projectPath, homeDir string, opts ResolveOpts) (
 	}, nil
 }
 
-const containerHome = "/home/devuser"
+const (
+	containerHome   = "/home/devuser"
+	nixRegistryPath = "/home/devuser/.local/state/nix/registry.json"
+)
 
 // parseConfigEntry splits a "path:mode" entry and validates the mode.
 func parseConfigEntry(entry string) (path, mode string, err error) {
