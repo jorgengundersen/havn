@@ -141,6 +141,14 @@ Each project gets its own container. Project containers:
 - share the configured Nix and XDG volumes
 - optionally receive shared-Dolt connectivity env vars
 
+Startup resource behavior at overview level:
+
+- resource limits are sticky per project container instance
+- reusing an existing running or stopped container keeps its existing limits
+- recreating a missing project container applies the startup-effective resource
+  config (defaulting to 4 CPUs, `8g` memory, and `12g` memory+swap when no
+  overrides are provided)
+
 ### Shared Dolt mode
 
 When enabled for a project, `havn` uses one shared `havn-dolt` container for

@@ -137,6 +137,14 @@ havn [flags] [path]
 - successful interactive attach exits with the shell session's exit code
 - startup failure exits through normal CLI error handling
 
+For startup runtime resource flags (`--cpus`, `--memory`):
+
+- values apply when creating a new project container for the resolved path
+- values do not retroactively mutate an existing project container that is
+  being reused (running or stopped)
+- applied limits for a newly created container must be visible at create time in
+  container metadata/inspection surfaces
+
 The root command is the only implemented startup entry point today. Planned
 `havn up [path]` shares startup runtime flags except `--shell`.
 

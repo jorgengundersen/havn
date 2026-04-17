@@ -111,6 +111,25 @@ project config, environment, or flags.
 - Commands that do not accept a given runtime flag do not participate in that
   override surface.
 
+### Startup resource application semantics
+
+For startup commands (`havn [path]` and planned `havn up [path]`), resource
+limits are container-scoped at creation time:
+
+- If the resolved project container already exists (running or stopped), startup
+  reuses that container and keeps its existing resource limits.
+- New resource values from current config/env/flags do not mutate an existing
+  project container during reuse.
+- If the project container does not exist and startup creates it, resource
+  limits come from the effective startup config for that invocation.
+- When no custom resource overrides are supplied for creation,
+  `resources.cpus=4`, `resources.memory="8g"`, and
+  `resources.memory_swap="12g"` are applied.
+
+Applied create-time resource limits must be observable immediately in container
+metadata at creation time (for example via Docker inspect metadata and
+havn-managed labels), not only after later lifecycle operations.
+
 ## Merge Semantics
 
 ### Scalars
