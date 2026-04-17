@@ -75,7 +75,7 @@ Resolution order is:
 
 ### Startup resources: precedence and stickiness
 
-For startup commands (`havn [path]`, and planned `havn up [path]`), resource
+For startup commands (`havn [path]` and `havn up [path]`), resource
 values are resolved from the normal precedence chain and applied only when a
 project container is created.
 
@@ -89,6 +89,21 @@ project container is created.
 
 `memory_swap` is config-only today: there is no env var or CLI flag override for
 it.
+
+### Planned Home Manager session activation
+
+Home Manager lifecycle integration is planned and command-scoped.
+
+- primary interactive startup (`havn [path]`) is expected to activate Home
+  Manager user configuration as part of session entry
+- plain entry (`havn enter [path]`) is expected to keep plain-shell behavior and
+  provide a documented manual activation path
+- no new configuration precedence layer is introduced by this lifecycle work;
+  precedence remains `flag > env var > project config > global config > built-in default`
+- ad-hoc `nix develop` inside sessions remains supported
+
+Normative behavior for this area lives in `specs/configuration.md` and
+`specs/cli-framework.md`.
 
 #### Reuse vs recreate at a glance
 
@@ -289,6 +304,8 @@ broad host-global side effects.
 
 - `havn config show` does not yet expose every provenance detail for all returned fields; the stable `source` map currently focuses on core scalar/resource and Dolt fields
 - `havn config show` currently reflects startup-style effective config without command-local runtime override flags on `config show` itself
+- Home Manager session lifecycle integration is currently planned direction and
+  not yet reflected in shipped runtime behavior
 
 When this guide and the configuration spec disagree, follow
 `specs/configuration.md`.

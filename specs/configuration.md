@@ -99,9 +99,9 @@ project config, environment, or flags.
 
 - `havn [path]` accepts startup runtime flags `--shell`, `--env`, `--cpus`,
   `--memory`, `--port`, `--no-dolt`, and `--image`.
-- Planned `havn up [path]` accepts the same startup runtime overrides except
+- `havn up [path]` accepts the same startup runtime overrides except
   `--shell`.
-- For `havn [path]` startup and planned `havn up [path]` startup, the resolved
+- For `havn [path]` startup and `havn up [path]` startup, the resolved
   project path must be under the user's home directory.
 - `havn build` may honor `--image` and `--config` because they affect build-time
   image selection.
@@ -111,9 +111,23 @@ project config, environment, or flags.
 - Commands that do not accept a given runtime flag do not participate in that
   override surface.
 
+### Home Manager session activation (Planned)
+
+Home Manager lifecycle integration is command-scoped behavior, not a separate
+global config source.
+
+- primary interactive startup (`havn [path]`) should activate Home Manager user
+  configuration as part of session entry
+- plain entry (`havn enter [path]`) should keep plain-shell semantics and expose
+  a documented manual activation path
+- no new precedence layer is introduced by Home Manager activation; existing
+  precedence remains `flag > env > project > global > default`
+- ad-hoc `nix develop` inside sessions remains supported; activation must not
+  invalidate existing `env` and `shell` resolution semantics
+
 ### Startup resource application semantics
 
-For startup commands (`havn [path]` and planned `havn up [path]`), resource
+For startup commands (`havn [path]` and `havn up [path]`), resource
 limits are container-scoped at creation time:
 
 - If the resolved project container already exists (running or stopped), startup
@@ -160,7 +174,7 @@ This rule applies to:
 - `mounts.ssh.authorized_keys`
 - `dolt.enabled`
 
-`--no-dolt` is a startup runtime override for `havn [path]` and planned
+`--no-dolt` is a startup runtime override for `havn [path]` and
 `havn up [path]` that forces the effective value of `dolt.enabled` to `false`
 for that startup invocation.
 

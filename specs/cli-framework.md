@@ -15,6 +15,7 @@ This spec owns:
 - flag scope terminology
 - stream separation and output modes
 - startup logging mode boundaries for root startup
+- session-entry lifecycle boundaries for Home Manager activation
 - JSON contract ownership at the CLI boundary
 - CLI error formatting and exit-code rules
 
@@ -60,7 +61,7 @@ havn
 | Surface | Status |
 |------|------|
 | `havn [path]` | Implemented |
-| `havn up [path]` | Planned |
+| `havn up [path]` | Implemented |
 | `havn enter [path]` | Implemented |
 | `havn list` | Implemented |
 | `havn stop` | Implemented |
@@ -93,7 +94,7 @@ These are the only global flags.
 Startup runtime flags are non-persistent flags used by startup-oriented command
 surfaces.
 
-Shared startup runtime flags (accepted by `havn [path]` and planned
+Shared startup runtime flags (accepted by `havn [path]` and
 `havn up [path]`) are:
 
 - `--env <flake-ref>`
@@ -107,7 +108,7 @@ Attach-only startup runtime flag:
 
 - `--shell <name>` (accepted by `havn [path]` only)
 
-Planned `havn up [path]` must not accept `--shell` because `up` does not attach
+`havn up [path]` must not accept `--shell` because `up` does not attach
 to an interactive shell session.
 
 `havn build` may also honor `--image` because build-time image selection is part
@@ -145,7 +146,7 @@ For startup runtime resource flags (`--cpus`, `--memory`):
 - applied limits for a newly created container must be visible at create time in
   container metadata/inspection surfaces
 
-The root command is the only implemented startup entry point today. Planned
+`havn [path]` and `havn up [path]` are implemented startup entry points.
 `havn up [path]` shares startup runtime flags except `--shell`.
 
 ### Startup and entry workflow split
@@ -156,8 +157,7 @@ The root command is the only implemented startup entry point today. Planned
 - `havn up [path]`: lifecycle startup without interactive attach
 - `havn enter [path]`: interactive plain `bash` entry without `nix develop`
 
-`havn up [path]` is a planned surface. The root command and
-`havn enter [path]` are implemented.
+`havn [path]`, `havn up [path]`, and `havn enter [path]` are implemented.
 
 `havn enter [path]` returns an actionable CLI error for missing or stopped
 project containers that includes `havn up <path>` guidance.
@@ -165,6 +165,20 @@ project containers that includes `havn up <path>` guidance.
 Before plain-shell attach, `havn enter [path]` performs the same in-container
 Nix registry persistence preparation as startup-oriented entry, so users do not
 need to run startup first solely for registry alias persistence.
+
+### Home Manager session lifecycle (Planned)
+
+Home Manager integration is a planned extension of the startup/entry split.
+
+- `havn [path]` is the primary interactive flow and should perform Home Manager
+  user-configuration activation before presenting the session shell
+- `havn up [path]` stays non-interactive and should not attach or prompt; any
+  Home Manager activation tied to `up` must preserve that non-interactive
+  contract
+- `havn enter [path]` remains plain-shell entry and should offer a documented
+  manual activation path rather than silently changing plain-entry semantics
+- ad-hoc `nix develop` usage from an entered session remains valid and must not
+  be blocked by Home Manager lifecycle orchestration
 
 ### Startup logging contract
 

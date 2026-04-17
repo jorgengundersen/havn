@@ -45,10 +45,19 @@ environment comes from the selected Nix flake and shell.
 At overview level, the user-facing workflow split is:
 
 - `havn [path]` (implemented): start or attach, then enter the configured Nix dev shell
-- `havn up [path]` (planned): lifecycle startup only (no interactive attach)
+- `havn up [path]` (implemented): lifecycle startup only (no interactive attach)
 - `havn enter [path]` (implemented): plain interactive shell entry (`bash`) without automatic `nix develop`
 
-Planned `havn up [path]` uses the same startup override surface as
+Planned session-lifecycle direction for this split:
+
+- primary interactive startup (`havn [path]`) is the default session entry and should
+  activate Home Manager user configuration before handing control to the shell
+- `havn enter [path]` remains plain-shell entry, but should expose a documented,
+  low-friction manual Home Manager activation path inside the running session
+- ad-hoc `nix develop` from inside entered sessions remains supported; Home Manager
+  integration must not remove that workflow
+
+`havn up [path]` uses the same startup override surface as
 `havn [path]` for `--env`, `--cpus`, `--memory`, `--port`, `--no-dolt`, and
 `--image`. `--shell` remains exclusive to `havn [path]` because `up` does not
 start an interactive shell session.
@@ -81,7 +90,7 @@ At overview level, startup works like this:
 5. otherwise ensure shared prerequisites exist and start the project container
 6. exec into the configured dev shell
 
-Planned `havn up [path]` runs the same startup orchestration through step 5 and
+`havn up [path]` runs the same startup orchestration through step 5 and
 then exits without entering a shell.
 
 On successful attach, the root command exits with the shell session's exit code.

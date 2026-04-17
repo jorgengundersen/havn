@@ -62,6 +62,18 @@ For retained startup-log investigation and cleanup workflow, see `docs/doctor-tr
 - `havn [path]`: start or attach to the project container
 - `havn --version`: print CLI version
 
+Planned session-lifecycle direction for startup and entry:
+
+- primary interactive startup (`havn [path]`) should activate Home Manager user
+  configuration before handing control to the shell
+- `havn up [path]` should remain lifecycle-only and non-interactive; Home
+  Manager integration should preserve that no-attach contract
+- `havn enter [path]` should remain plain-shell entry and expose a documented
+  manual Home Manager activation path
+- ad-hoc `nix develop` usage from entered sessions remains supported
+
+Normative behavior and scope live in `specs/cli-framework.md`.
+
 Root startup resource behavior:
 
 - `--cpus` and `--memory` apply when creating a new project container
@@ -73,6 +85,8 @@ Root startup resource behavior:
 
 ### Core commands
 
+- `havn up [path]`: run lifecycle startup without interactive attach
+- `havn enter [path]`: enter a running project container with plain `bash`
 - `havn list`: list havn-managed project containers
 - `havn stop [name|path]`: stop one project container
 - `havn stop --all`: stop all running havn-managed project containers with
@@ -106,6 +120,8 @@ Root startup resource behavior:
 | Command | Status | Notes |
 |---|---|---|
 | `havn [path]` | Implemented | Start-or-attach entry point |
+| `havn up [path]` | Implemented | Lifecycle startup without attach; contract owned by `specs/cli-framework.md` |
+| `havn enter [path]` | Implemented | Plain `bash` entry for running project containers |
 | `havn list` | Implemented | Human and JSON output |
 | `havn stop` | Implemented | Single stop and `--all` best-effort behavior |
 | `havn build` | Implemented | Base-image build surface |
@@ -118,5 +134,7 @@ Root startup resource behavior:
 ## Current partial-support gaps
 
 - `havn config show` currently publishes source provenance for core scalar/resource/Dolt fields, but not for every effective-config field in the output
+- Home Manager session lifecycle integration is currently planned direction, not
+  shipped behavior
 
 When this guide and a spec disagree, follow the relevant spec in `specs/`.
