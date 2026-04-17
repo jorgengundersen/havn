@@ -13,8 +13,9 @@ type EnterContainerBackend interface {
 
 // EnterDeps aggregates dependencies for plain-shell container entry.
 type EnterDeps struct {
-	Container EnterContainerBackend
-	Exec      ExecBackend
+	Container   EnterContainerBackend
+	Exec        ExecBackend
+	NixRegistry NixRegistryPreparer
 }
 
 // Enter attaches to a running project container with a plain bash shell.
@@ -34,6 +35,11 @@ func Enter(ctx context.Context, deps EnterDeps, projectPath string) (int, error)
 	}
 	if !state.Running {
 		return 0, &EnterContainerNotRunningError{Name: string(cname), ProjectPath: projectPath, State: "stopped"}
+	}
+	if deps.NixRegistry != nil {
+		if err := deps.NixRegistry.Prepare(ctx, string(cname)); err != nil {
+			return 0, fmt.Errorf("prepare nix registry aliases in container %q: %w", cname, err)
+		}
 	}
 
 	return deps.Exec.ContainerExecInteractive(ctx, string(cname), []string{"bash"}, projectPath)

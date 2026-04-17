@@ -22,7 +22,11 @@ type dockerEnterService struct {
 
 func (s dockerEnterService) Enter(ctx context.Context, projectPath string) (int, error) {
 	backend := dockerStartBackend(s)
-	return container.Enter(ctx, container.EnterDeps{Container: backend, Exec: backend}, projectPath)
+	return container.Enter(ctx, container.EnterDeps{
+		Container:   backend,
+		Exec:        backend,
+		NixRegistry: nixRegistryPreparer{docker: s.docker},
+	}, projectPath)
 }
 
 func newEnterCmd(service EnterService) *cobra.Command {
