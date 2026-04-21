@@ -116,6 +116,10 @@ project config, environment, or flags.
 Environment startup preparation is command-scoped behavior, not a separate
 configuration source.
 
+The interface contract for this capability is ratified at `Status: Partial` in
+`specs/environment-interface.md`; any remaining drift is runtime-alignment
+follow-up, not planned contract definition.
+
 - The optional startup preparation capability entrypoint is owned by
   `specs/environment-interface.md`.
 - `havn [path]` and `havn up [path]` evaluate startup preparation behavior after

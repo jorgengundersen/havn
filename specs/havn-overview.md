@@ -54,6 +54,8 @@ Environment startup-preparation contract for this split:
 
 - startup preparation is environment-owned via optional capability entrypoint
   defined in `specs/environment-interface.md`
+- the environment-interface contract is ratified at `Status: Partial`; any
+  remaining gaps are runtime-alignment follow-up
 - primary interactive startup (`havn [path]`) runs preparation when available
   and is fail-closed if that prepare step runs and fails
 - `havn up [path]` runs the same preparation step when available, remains

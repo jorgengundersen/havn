@@ -4,6 +4,9 @@ This is a derivative guide for environment authors.
 
 For normative behavior, use `specs/environment-interface.md`.
 
+Status alignment: the authoritative interface contract is ratified at
+`Status: Partial`; remaining gaps are runtime-alignment work.
+
 Goal: keep orchestration (`havn`) and environment definitions independent, with
 clear and portable integration points.
 

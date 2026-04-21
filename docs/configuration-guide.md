@@ -305,8 +305,9 @@ broad host-global side effects.
 
 - `havn config show` does not yet expose every provenance detail for all returned fields; the stable `source` map currently focuses on core scalar/resource and Dolt fields
 - `havn config show` currently reflects startup-style effective config without command-local runtime override flags on `config show` itself
-- Environment startup-preparation capability contract is defined, but full
-  runtime alignment is planned and tracked by implementation work
+- Environment startup-preparation capability contract is ratified (`Status:
+  Partial` in `specs/environment-interface.md`), and full runtime alignment
+  remains tracked by implementation work
 
 When this guide and the configuration spec disagree, follow
 `specs/configuration.md`.

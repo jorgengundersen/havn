@@ -77,6 +77,9 @@ Environment startup-preparation behavior for startup and entry:
 Normative behavior and scope live in `specs/cli-framework.md` and
 `specs/environment-interface.md`.
 
+The environment-interface contract itself is already ratified at
+`Status: Partial`; current gaps in command behavior are runtime alignment.
+
 Root startup resource behavior:
 
 - `--cpus` and `--memory` apply when creating a new project container

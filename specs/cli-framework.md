@@ -171,6 +171,9 @@ need to run startup first solely for registry alias persistence.
 Startup preparation is environment-owned and capability-driven. The capability
 entrypoint is defined by `specs/environment-interface.md`.
 
+The environment-interface contract is ratified at `Status: Partial`; remaining
+gaps for this behavior are runtime-alignment work, not contract-planning work.
+
 - `havn [path]` runs the optional prepare capability when present before shell
   handoff. If the prepare command runs and fails, `havn` exits non-zero and
   must not attach to an interactive shell.
