@@ -3,10 +3,13 @@
 This is the authoritative contract for how a Nix flake environment integrates
 with `havn`.
 
-Status: Planned
+Status: Partial
 
-`Planned` means this contract is accepted into the spec corpus but is not yet
-fully shipped in runtime behavior.
+Status progression for this contract is `Planned` -> `Partial` ->
+`Implemented`.
+
+`Partial` means this contract is authoritative and ratified, but runtime
+alignment is still in progress and tracked separately from ratification.
 
 ## Ownership
 
@@ -49,6 +52,9 @@ An environment may expose:
 
 This optional app is the environment-owned startup preparation hook. Typical
 uses include Home Manager activation or environment-local session bootstrap.
+
+For v1, the capability name `apps.<system>.havn-session-prepare` is reserved
+and stable.
 
 When missing, the capability is treated as not provided and startup continues.
 
@@ -97,6 +103,8 @@ entrypoint when present.
 - Renaming or removing required entrypoints is breaking.
 - Changing behavior for missing optional capabilities from "skip" to "fail"
   is breaking.
+- Ratification closes at `Partial`; full runtime parity is tracked as
+  implementation follow-up work.
 
 ## Relationship to other specs
 
