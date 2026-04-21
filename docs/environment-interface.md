@@ -112,4 +112,20 @@ failure.
   - optional prepare hook success
   - optional prepare hook failure
 
+### Optional cross-repo smoke checks
+
+The repository also provides a manual smoke workflow at
+`.github/workflows/smoke-cross-repo.yml` for checking external environment
+repositories against this contract.
+
+- It is intentionally non-authoritative and does not replace fixture-backed
+  contract tests.
+- It is manually triggered (`workflow_dispatch`) and therefore does not run on
+  every push or pull request.
+- Required merge checks remain `quality-gates`, `integration-tests`, and
+  `boundary-confidence` from `.github/workflows/ci.yml`.
+- Use smoke results as compatibility signals only; when smoke and fixture tests
+  disagree, follow `specs/environment-interface.md` and fix authoritative tests
+  first.
+
 If this guide and specs differ, specs win.

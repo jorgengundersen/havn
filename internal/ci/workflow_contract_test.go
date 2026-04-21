@@ -15,8 +15,9 @@ type ciWorkflow struct {
 }
 
 type workflowJob struct {
-	Needs string         `yaml:"needs"`
-	Steps []workflowStep `yaml:"steps"`
+	Needs           string         `yaml:"needs"`
+	ContinueOnError bool           `yaml:"continue-on-error"`
+	Steps           []workflowStep `yaml:"steps"`
 }
 
 type workflowStep struct {
@@ -43,7 +44,13 @@ func (w ciWorkflow) requiredJob(t *testing.T, name string) workflowJob {
 
 func requireCIWorkflow(t *testing.T) ciWorkflow {
 	t.Helper()
-	workflowPath := filepath.Join("..", "..", ".github", "workflows", "ci.yml")
+	return requireWorkflow(t, "ci.yml")
+
+}
+
+func requireWorkflow(t *testing.T, fileName string) ciWorkflow {
+	t.Helper()
+	workflowPath := filepath.Join("..", "..", ".github", "workflows", fileName)
 
 	content, err := os.ReadFile(workflowPath)
 	require.NoError(t, err)

@@ -26,3 +26,17 @@ func TestCIWorkflow_CoreAndIntegrationJobsConfigured(t *testing.T) {
 	assert.Contains(t, boundaryConfidenceJob.runCommands(), "docker info")
 	assert.Contains(t, boundaryConfidenceJob.runCommands(), "make test-boundary-confidence")
 }
+
+func TestSmokeWorkflow_ManualNonAuthoritativeCrossRepoValidation(t *testing.T) {
+	workflow := requireWorkflow(t, "smoke-cross-repo.yml")
+
+	assert.Contains(t, workflow.On, "workflow_dispatch")
+	assert.NotContains(t, workflow.On, "push")
+	assert.NotContains(t, workflow.On, "pull_request")
+
+	smokeJob := workflow.requiredJob(t, "cross-repo-smoke")
+	assert.True(t, smokeJob.ContinueOnError)
+	runCommands := smokeJob.runCommands()
+	require.NotEmpty(t, runCommands)
+	assert.Contains(t, runCommands[0], "nix eval \"$ref#devShells.${system}.default.drvPath\" >/dev/null")
+}

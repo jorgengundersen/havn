@@ -1,0 +1,39 @@
+name: smoke-cross-repo
+
+on:
+  workflow_dispatch:
+    inputs:
+      flake_refs:
+        description: "Newline-separated external flake refs to smoke-check"
+        required: true
+        type: string
+
+jobs:
+  cross-repo-smoke:
+    name: cross-repo-smoke
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: install-nix
+        uses: cachix/install-nix-action@v31
+
+      - name: smoke-check-external-environments
+        run: |
+          set -euo pipefail
+          system="$(nix eval --impure --raw --expr builtins.currentSystem)"
+
+          while IFS= read -r ref; do
+            if [ -z "$ref" ]; then
+              continue
+            fi
+
+            echo "smoke-checking $ref on ${system}"
+            nix eval "$ref#devShells.${system}.default.drvPath" >/dev/null
+
+            if nix eval "$ref#apps.${system}.havn-session-prepare.program" >/dev/null 2>&1; then
+              echo "running optional havn-session-prepare for $ref"
+              nix run "$ref#havn-session-prepare"
+            else
+              echo "optional havn-session-prepare not provided for $ref"
+            fi
+          done <<< "${{ inputs.flake_refs }}"
