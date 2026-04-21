@@ -18,11 +18,12 @@ Only Go is required. All tool dependencies are pinned in `go.mod` via the
 | `make fmt-check` | `gofmt -l .` + `go tool gci list ...` | Validate formatting without rewriting files |
 | `make lint` | `go tool golangci-lint run` | Static analysis (see `.golangci.yml`) |
 | `make test` | `go test ./...` | Unit tests |
+| `make test-contract-matrix` | Contract scenarios in `internal/container` and `internal/cli` | Authoritative environment-interface matrix gate |
 | `make test-integration` | `go test -tags integration ./...` | Integration tests (may need Docker) |
 | `make test-boundary-confidence` | CLI binary contract + doctor CLI behavior + shared Dolt integration subset | Boundary-confidence suites for shipped behavior |
 | `make build` | `go build -o bin/havn ./cmd/havn` | Compile binary to `bin/` |
 | `make install` | `go install ./cmd/havn/` | Install to `$GOBIN` / `$GOPATH/bin` |
-| `make check` | fmt-check + lint + test + build | Full quality gate on the committed tree |
+| `make check` | fmt-check + lint + test-contract-matrix + test + build | Full quality gate on the committed tree |
 | `make clean` | `rm -rf bin/` | Remove build artifacts |
 
 ## Git hooks
