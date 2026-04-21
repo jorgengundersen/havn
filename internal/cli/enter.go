@@ -34,9 +34,8 @@ func newEnterCmd(service EnterService) *cobra.Command {
 		Use:   "enter [path]",
 		Short: "Enter running container without nix develop",
 		Long: "Enter a running project container with plain bash.\n\n" +
-			"Home Manager is not activated automatically by `havn enter`. " +
-			"For manual Home Manager activation from inside the entered session, run:\n\n" +
-			"  nix --extra-experimental-features \"nix-command flakes\" --option keep-build-log true develop <env>#<shell> -c home-manager switch --flake <env>",
+			"`havn enter` does not run startup preparation automatically. " +
+			"Startup preparation is the optional `havn-session-prepare` capability used by `havn` and `havn up`.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if service == nil {
