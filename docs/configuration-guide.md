@@ -247,9 +247,9 @@ Source labels are `default`, `global`, `project`, `env`, and `flag`.
 
 ## Persistent Nix alias workflow in havn
 
-If your `env` points at a remote flake (for example
-`github:jorgengundersen/dev-environments?dir=environments/default`), the
-supported shortcut is to manage aliases from inside havn sessions.
+If your `env` points at a project-local flake (for example
+`path:./.havn/environments/default`), the supported shortcut is to manage
+aliases from inside havn sessions.
 
 ### Why this workflow
 
@@ -265,7 +265,7 @@ supported shortcut is to manage aliases from inside havn sessions.
 2. add the alias inside that session:
 
 ```bash
-nix registry add flake:devenv "github:jorgengundersen/dev-environments?dir=environments/default"
+nix registry add flake:devenv "path:./.havn/environments/default"
 ```
 
 3. use it normally:
