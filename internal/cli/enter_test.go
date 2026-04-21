@@ -74,6 +74,21 @@ func TestEnterCommand_CallsServiceWithResolvedPath(t *testing.T) {
 	assert.Equal(t, projectPath, svc.lastProject)
 }
 
+func TestEnterCommand_DoesNotInvokeStartupLifecycle(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	startSvc := &fakeStartService{}
+	enterSvc := &fakeEnterService{}
+	_, _, err := executeCommandWithDeps(cli.Deps{StartService: startSvc, EnterService: enterSvc}, "enter", projectPath)
+
+	require.NoError(t, err)
+	assert.True(t, enterSvc.called)
+	assert.False(t, startSvc.called)
+}
+
 func TestEnterCommand_DoesNotAcceptStartupRuntimeFlags(t *testing.T) {
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
