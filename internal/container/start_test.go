@@ -94,6 +94,7 @@ func (f *fakeDoltSetup) MigrationNotice(_ context.Context, _ config.Config, _ st
 type fakeExecBackend struct {
 	execCalls []execCall
 	execErr   error
+	execFn    func(name string, cmd []string) error
 
 	interactiveExitCode int
 	interactiveErr      error
@@ -127,8 +128,22 @@ type execCall struct {
 	cmd  []string
 }
 
+func cmdHasToken(cmd []string, token string) bool {
+	for _, value := range cmd {
+		if value == token {
+			return true
+		}
+	}
+	return false
+}
+
 func (f *fakeExecBackend) ContainerExec(_ context.Context, name string, cmd []string) error {
 	f.execCalls = append(f.execCalls, execCall{name: name, cmd: cmd})
+	if f.execFn != nil {
+		if err := f.execFn(name, cmd); err != nil {
+			return err
+		}
+	}
 	return f.execErr
 }
 
@@ -234,7 +249,7 @@ func TestStartOrAttach_RunningContainer_PreparesNixRegistry(t *testing.T) {
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
 }
 
-func TestStartOrAttach_RunningContainer_ActivatesHomeManagerBeforeAttach(t *testing.T) {
+func TestStartOrAttach_RunningContainer_PreparesStartupSessionBeforeAttach(t *testing.T) {
 	ctx := context.Background()
 	exec := &fakeExecBackend{interactiveExitCode: 0}
 	deps := container.StartDeps{
@@ -253,9 +268,11 @@ func TestStartOrAttach_RunningContainer_ActivatesHomeManagerBeforeAttach(t *test
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
-	require.Len(t, exec.execCalls, 1)
+	require.Len(t, exec.execCalls, 2)
 	assert.Equal(t, "havn-user-project", exec.execCalls[0].name)
-	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "-c", "home-manager", "switch", "--flake", "github:user/env"}, exec.execCalls[0].cmd)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "--command", "true"}, exec.execCalls[0].cmd)
+	assert.Equal(t, "havn-user-project", exec.execCalls[1].name)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "run", "github:user/env#havn-session-prepare"}, exec.execCalls[1].cmd)
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
 }
 
@@ -283,9 +300,15 @@ func TestStartOrAttach_RunningContainer_NixRegistryPrepareFailure_Aborts(t *test
 	assert.Empty(t, exec.interactiveName)
 }
 
-func TestStartOrAttach_RunningContainer_HomeManagerActivationFailure_AbortsWithGuidance(t *testing.T) {
+func TestStartOrAttach_RunningContainer_PrepareCapabilityFailure_AbortsWithGuidance(t *testing.T) {
 	ctx := context.Background()
-	exec := &fakeExecBackend{execErr: fmt.Errorf("home-manager: no configuration found")}
+	exec := &fakeExecBackend{}
+	exec.execFn = func(_ string, cmd []string) error {
+		if cmdHasToken(cmd, "run") {
+			return fmt.Errorf("prepare hook failed")
+		}
+		return nil
+	}
 	deps := container.StartDeps{
 		Container: &fakeStartBackend{
 			inspectState: container.State{ID: "abc123", Running: true},
@@ -301,12 +324,73 @@ func TestStartOrAttach_RunningContainer_HomeManagerActivationFailure_AbortsWithG
 	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
 
 	assert.Equal(t, 0, exitCode)
-	assert.ErrorContains(t, err, "activate Home Manager in container \"havn-user-project\"")
+	assert.ErrorContains(t, err, "run optional startup capability havn-session-prepare in container \"havn-user-project\"")
 	assert.ErrorContains(t, err, "havn enter "+testProjectPath)
 	assert.Empty(t, exec.interactiveName)
 }
 
-func TestStart_RunningContainer_ActivatesHomeManagerWithoutInteractiveAttach(t *testing.T) {
+func TestStartOrAttach_RunningContainer_MissingOptionalPrepareCapability_Continues(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	exec.execFn = func(_ string, cmd []string) error {
+		if cmdHasToken(cmd, "run") {
+			return fmt.Errorf("flake does not provide attribute 'apps.x86_64-linux.havn-session-prepare'")
+		}
+		return nil
+	}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:   exec,
+		Status: func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "./testdata/fixture_flakes/missing_optional_prepare",
+		Shell: "default",
+	}
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	assert.Equal(t, "havn-user-project", exec.interactiveName)
+	assert.Contains(t, exec.execCalls, execCall{
+		name: "havn-user-project",
+		cmd:  []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "run", "./testdata/fixture_flakes/missing_optional_prepare#havn-session-prepare"},
+	})
+}
+
+func TestStartOrAttach_RunningContainer_MissingRequiredDevShell_AbortsBeforePrepare(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	exec.execFn = func(_ string, cmd []string) error {
+		if cmdHasToken(cmd, "develop") {
+			return fmt.Errorf("flake does not provide attribute 'devShells.x86_64-linux.default'")
+		}
+		return nil
+	}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:   exec,
+		Status: func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "./testdata/fixture_flakes/missing_required_devshell",
+		Shell: "default",
+	}
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	assert.Equal(t, 0, exitCode)
+	assert.ErrorContains(t, err, "validate required devShell \"default\"")
+	assert.Empty(t, exec.interactiveName)
+	assert.Len(t, exec.execCalls, 1)
+}
+
+func TestStart_RunningContainer_PreparesStartupSessionWithoutInteractiveAttach(t *testing.T) {
 	ctx := context.Background()
 	exec := &fakeExecBackend{interactiveExitCode: 0}
 	deps := container.StartDeps{
@@ -325,9 +409,10 @@ func TestStart_RunningContainer_ActivatesHomeManagerWithoutInteractiveAttach(t *
 
 	require.NoError(t, err)
 	assert.Empty(t, exec.interactiveName)
-	require.Len(t, exec.execCalls, 1)
+	require.Len(t, exec.execCalls, 2)
 	assert.Equal(t, "havn-user-project", exec.execCalls[0].name)
-	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "-c", "home-manager", "switch", "--flake", "github:user/env"}, exec.execCalls[0].cmd)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "--command", "true"}, exec.execCalls[0].cmd)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "run", "github:user/env#havn-session-prepare"}, exec.execCalls[1].cmd)
 }
 
 func TestStartOrAttach_NewContainer(t *testing.T) {
@@ -387,12 +472,14 @@ func TestStartOrAttach_NewContainer(t *testing.T) {
 	// Container was started.
 	assert.Equal(t, "new-123", cb.startedID)
 
-	// Sshd init and Home Manager activation were called.
-	require.Len(t, exec.execCalls, 2)
+	// Sshd init and startup preparation were called.
+	require.Len(t, exec.execCalls, 3)
 	assert.Equal(t, "havn-user-project", exec.execCalls[0].name)
 	assert.Equal(t, []string{"sudo", "/usr/sbin/sshd"}, exec.execCalls[0].cmd)
 	assert.Equal(t, "havn-user-project", exec.execCalls[1].name)
-	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "-c", "home-manager", "switch", "--flake", "github:user/env"}, exec.execCalls[1].cmd)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "--command", "true"}, exec.execCalls[1].cmd)
+	assert.Equal(t, "havn-user-project", exec.execCalls[2].name)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "run", "github:user/env#havn-session-prepare"}, exec.execCalls[2].cmd)
 
 	// Interactive shell was attached.
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
@@ -430,7 +517,7 @@ func TestStartOrAttach_NewContainer_ReportsAppliedResourceLimits(t *testing.T) {
 	assert.Contains(t, statusMessages, "Created container havn-user-project with resources cpus=4 memory=8g memory_swap=12g")
 }
 
-func TestStart_NewContainer_StartsInitsAndActivatesHomeManagerWithoutInteractiveAttach(t *testing.T) {
+func TestStart_NewContainer_StartsInitsAndPreparesStartupSessionWithoutInteractiveAttach(t *testing.T) {
 	ctx := context.Background()
 	cb := &fakeStartBackend{
 		inspectErr: &container.NotFoundError{Name: "havn-user-project"},
@@ -460,11 +547,13 @@ func TestStart_NewContainer_StartsInitsAndActivatesHomeManagerWithoutInteractive
 
 	require.NoError(t, err)
 	assert.Equal(t, "new-123", cb.startedID)
-	require.Len(t, exec.execCalls, 2)
+	require.Len(t, exec.execCalls, 3)
 	assert.Equal(t, "havn-user-project", exec.execCalls[0].name)
 	assert.Equal(t, []string{"sudo", "/usr/sbin/sshd"}, exec.execCalls[0].cmd)
 	assert.Equal(t, "havn-user-project", exec.execCalls[1].name)
-	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "-c", "home-manager", "switch", "--flake", "github:user/env"}, exec.execCalls[1].cmd)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "--command", "true"}, exec.execCalls[1].cmd)
+	assert.Equal(t, "havn-user-project", exec.execCalls[2].name)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "run", "github:user/env#havn-session-prepare"}, exec.execCalls[2].cmd)
 	assert.Empty(t, exec.interactiveName)
 }
 
@@ -517,7 +606,7 @@ func TestStartOrAttach_StoppedContainer_ReusesExistingResourceLimits(t *testing.
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
 }
 
-func TestStart_StoppedContainer_StartsInitsAndActivatesHomeManagerWithoutInteractiveAttach(t *testing.T) {
+func TestStart_StoppedContainer_StartsInitsAndPreparesStartupSessionWithoutInteractiveAttach(t *testing.T) {
 	ctx := context.Background()
 	cb := &fakeStartBackend{
 		inspectState: container.State{ID: "stopped-123", Running: false},
@@ -534,11 +623,13 @@ func TestStart_StoppedContainer_StartsInitsAndActivatesHomeManagerWithoutInterac
 
 	require.NoError(t, err)
 	assert.Equal(t, "stopped-123", cb.startedID)
-	require.Len(t, exec.execCalls, 2)
+	require.Len(t, exec.execCalls, 3)
 	assert.Equal(t, "havn-user-project", exec.execCalls[0].name)
 	assert.Equal(t, []string{"sudo", "/usr/sbin/sshd"}, exec.execCalls[0].cmd)
 	assert.Equal(t, "havn-user-project", exec.execCalls[1].name)
-	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "-c", "home-manager", "switch", "--flake", "github:user/env"}, exec.execCalls[1].cmd)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "--command", "true"}, exec.execCalls[1].cmd)
+	assert.Equal(t, "havn-user-project", exec.execCalls[2].name)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "run", "github:user/env#havn-session-prepare"}, exec.execCalls[2].cmd)
 	assert.Empty(t, exec.interactiveName)
 }
 
