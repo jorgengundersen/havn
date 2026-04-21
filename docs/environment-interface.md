@@ -55,41 +55,54 @@ failure.
   - Enters running container with plain shell semantics.
   - Does not run startup lifecycle preparation.
 
-## Minimal compatible environment example
+## Copy/paste starter template
+
+Use this as a starter and replace `x86_64-linux` and `default` as needed.
+
+### Minimal compatible variant (required only)
 
 ```nix
 {
-  outputs = { self, nixpkgs, ... }: {
+  outputs = { nixpkgs, ... }: {
+    # Required: devShells.<system>.<shell>
     devShells.x86_64-linux.default =
-      let pkgs = import nixpkgs { system = "x86_64-linux"; };
-      in pkgs.mkShell {
+      let
+        pkgs = import nixpkgs { system = "x86_64-linux"; };
+      in
+      pkgs.mkShell {
         packages = with pkgs; [ git bash ];
       };
   };
 }
 ```
 
-## Example with optional prepare hook
+### Optional prepare capability variant
 
 ```nix
 {
-  outputs = { self, nixpkgs, ... }: {
+  outputs = { nixpkgs, ... }: {
+    # Required: devShells.<system>.<shell>
     devShells.x86_64-linux.default =
-      let pkgs = import nixpkgs { system = "x86_64-linux"; };
-      in pkgs.mkShell {
+      let
+        pkgs = import nixpkgs { system = "x86_64-linux"; };
+      in
+      pkgs.mkShell {
         packages = with pkgs; [ git bash ];
       };
 
-    apps.x86_64-linux.havn-session-prepare = {
-      type = "app";
-      program = "${
-        (import nixpkgs { system = "x86_64-linux"; }).writeShellScript "havn-session-prepare" ''
+    # Optional: apps.<system>.havn-session-prepare
+    apps.x86_64-linux.havn-session-prepare =
+      let
+        pkgs = import nixpkgs { system = "x86_64-linux"; };
+      in
+      {
+        type = "app";
+        program = "${pkgs.writeShellScript "havn-session-prepare" ''
           set -eu
           # Optional environment-owned preparation logic goes here.
           exit 0
-        ''
-      }";
-    };
+        ''}";
+      };
   };
 }
 ```
