@@ -65,6 +65,35 @@ Commits trigger hooks. A failing hook blocks the commit.
 `quality-gates`, `integration-tests`, and `boundary-confidence` are required merge checks on `main`.
 At minimum, `integration-tests` and `boundary-confidence` are required merge checks on `main`.
 
+## Environment contract validation boundaries
+
+For `specs/environment-interface.md`, keep validation boundaries explicit for both
+human contributors and coding agents:
+
+- Authoritative contract matrix tests live in `internal/container` and
+  `internal/cli`, backed by local fixture flakes.
+- Authoritative coverage scenarios map to the contract cases in
+  `specs/environment-interface.md`:
+  - missing required `devShells.<system>.<shell>`
+  - missing optional `apps.<system>.havn-session-prepare`
+  - successful optional `apps.<system>.havn-session-prepare`
+  - failing optional `apps.<system>.havn-session-prepare`
+- Authoritative command-surface checks must cover `havn`, `havn up`, and
+  `havn enter` semantics for these scenarios.
+- Optional cross-repo smoke checks are non-authoritative compatibility signals;
+  they must not replace fixture-backed matrix tests.
+
+Local execution flow:
+
+```bash
+make check
+make test-boundary-confidence
+make test-integration
+```
+
+`make check` remains the baseline quality gate. Run boundary-confidence and
+integration suites when changing environment-interface behavior.
+
 ## Repository structure
 
 - `cmd/havn/` - binary entrypoint and top-level wiring

@@ -102,15 +102,36 @@ failure.
 - If external repos are referenced, pin revisions when reproducibility matters.
 - Keep `havn-session-prepare` idempotent and non-interactive.
 
-## Test and validation guidance
+## Validation guidance for contributors and agents
 
-- Use local fixture flakes for contract tests.
-- Do not hardcode personal repo refs in authoritative tests.
-- Validate at least:
-  - required shell exists
-  - optional prepare hook missing
-  - optional prepare hook success
-  - optional prepare hook failure
+Authoritative validation for this interface is fixture-backed and local-first:
+
+- Authoritative contract matrix tests live in `internal/container` and
+  `internal/cli`.
+- Authoritative tests use local fixture flakes only.
+- Authoritative tests do not hardcode personal paths or personal repository
+  references.
+
+Contract scenario coverage must include:
+
+- missing required `devShells.<system>.<shell>`
+- missing optional `apps.<system>.havn-session-prepare`
+- successful optional `apps.<system>.havn-session-prepare`
+- failing optional `apps.<system>.havn-session-prepare`
+
+Command-surface semantics for these scenarios should be validated across
+`havn`, `havn up`, and `havn enter` where applicable.
+
+For local validation, use:
+
+```bash
+make check
+make test-boundary-confidence
+make test-integration
+```
+
+`make check` is the baseline gate. Use boundary-confidence and integration
+targets when changing behavior around the environment contract.
 
 ### Optional cross-repo smoke checks
 
