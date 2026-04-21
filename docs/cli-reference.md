@@ -99,6 +99,16 @@ Root startup resource behavior:
   best-effort reporting
 - `havn build`: build the base image used for project containers
 
+`havn stop [name|path]` target rules:
+
+- path-like targets (`.`, `..`, values containing path separators, and absolute
+  paths) are resolved as paths
+- relative path-like targets are valid (for example `havn stop .`)
+- path-like targets must resolve to an existing directory
+- non-path-like targets are treated as literal container names
+- invalid path-like targets return path-related errors rather than
+  container-name-not-found errors
+
 ### Grouped commands
 
 - `havn config show`: inspect effective merged configuration

@@ -3,6 +3,8 @@ package cli_test
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -65,6 +67,20 @@ func TestStopCommand_StopsNamedContainer(t *testing.T) {
 	backend := &fakeStopBackend{}
 
 	_, _, err := executeCommandWithDeps(cli.Deps{ContainerStop: backend}, "stop", "havn-user-api")
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"havn-user-api"}, backend.stopCalls)
+}
+
+func TestStopCommand_DotPathStopsResolvedProjectContainer(t *testing.T) {
+	backend := &fakeStopBackend{}
+
+	workspace := t.TempDir()
+	projectPath := filepath.Join(workspace, "user", "api")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(projectPath)
+
+	_, _, err := executeCommandWithDeps(cli.Deps{ContainerStop: backend}, "stop", ".")
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"havn-user-api"}, backend.stopCalls)

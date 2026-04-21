@@ -2,6 +2,8 @@ package container_test
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -61,10 +63,74 @@ func TestStop_PathArgDerivesContainerName(t *testing.T) {
 	ctx := context.Background()
 	backend := &fakeStopBackend{}
 
-	err := container.Stop(ctx, backend, "/home/user/api")
+	workspace := t.TempDir()
+	projectPath := filepath.Join(workspace, "user", "api")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	err := container.Stop(ctx, backend, projectPath)
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"havn-user-api"}, backend.stopCalls)
+}
+
+func TestStop_DotPathArgDerivesContainerName(t *testing.T) {
+	ctx := context.Background()
+	backend := &fakeStopBackend{}
+
+	workspace := t.TempDir()
+	projectPath := filepath.Join(workspace, "user", "api")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(projectPath)
+
+	err := container.Stop(ctx, backend, ".")
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"havn-user-api"}, backend.stopCalls)
+}
+
+func TestStop_RelativePathArgDerivesContainerName(t *testing.T) {
+	ctx := context.Background()
+	backend := &fakeStopBackend{}
+
+	workspace := t.TempDir()
+	basePath := filepath.Join(workspace, "user")
+	projectPath := filepath.Join(basePath, "api")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(basePath)
+
+	err := container.Stop(ctx, backend, "./api")
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"havn-user-api"}, backend.stopCalls)
+}
+
+func TestStop_PathLikeTargetRequiresExistingDirectory(t *testing.T) {
+	ctx := context.Background()
+	backend := &fakeStopBackend{}
+
+	workspace := t.TempDir()
+	t.Chdir(workspace)
+
+	err := container.Stop(ctx, backend, "./missing")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "path does not exist")
+	assert.Empty(t, backend.stopCalls)
+}
+
+func TestStop_PathLikeFileTargetReturnsDirectoryError(t *testing.T) {
+	ctx := context.Background()
+	backend := &fakeStopBackend{}
+
+	workspace := t.TempDir()
+	filePath := filepath.Join(workspace, "note.txt")
+	require.NoError(t, os.WriteFile(filePath, []byte("x"), 0o644))
+
+	err := container.Stop(ctx, backend, filePath)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "path is not a directory")
+	assert.Empty(t, backend.stopCalls)
 }
 
 func TestStopAll_StopsAllExceptDolt(t *testing.T) {

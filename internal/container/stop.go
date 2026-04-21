@@ -2,8 +2,11 @@ package container
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/jorgengundersen/havn/internal/name"
@@ -67,14 +70,32 @@ func StopAll(ctx context.Context, backend StopBackend) (StopResult, error) {
 	return result, nil
 }
 
-// resolveTarget converts a target to a container name. If the target is an
-// absolute path, it derives the container name from the path segments.
-// Otherwise, it treats the target as a literal container name.
+// resolveTarget converts a target to a container name. Path-like targets are
+// resolved to existing directories and mapped to deterministic container names.
+// Non path-like targets are treated as literal container names.
 func resolveTarget(target string) (string, error) {
-	if !filepath.IsAbs(target) {
+	if !isPathLikeTarget(target) {
 		return target, nil
 	}
-	parent, project, err := name.SplitProjectPath(target)
+
+	absPath, err := filepath.Abs(target)
+	if err != nil {
+		return "", fmt.Errorf("resolve path: %w", err)
+	}
+	absPath = filepath.Clean(absPath)
+
+	info, err := os.Stat(absPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("path does not exist: %s", absPath)
+		}
+		return "", fmt.Errorf("inspect path %q: %w", absPath, err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("path is not a directory: %s", absPath)
+	}
+
+	parent, project, err := name.SplitProjectPath(absPath)
 	if err != nil {
 		return "", err
 	}
@@ -83,4 +104,11 @@ func resolveTarget(target string) (string, error) {
 		return "", err
 	}
 	return string(cn), nil
+}
+
+func isPathLikeTarget(target string) bool {
+	if filepath.IsAbs(target) || target == "." || target == ".." {
+		return true
+	}
+	return strings.ContainsRune(target, filepath.Separator)
 }

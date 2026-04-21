@@ -284,6 +284,20 @@ Command-specific exit codes may extend this. `havn doctor` is the main example:
 
 ## Command Notes
 
+### `havn stop [name|path]`
+
+- accepts exactly one positional target unless `--all` is set
+- target parsing is shape-based:
+  - path-like targets (`.`, `..`, values containing path separators, and
+    absolute paths) are treated as filesystem paths
+  - non-path-like targets are treated as literal container names
+- path-like targets are resolved to canonical absolute paths and must point to
+  an existing directory
+- for path-like targets, container names are derived from the canonical path
+  using the same project-name derivation rules as startup commands
+- invalid path-like targets fail with actionable path errors (for example,
+  missing path or not-a-directory), not container-name lookup errors
+
 ### `havn config show`
 
 - produces the effective-config inspection output
