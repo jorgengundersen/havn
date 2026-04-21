@@ -39,6 +39,25 @@ happens (for example Home Manager activation or shell-local bootstrap).
 When absent, `havn` must treat this as capability not provided, not as a hard
 failure.
 
+## For coding agents
+
+Use this checklist when generating or modifying havn-compatible environments.
+
+- Do define `devShells.<system>.<shell>` first. This is the required entrypoint.
+- Do treat `apps.<system>.havn-session-prepare` as optional capability only.
+- Do make `havn-session-prepare` non-interactive and idempotent.
+- Do use flake-relative inputs and portable paths.
+- Do not hardcode one user's home directory, username, or repo location.
+- Do not require prompts, manual confirmations, or one-time local state.
+
+Authoring order for agents:
+
+1. Create a valid `devShells.<system>.<shell>` output.
+2. Add optional `apps.<system>.havn-session-prepare` only when startup
+   preparation is needed.
+3. Ensure prepare exits `0` on success and non-zero on failure.
+4. Verify behavior through local fixture-based checks, not personal repo refs.
+
 ## Command behavior contract
 
 - `havn [path]`
