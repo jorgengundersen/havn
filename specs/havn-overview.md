@@ -32,6 +32,8 @@ environment comes from the selected Nix flake and shell.
   `specs/configuration.md`
 - Command tree, flag scope, output modes, JSON contracts, and CLI error
   handling: `specs/cli-framework.md`
+- Environment flake entrypoints and optional startup preparation capability:
+  `specs/environment-interface.md`
 - Doctor checks, tiering, selection rules, and doctor output:
   `specs/havn-doctor.md`
 - Shared Dolt lifecycle, readiness, ownership, migration, and safety semantics:
@@ -48,16 +50,17 @@ At overview level, the user-facing workflow split is:
 - `havn up [path]` (implemented): lifecycle startup only (no interactive attach)
 - `havn enter [path]` (implemented): plain interactive shell entry (`bash`) without automatic `nix develop`
 
-Home Manager session-lifecycle contract for this split:
+Environment startup-preparation contract for this split:
 
-- primary interactive startup (`havn [path]`) is fail-closed on Home Manager
-  activation and only hands off to the shell after activation succeeds
-- `havn up [path]` runs the same activation lifecycle but stays non-interactive
-  and returns an actionable command error on activation failure
-- `havn enter [path]` remains plain-shell entry and exposes a documented,
-  low-friction manual Home Manager activation path inside the running session
-- ad-hoc `nix develop` from inside entered sessions remains supported; Home
-  Manager lifecycle integration must not remove that workflow
+- startup preparation is environment-owned via optional capability entrypoint
+  defined in `specs/environment-interface.md`
+- primary interactive startup (`havn [path]`) runs preparation when available
+  and is fail-closed if that prepare step runs and fails
+- `havn up [path]` runs the same preparation step when available, remains
+  non-interactive, and returns a command error on prepare failure
+- `havn enter [path]` remains plain-shell entry and does not run startup
+  preparation
+- ad-hoc `nix develop` from inside entered sessions remains supported
 
 `havn up [path]` uses the same startup override surface as
 `havn [path]` for `--env`, `--cpus`, `--memory`, `--port`, `--no-dolt`, and
@@ -147,7 +150,9 @@ Use this order when moving from product framing to detailed contracts:
 3. `specs/configuration.md` for discovery, precedence, and effective config
 4. `specs/havn-doctor.md` for diagnostic checks and output behavior
 5. `specs/shared-dolt-server.md` for shared-Dolt lifecycle and safety semantics
-6. `specs/base-image.md` for base-image and runtime assumptions
+6. `specs/environment-interface.md` for environment integration entrypoints and
+   startup preparation capability boundaries
+7. `specs/base-image.md` for base-image and runtime assumptions
 
 ## Runtime Model
 

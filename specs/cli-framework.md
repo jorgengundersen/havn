@@ -15,7 +15,7 @@ This spec owns:
 - flag scope terminology
 - stream separation and output modes
 - startup logging mode boundaries for root startup
-- session-entry lifecycle boundaries for Home Manager activation
+- session-entry lifecycle boundaries for optional environment startup preparation
 - JSON contract ownership at the CLI boundary
 - CLI error formatting and exit-code rules
 
@@ -166,26 +166,22 @@ Before plain-shell attach, `havn enter [path]` performs the same in-container
 Nix registry persistence preparation as startup-oriented entry, so users do not
 need to run startup first solely for registry alias persistence.
 
-### Home Manager session lifecycle contract
+### Environment startup preparation lifecycle contract
 
-Home Manager integration follows the startup/entry split with command-specific
-behavior:
+Startup preparation is environment-owned and capability-driven. The capability
+entrypoint is defined by `specs/environment-interface.md`.
 
-- `havn [path]` runs Home Manager activation before shell handoff. If
-  activation fails, `havn` exits with an actionable CLI error and must not
-  attach to `bash` or `nix develop`.
-- `havn up [path]` runs the same activation step but remains non-interactive.
-  It must not attach or prompt. Activation failure exits non-zero with
-  actionable guidance.
-- `havn enter [path]` remains plain-shell entry and does not run automatic Home
-  Manager activation. The command should expose a low-friction manual activation
-  path in user-facing guidance.
-- Home Manager lifecycle behavior must not invalidate ad-hoc `nix develop`
-  usage from entered sessions.
-
-Activation failures are command errors (standard CLI error path), not degraded
-interactive handoff. The only degraded path is manual activation from
-`havn enter [path]`, which is explicit by design.
+- `havn [path]` runs the optional prepare capability when present before shell
+  handoff. If the prepare command runs and fails, `havn` exits non-zero and
+  must not attach to an interactive shell.
+- `havn up [path]` runs the same optional prepare capability when present and
+  remains non-interactive. It must not attach or prompt. If prepare runs and
+  fails, `up` exits non-zero with actionable command-scoped guidance.
+- `havn enter [path]` remains plain-shell entry and does not run startup
+  preparation.
+- Missing optional capability is not a command failure.
+- Startup preparation behavior must not invalidate ad-hoc `nix develop` usage
+  from entered sessions.
 
 ### Startup logging contract
 

@@ -62,22 +62,20 @@ For retained startup-log investigation and cleanup workflow, see `docs/doctor-tr
 - `havn [path]`: start or attach to the project container
 - `havn --version`: print CLI version
 
-Home Manager session-lifecycle behavior for startup and entry:
+Environment startup-preparation behavior for startup and entry:
 
-- primary interactive startup (`havn [path]`) activates Home Manager user
-  configuration before handing control to the shell
-- `havn up [path]` remains lifecycle-only and non-interactive while running the
-  same Home Manager activation lifecycle step
-- `havn enter [path]` remains plain-shell entry and does not auto-activate Home
-  Manager; run this manually from inside the entered session:
-
-  `nix --extra-experimental-features "nix-command flakes" --option keep-build-log true develop <env>#<shell> -c home-manager switch --flake <env>`
-
-  Replace `<env>` and `<shell>` with the project's resolved values from
-  configuration precedence.
+- startup commands (`havn [path]`, `havn up [path]`) may run an optional,
+  environment-owned preparation capability when the environment exposes it
+- `havn [path]` is fail-closed if that prepare step runs and fails
+- `havn up [path]` stays non-interactive and fails non-zero if that prepare step
+  runs and fails
+- `havn enter [path]` remains plain-shell entry and does not run startup
+  preparation
+- missing optional capability is not a startup failure
 - ad-hoc `nix develop` usage from entered sessions remains supported
 
-Normative behavior and scope live in `specs/cli-framework.md`.
+Normative behavior and scope live in `specs/cli-framework.md` and
+`specs/environment-interface.md`.
 
 Root startup resource behavior:
 

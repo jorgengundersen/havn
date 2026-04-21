@@ -90,24 +90,21 @@ project container is created.
 `memory_swap` is config-only today: there is no env var or CLI flag override for
 it.
 
-### Home Manager session activation
+### Environment startup preparation capability
 
-Home Manager lifecycle integration is command-scoped.
+Environment startup preparation is command-scoped and capability-driven.
 
-- primary interactive startup (`havn [path]`) activates Home Manager user
-  configuration as part of session entry
-- plain entry (`havn enter [path]`) keeps plain-shell behavior and requires
-  manual activation from inside the session using:
-
-  `nix --extra-experimental-features "nix-command flakes" --option keep-build-log true develop <env>#<shell> -c home-manager switch --flake <env>`
-
-  Replace `<env>` and `<shell>` with the resolved values for the project.
-- no new configuration precedence layer is introduced by this lifecycle work;
+- startup commands (`havn [path]`, `havn up [path]`) may run an optional,
+  environment-owned prepare capability when exposed by the target flake
+- plain entry (`havn enter [path]`) keeps plain-shell behavior and does not run
+  startup preparation
+- no new configuration precedence layer is introduced by this behavior;
   precedence remains `flag > env var > project config > global config > built-in default`
 - ad-hoc `nix develop` inside sessions remains supported
 
 Normative behavior for this area lives in `specs/configuration.md` and
-`specs/cli-framework.md`.
+`specs/cli-framework.md`, with entrypoint ownership in
+`specs/environment-interface.md`.
 
 #### Reuse vs recreate at a glance
 
@@ -308,8 +305,8 @@ broad host-global side effects.
 
 - `havn config show` does not yet expose every provenance detail for all returned fields; the stable `source` map currently focuses on core scalar/resource and Dolt fields
 - `havn config show` currently reflects startup-style effective config without command-local runtime override flags on `config show` itself
-- Home Manager session lifecycle integration is currently planned direction and
-  not yet reflected in shipped runtime behavior
+- Environment startup-preparation capability contract is defined, but full
+  runtime alignment is planned and tracked by implementation work
 
 When this guide and the configuration spec disagree, follow
 `specs/configuration.md`.

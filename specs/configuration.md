@@ -111,25 +111,22 @@ project config, environment, or flags.
 - Commands that do not accept a given runtime flag do not participate in that
   override surface.
 
-### Home Manager session activation
+### Environment startup preparation capability
 
-Home Manager lifecycle integration is command-scoped behavior, not a separate
-global config source.
+Environment startup preparation is command-scoped behavior, not a separate
+configuration source.
 
-- `havn [path]` and `havn up [path]` run Home Manager activation as a startup
-  lifecycle step after startup prerequisites are ready and before command
-  completion (`havn up`) or shell handoff (`havn`).
-- `havn [path]` is fail-closed on activation failure: startup returns a normal
-  CLI error, does not attach to any shell, and includes actionable guidance.
-- `havn up [path]` stays non-interactive: it never attaches or prompts. If Home
-  Manager activation fails, `up` exits non-zero with actionable guidance.
-- `havn enter [path]` stays plain-shell entry and does not run Home Manager
-  activation automatically. It must expose a documented, low-friction manual
-  activation path from inside the session.
-- no new precedence layer is introduced by Home Manager activation; existing
-  precedence remains `flag > env > project > global > default`
-- ad-hoc `nix develop` inside sessions remains supported. Home Manager
-  lifecycle behavior must not change `env`/`shell` resolution semantics.
+- The optional startup preparation capability entrypoint is owned by
+  `specs/environment-interface.md`.
+- `havn [path]` and `havn up [path]` evaluate startup preparation behavior after
+  startup prerequisites are ready and before command completion (`havn up`) or
+  shell handoff (`havn`).
+- `havn enter [path]` remains plain-shell entry and does not run startup
+  preparation.
+- No new precedence layer is introduced by startup preparation. Precedence
+  remains `flag > env > project > global > default`.
+- Startup preparation behavior must not change `env`/`shell` resolution
+  semantics or block ad-hoc `nix develop` usage.
 
 ### Startup resource application semantics
 

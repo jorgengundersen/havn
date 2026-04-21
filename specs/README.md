@@ -46,6 +46,7 @@ When a new major contract is added:
 - CLI stream separation is consistent across commands: status, logs, and errors go to `stderr`; command data and stable JSON go to `stdout`.
 - `specs/havn-overview.md` is never the hidden authority for config, doctor, CLI, or shared-Dolt detail; it points to the owning spec.
 - Shared Dolt lifecycle, readiness, ownership, and import/export safety semantics are owned by `specs/shared-dolt-server.md`.
+- Environment flake integration entrypoints and optional startup capabilities are owned by `specs/environment-interface.md`.
 
 ## Spec Index
 
@@ -57,6 +58,7 @@ When a new major contract is added:
 | [quality-gates.md](quality-gates.md) | Tooling, build, lint, and CI gates |
 | [configuration.md](configuration.md) | Authoritative configuration contract: discovery, precedence, merge rules, and config inspection |
 | [cli-framework.md](cli-framework.md) | Authoritative CLI contract: command tree, flag scope, output handling, and CLI error behavior |
+| [environment-interface.md](environment-interface.md) | Authoritative environment integration contract: required entrypoints, optional startup capability, and portability boundaries |
 | [havn-overview.md](havn-overview.md) | Product overview, core workflows, and pointers to authoritative subsystem specs |
 | [base-image.md](base-image.md) | Base image and runtime-init contract |
 | [havn-doctor.md](havn-doctor.md) | Authoritative doctor contract: checks, tiers, selection rules, and output |
