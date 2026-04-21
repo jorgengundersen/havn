@@ -332,6 +332,7 @@ func TestStartOrAttach_RunningContainer_PrepareCapabilityFailure_AbortsWithGuida
 func TestStartOrAttach_RunningContainer_MissingOptionalPrepareCapability_Continues(t *testing.T) {
 	ctx := context.Background()
 	exec := &fakeExecBackend{interactiveExitCode: 0}
+	var statusMessages []string
 	exec.execFn = func(_ string, cmd []string) error {
 		if cmdHasToken(cmd, "run") {
 			return fmt.Errorf("flake does not provide attribute 'apps.x86_64-linux.havn-session-prepare'")
@@ -342,8 +343,10 @@ func TestStartOrAttach_RunningContainer_MissingOptionalPrepareCapability_Continu
 		Container: &fakeStartBackend{
 			inspectState: container.State{ID: "abc123", Running: true},
 		},
-		Exec:   exec,
-		Status: func(string) {},
+		Exec: exec,
+		Status: func(msg string) {
+			statusMessages = append(statusMessages, msg)
+		},
 	}
 	cfg := config.Config{
 		Env:   "./testdata/fixture_flakes/missing_optional_prepare",
@@ -359,6 +362,7 @@ func TestStartOrAttach_RunningContainer_MissingOptionalPrepareCapability_Continu
 		name: "havn-user-project",
 		cmd:  []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "run", "./testdata/fixture_flakes/missing_optional_prepare#havn-session-prepare"},
 	})
+	assert.Contains(t, statusMessages, "Optional startup capability havn-session-prepare not provided; continuing startup")
 }
 
 func TestStartOrAttach_RunningContainer_MissingRequiredDevShell_AbortsBeforePrepare(t *testing.T) {

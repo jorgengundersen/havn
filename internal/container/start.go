@@ -239,7 +239,13 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 	}
 
 	err := deps.Exec.ContainerExec(ctx, containerName, sessionPrepareCmd(cfg, opts))
-	if err == nil || isMissingSessionPrepareCapability(err) {
+	if err == nil {
+		return nil
+	}
+	if isMissingSessionPrepareCapability(err) {
+		if deps.Status != nil {
+			deps.Status("Optional startup capability havn-session-prepare not provided; continuing startup")
+		}
 		return nil
 	}
 
