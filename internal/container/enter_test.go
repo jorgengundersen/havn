@@ -3,6 +3,8 @@ package container_test
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -67,6 +69,27 @@ func TestEnter_RunningContainer_AttachesPlainBash(t *testing.T) {
 	assert.Equal(t, []string{"bash"}, exec.interactiveCmd)
 	assert.Equal(t, "/home/devuser/Repos/github.com/user/project", exec.interactiveWorkdir)
 	assert.Equal(t, []string{"havn-user-project"}, registry.calls)
+}
+
+func TestEnter_RunningContainer_RelativeProjectPathDerivesContainerName(t *testing.T) {
+	workspace := t.TempDir()
+	projectPath := filepath.Join(workspace, "user", "project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(projectPath)
+
+	ctx := context.Background()
+	exec := &fakeEnterExecBackend{interactiveExitCode: 0}
+	deps := container.EnterDeps{
+		Container: &fakeEnterBackend{inspectState: container.State{ID: "abc123", Running: true}},
+		Exec:      exec,
+	}
+
+	exitCode, err := container.Enter(ctx, deps, ".")
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	assert.Equal(t, "havn-user-project", exec.interactiveName)
+	assert.Equal(t, ".", exec.interactiveWorkdir)
 }
 
 func TestEnter_MissingContainer_ReturnsActionableNotRunningError(t *testing.T) {

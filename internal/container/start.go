@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -412,7 +413,12 @@ func createContainer(ctx context.Context, deps StartDeps, cfg config.Config, cna
 	return deps.Container.ContainerCreate(ctx, opts)
 }
 func deriveContainerName(projectPath string) (name.ContainerName, error) {
-	parent, project, err := name.SplitProjectPath(projectPath)
+	absPath, err := filepath.Abs(projectPath)
+	if err != nil {
+		return "", fmt.Errorf("derive container name: resolve path: %w", err)
+	}
+
+	parent, project, err := name.SplitProjectPath(filepath.Clean(absPath))
 	if err != nil {
 		return "", fmt.Errorf("derive container name: %w", err)
 	}
