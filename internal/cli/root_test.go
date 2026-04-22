@@ -316,6 +316,7 @@ func TestNewRoot_RunE_UsesAttachStartupMode(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, svc.called)
 	assert.Equal(t, container.StartupModeAttach, svc.lastOpts.Mode)
+	assert.Equal(t, container.StartupCheckPrepare, svc.lastOpts.StartupChecks)
 }
 
 func TestNewRoot_RunE_DefaultsDoltDatabaseToProjectNameWhenEnabled(t *testing.T) {

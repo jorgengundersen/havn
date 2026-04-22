@@ -10,6 +10,8 @@ import (
 
 func newUpCmd(startService StartService) *cobra.Command {
 	var opts rootOpts
+	var validate bool
+	var prepare bool
 
 	cmd := &cobra.Command{
 		Use:   "up [path]",
@@ -40,6 +42,7 @@ func newUpCmd(startService StartService) *cobra.Command {
 			_, err = startService.StartOrAttach(cmd.Context(), cfg, projectCtx.Path, out.Status, container.StartOptions{
 				VerboseStartup: verbose,
 				Mode:           container.StartupModeNoAttach,
+				StartupChecks:  startupCheckModeForUp(validate, prepare),
 			})
 			if err != nil {
 				return fmt.Errorf("havn up: %w", err)
@@ -61,6 +64,18 @@ func newUpCmd(startService StartService) *cobra.Command {
 	cmd.Flags().StringVar(&opts.Port, "port", "", "SSH port mapping")
 	cmd.Flags().BoolVar(&opts.NoDolt, "no-dolt", false, "skip Dolt server")
 	cmd.Flags().StringVar(&opts.Image, "image", "", "override base image")
+	cmd.Flags().BoolVar(&validate, "validate", false, "run required startup validation")
+	cmd.Flags().BoolVar(&prepare, "prepare", false, "run startup validation and optional preparation")
 
 	return cmd
+}
+
+func startupCheckModeForUp(validate, prepare bool) container.StartupCheckMode {
+	if prepare {
+		return container.StartupCheckPrepare
+	}
+	if validate {
+		return container.StartupCheckValidate
+	}
+	return container.StartupCheckDefault
 }

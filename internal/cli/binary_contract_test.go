@@ -70,6 +70,36 @@ func TestHAVNBinary_CLIContractAtProcessBoundary(t *testing.T) {
 		assert.Contains(t, stdout, "list")
 		assert.Empty(t, stderr)
 	})
+
+	t.Run("up help exposes startup-check flags on stdout", func(t *testing.T) {
+		stdout, stderr, exitCode := runHAVNBinary(t, binaryPath, projectDir, homeDir, "up", "--help")
+
+		assert.Equal(t, 0, exitCode)
+		assert.Contains(t, stdout, "--validate")
+		assert.Contains(t, stdout, "--prepare")
+		assert.Empty(t, stderr)
+	})
+
+	t.Run("up validate with shell flag fails on stderr in human mode", func(t *testing.T) {
+		stdout, stderr, exitCode := runHAVNBinary(t, binaryPath, projectDir, homeDir, "up", "--validate", "--shell", "zsh")
+
+		assert.Equal(t, 1, exitCode)
+		assert.Empty(t, stdout)
+		assert.Contains(t, stderr, "Error: unknown flag: --shell")
+	})
+
+	t.Run("up prepare with shell flag fails on stderr in json mode", func(t *testing.T) {
+		stdout, stderr, exitCode := runHAVNBinary(t, binaryPath, projectDir, homeDir, "--json", "up", "--prepare", "--shell", "zsh")
+
+		assert.Equal(t, 1, exitCode)
+		assert.Empty(t, stdout)
+
+		var payload map[string]any
+		require.NoError(t, json.Unmarshal([]byte(stderr), &payload))
+		errMsg, ok := payload["error"].(string)
+		require.True(t, ok)
+		assert.Contains(t, errMsg, "unknown flag: --shell")
+	})
 }
 
 func buildHAVNBinary(t *testing.T) string {

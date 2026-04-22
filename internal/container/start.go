@@ -100,16 +100,30 @@ type StartDeps struct {
 type StartOptions struct {
 	VerboseStartup bool
 	Mode           StartupMode
+	StartupChecks  StartupCheckMode
 }
 
 // StartupMode selects whether startup enters an interactive shell.
 type StartupMode int
+
+// StartupCheckMode selects which startup-check phases run before shell handoff
+// or no-attach completion.
+type StartupCheckMode int
 
 const (
 	// StartupModeAttach runs startup then enters the configured dev shell.
 	StartupModeAttach StartupMode = iota
 	// StartupModeNoAttach runs lifecycle startup and exits without shell attach.
 	StartupModeNoAttach
+)
+
+const (
+	// StartupCheckDefault uses command-default startup-check behavior.
+	StartupCheckDefault StartupCheckMode = iota
+	// StartupCheckValidate runs required devShell validation only.
+	StartupCheckValidate
+	// StartupCheckPrepare runs validation and optional prepare.
+	StartupCheckPrepare
 )
 
 // StartOrAttach implements the startup orchestration (steps 3-10).

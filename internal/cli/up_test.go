@@ -42,6 +42,52 @@ func TestUpCommand_CallsStartServiceInNoAttachMode(t *testing.T) {
 	assert.True(t, svc.called)
 	assert.Equal(t, projectPath, svc.lastProject)
 	assert.Equal(t, container.StartupModeNoAttach, svc.lastOpts.Mode)
+	assert.Equal(t, container.StartupCheckDefault, svc.lastOpts.StartupChecks)
+}
+
+func TestUpCommand_ValidateFlagRequestsValidationChecks(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := &fakeStartService{}
+	_, _, err := executeCommandWithDeps(cli.Deps{StartService: svc}, "up", "--validate", projectPath)
+
+	require.NoError(t, err)
+	assert.True(t, svc.called)
+	assert.Equal(t, container.StartupModeNoAttach, svc.lastOpts.Mode)
+	assert.Equal(t, container.StartupCheckValidate, svc.lastOpts.StartupChecks)
+}
+
+func TestUpCommand_PrepareFlagRequestsPrepareChecks(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := &fakeStartService{}
+	_, _, err := executeCommandWithDeps(cli.Deps{StartService: svc}, "up", "--prepare", projectPath)
+
+	require.NoError(t, err)
+	assert.True(t, svc.called)
+	assert.Equal(t, container.StartupModeNoAttach, svc.lastOpts.Mode)
+	assert.Equal(t, container.StartupCheckPrepare, svc.lastOpts.StartupChecks)
+}
+
+func TestUpCommand_PrepareFlagWinsWhenValidateAndPrepareAreBothSet(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := &fakeStartService{}
+	_, _, err := executeCommandWithDeps(cli.Deps{StartService: svc}, "up", "--validate", "--prepare", projectPath)
+
+	require.NoError(t, err)
+	assert.True(t, svc.called)
+	assert.Equal(t, container.StartupModeNoAttach, svc.lastOpts.Mode)
+	assert.Equal(t, container.StartupCheckPrepare, svc.lastOpts.StartupChecks)
 }
 
 func TestUpCommand_DoesNotAcceptShellFlag(t *testing.T) {

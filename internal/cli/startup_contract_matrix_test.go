@@ -27,13 +27,27 @@ func (s *matrixStartService) StartOrAttach(_ context.Context, cfg config.Config,
 	s.lastOpt = opts
 
 	scenario := filepath.Base(cfg.Env)
-	switch scenario {
-	case "missing_required_devshell":
-		return 0, fmt.Errorf("validate required devShell %q in container \"havn-user-project\": missing devShell", cfg.Shell)
-	case "optional_prepare_failure":
-		return 0, fmt.Errorf("run optional startup capability havn-session-prepare in container \"havn-user-project\": prepare failed")
-	default:
+	missingRequiredDevShell := scenario == "missing_required_devshell"
+	prepareFailure := scenario == "optional_prepare_failure"
+
+	switch opts.StartupChecks {
+	case container.StartupCheckDefault:
 		return 0, nil
+	case container.StartupCheckValidate:
+		if missingRequiredDevShell {
+			return 0, fmt.Errorf("validate required devShell %q in container \"havn-user-project\": missing devShell", cfg.Shell)
+		}
+		return 0, nil
+	case container.StartupCheckPrepare:
+		if missingRequiredDevShell {
+			return 0, fmt.Errorf("validate required devShell %q in container \"havn-user-project\": missing devShell", cfg.Shell)
+		}
+		if prepareFailure {
+			return 0, fmt.Errorf("run optional startup capability havn-session-prepare in container \"havn-user-project\": prepare failed")
+		}
+		return 0, nil
+	default:
+		return 0, fmt.Errorf("unsupported startup check mode %d", opts.StartupChecks)
 	}
 }
 
@@ -67,16 +81,18 @@ func TestStartupContractMatrix_RootAndUpAndEnter(t *testing.T) {
 	require.NoError(t, os.MkdirAll(projectPath, 0o755))
 
 	tests := []struct {
-		name       string
-		scenario   string
-		wantRootOK bool
-		wantUpOK   bool
-		errPart    string
+		name             string
+		scenario         string
+		wantRootOK       bool
+		wantUpOK         bool
+		wantUpValidateOK bool
+		wantUpPrepareOK  bool
+		errPart          string
 	}{
-		{name: "missing required devShell", scenario: "missing_required_devshell", wantRootOK: false, wantUpOK: false, errPart: "validate required devShell"},
-		{name: "missing optional prepare capability", scenario: "missing_optional_prepare", wantRootOK: true, wantUpOK: true},
-		{name: "optional prepare capability succeeds", scenario: "optional_prepare_success", wantRootOK: true, wantUpOK: true},
-		{name: "optional prepare capability fails", scenario: "optional_prepare_failure", wantRootOK: false, wantUpOK: false, errPart: "havn-session-prepare"},
+		{name: "missing required devShell", scenario: "missing_required_devshell", wantRootOK: false, wantUpOK: true, wantUpValidateOK: false, wantUpPrepareOK: false, errPart: "validate required devShell"},
+		{name: "missing optional prepare capability", scenario: "missing_optional_prepare", wantRootOK: true, wantUpOK: true, wantUpValidateOK: true, wantUpPrepareOK: true},
+		{name: "optional prepare capability succeeds", scenario: "optional_prepare_success", wantRootOK: true, wantUpOK: true, wantUpValidateOK: true, wantUpPrepareOK: true},
+		{name: "optional prepare capability fails", scenario: "optional_prepare_failure", wantRootOK: false, wantUpOK: true, wantUpValidateOK: true, wantUpPrepareOK: false, errPart: "havn-session-prepare"},
 	}
 
 	for _, tt := range tests {
@@ -95,6 +111,7 @@ func TestStartupContractMatrix_RootAndUpAndEnter(t *testing.T) {
 			require.True(t, startSvc.called)
 			assert.Equal(t, envRef, startSvc.lastCfg.Env)
 			assert.Equal(t, container.StartupModeAttach, startSvc.lastOpt.Mode)
+			assert.Equal(t, container.StartupCheckPrepare, startSvc.lastOpt.StartupChecks)
 
 			startSvc = &matrixStartService{}
 			_, _, upErr := executeCommandWithDeps(cli.Deps{StartService: startSvc}, "up", projectPath)
@@ -108,6 +125,35 @@ func TestStartupContractMatrix_RootAndUpAndEnter(t *testing.T) {
 			require.True(t, startSvc.called)
 			assert.Equal(t, envRef, startSvc.lastCfg.Env)
 			assert.Equal(t, container.StartupModeNoAttach, startSvc.lastOpt.Mode)
+			assert.Equal(t, container.StartupCheckDefault, startSvc.lastOpt.StartupChecks)
+
+			startSvc = &matrixStartService{}
+			_, _, upValidateErr := executeCommandWithDeps(cli.Deps{StartService: startSvc}, "up", "--validate", projectPath)
+			if tt.wantUpValidateOK {
+				require.NoError(t, upValidateErr)
+			} else {
+				require.Error(t, upValidateErr)
+				assert.Contains(t, upValidateErr.Error(), "havn up:")
+				assert.Contains(t, upValidateErr.Error(), tt.errPart)
+			}
+			require.True(t, startSvc.called)
+			assert.Equal(t, envRef, startSvc.lastCfg.Env)
+			assert.Equal(t, container.StartupModeNoAttach, startSvc.lastOpt.Mode)
+			assert.Equal(t, container.StartupCheckValidate, startSvc.lastOpt.StartupChecks)
+
+			startSvc = &matrixStartService{}
+			_, _, upPrepareErr := executeCommandWithDeps(cli.Deps{StartService: startSvc}, "up", "--prepare", projectPath)
+			if tt.wantUpPrepareOK {
+				require.NoError(t, upPrepareErr)
+			} else {
+				require.Error(t, upPrepareErr)
+				assert.Contains(t, upPrepareErr.Error(), "havn up:")
+				assert.Contains(t, upPrepareErr.Error(), tt.errPart)
+			}
+			require.True(t, startSvc.called)
+			assert.Equal(t, envRef, startSvc.lastCfg.Env)
+			assert.Equal(t, container.StartupModeNoAttach, startSvc.lastOpt.Mode)
+			assert.Equal(t, container.StartupCheckPrepare, startSvc.lastOpt.StartupChecks)
 
 			enterSvc := &matrixEnterService{}
 			_, _, enterErr := executeCommandWithDeps(cli.Deps{EnterService: enterSvc}, "enter", projectPath)
