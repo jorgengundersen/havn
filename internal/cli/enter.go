@@ -33,7 +33,8 @@ func newEnterCmd(service EnterService) *cobra.Command {
 	return &cobra.Command{
 		Use:   "enter [path]",
 		Short: "Enter running container without nix develop",
-		Long: "Enter a running project container with plain bash.\n\n" +
+		Long: "Enter an already running project container with plain bash.\n\n" +
+			"Use `havn up [path]` first if the project container is not running. " +
 			"`havn enter` does not run startup preparation automatically. " +
 			"Startup preparation is the optional `havn-session-prepare` capability used by `havn` and `havn up`.",
 		Args: cobra.MaximumNArgs(1),

@@ -16,7 +16,10 @@ func newUpCmd(startService StartService) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "up [path]",
 		Short: "Start or reuse container without attaching",
-		Args:  cobra.MaximumNArgs(1),
+		Long: "Start or reuse a project container without interactive attach.\n\n" +
+			"`havn up` defaults to lifecycle-only startup. Use `--validate` to run required startup validation, " +
+			"or `--prepare` to run validation plus optional startup preparation.",
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if startService == nil {
 				return fmt.Errorf("havn up: %w", ErrNotImplemented)
@@ -65,7 +68,7 @@ func newUpCmd(startService StartService) *cobra.Command {
 	cmd.Flags().BoolVar(&opts.NoDolt, "no-dolt", false, "skip Dolt server")
 	cmd.Flags().StringVar(&opts.Image, "image", "", "override base image")
 	cmd.Flags().BoolVar(&validate, "validate", false, "run required startup validation")
-	cmd.Flags().BoolVar(&prepare, "prepare", false, "run startup validation and optional preparation")
+	cmd.Flags().BoolVar(&prepare, "prepare", false, "run startup validation and optional preparation (implies --validate)")
 
 	return cmd
 }

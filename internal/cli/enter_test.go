@@ -52,6 +52,15 @@ func TestEnterCommand_HelpDocumentsPlainShellWithoutAutomaticNixDevelop(t *testi
 	assert.Contains(t, enterCmd.Long, "does not run startup preparation automatically")
 }
 
+func TestEnterCommand_HelpDocumentsRunningContainerWorkflow(t *testing.T) {
+	root := cli.NewRoot(cli.Deps{})
+	enterCmd, _, err := root.Find([]string{"enter"})
+
+	require.NoError(t, err)
+	assert.Contains(t, enterCmd.Long, "already running")
+	assert.Contains(t, enterCmd.Long, "havn up")
+}
+
 func TestEnterCommand_ReturnsNotImplemented(t *testing.T) {
 	_, _, err := executeCommand("enter")
 

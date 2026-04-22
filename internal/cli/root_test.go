@@ -267,6 +267,14 @@ func TestNewRoot_HelpIncludesAllFlags(t *testing.T) {
 	}
 }
 
+func TestNewRoot_HelpDescribesWorkflowSplit(t *testing.T) {
+	root := cli.NewRoot(cli.Deps{})
+
+	assert.Contains(t, root.Long, "havn up")
+	assert.Contains(t, root.Long, "havn enter")
+	assert.Contains(t, root.Long, "nix develop")
+}
+
 func TestDeps_AcceptsDockerClient(t *testing.T) {
 	c, err := docker.NewClient()
 	require.NoError(t, err)

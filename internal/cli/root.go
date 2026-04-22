@@ -135,7 +135,11 @@ func NewRoot(deps Deps) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "havn [flags] [path]",
 		Short: "Manage development environment containers",
-		Args:  cobra.MaximumNArgs(1),
+		Long: "Start or attach to a project development container.\n\n" +
+			"`havn [path]` starts or reuses the container and enters `nix develop`. " +
+			"Use `havn up [path]` for lifecycle-only startup without attach, and `havn enter [path]` " +
+			"to enter an already running container with plain bash.",
+		Args: cobra.MaximumNArgs(1),
 
 		Version:       version,
 		SilenceErrors: true,

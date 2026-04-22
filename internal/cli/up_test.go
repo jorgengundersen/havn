@@ -90,6 +90,26 @@ func TestUpCommand_PrepareFlagWinsWhenValidateAndPrepareAreBothSet(t *testing.T)
 	assert.Equal(t, container.StartupCheckPrepare, svc.lastOpts.StartupChecks)
 }
 
+func TestUpCommand_PrepareFlagHelpMentionsValidateImplication(t *testing.T) {
+	root := cli.NewRoot(cli.Deps{})
+	upCmd, _, err := root.Find([]string{"up"})
+
+	require.NoError(t, err)
+	prepareFlag := upCmd.Flags().Lookup("prepare")
+	require.NotNil(t, prepareFlag)
+	assert.Contains(t, prepareFlag.Usage, "implies --validate")
+}
+
+func TestUpCommand_HelpDescribesLifecycleDefaultAndStartupCheckModes(t *testing.T) {
+	root := cli.NewRoot(cli.Deps{})
+	upCmd, _, err := root.Find([]string{"up"})
+
+	require.NoError(t, err)
+	assert.Contains(t, upCmd.Long, "lifecycle-only")
+	assert.Contains(t, upCmd.Long, "--validate")
+	assert.Contains(t, upCmd.Long, "--prepare")
+}
+
 func TestUpCommand_DoesNotAcceptShellFlag(t *testing.T) {
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
