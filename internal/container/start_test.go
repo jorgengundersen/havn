@@ -6,7 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -383,6 +385,48 @@ func TestStartOrAttach_RunningContainer_RecordsStartupCheckPhaseTelemetry(t *tes
 	assert.Equal(t, container.StartupCheckPhaseOutcomeFinish, events[3].Outcome)
 }
 
+func TestStartOrAttach_RunningContainer_EmitsStartupCheckPhaseStatusMessages(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	var statusMessages []string
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec: exec,
+		Status: func(msg string) {
+			statusMessages = append(statusMessages, msg)
+		},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	assert.Contains(t, statusMessages, "Startup check phase validation started")
+	assert.Contains(t, statusMessages, "Startup check phase prepare started")
+	assert.Condition(t, func() bool {
+		for _, msg := range statusMessages {
+			if msg == "Startup check phase validation completed in 0s" {
+				return true
+			}
+		}
+		return false
+	})
+	assert.Condition(t, func() bool {
+		for _, msg := range statusMessages {
+			if msg == "Startup check phase prepare completed in 0s" {
+				return true
+			}
+		}
+		return false
+	})
+}
+
 func TestStartOrAttach_RunningContainer_RecordsStartupCheckPhaseCancellation(t *testing.T) {
 	ctx := context.Background()
 	exec := &fakeExecBackend{}
@@ -416,6 +460,133 @@ func TestStartOrAttach_RunningContainer_RecordsStartupCheckPhaseCancellation(t *
 	require.NotNil(t, events[1].Interruption)
 	assert.Equal(t, "context_canceled", events[1].Interruption.Cause)
 	assert.Equal(t, context.Canceled.Error(), events[1].Interruption.Detail)
+}
+
+func TestStartOrAttach_RunningContainer_ReportsInterruptedStartupCheckPhase(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{}
+	exec.execFn = func(_ string, cmd []string) error {
+		if cmdHasToken(cmd, "develop") {
+			return context.Canceled
+		}
+		return nil
+	}
+	var statusMessages []string
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec: exec,
+		Status: func(msg string) {
+			statusMessages = append(statusMessages, msg)
+		},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	assert.ErrorContains(t, err, "validate required devShell")
+	assert.Contains(t, statusMessages, "Startup check phase validation interrupted: context canceled")
+}
+
+func TestStartOrAttach_RunningContainer_EmitsHeartbeatForLongRunningStartupCheckPhase(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	heartbeatTicks := make(chan time.Time, 1)
+	validationStarted := make(chan struct{})
+	releaseValidation := make(chan struct{})
+	heartbeatObserved := make(chan struct{}, 1)
+	exec.execFn = func(_ string, cmd []string) error {
+		if cmdHasToken(cmd, "develop") {
+			close(validationStarted)
+			<-releaseValidation
+		}
+		return nil
+	}
+	var statusMessages []string
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec: exec,
+		Status: func(msg string) {
+			statusMessages = append(statusMessages, msg)
+			if strings.HasPrefix(msg, "Startup check phase validation still running (") {
+				select {
+				case heartbeatObserved <- struct{}{}:
+				default:
+				}
+			}
+		},
+		StartupCheckHeartbeatInterval: time.Minute,
+		StartupCheckHeartbeatTicker: func(time.Duration) (<-chan time.Time, func()) {
+			return heartbeatTicks, func() {}
+		},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	result := make(chan error, 1)
+	go func() {
+		_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+		result <- err
+	}()
+
+	<-validationStarted
+	heartbeatTicks <- time.Now()
+	select {
+	case <-heartbeatObserved:
+	case <-time.After(time.Second):
+		close(releaseValidation)
+		require.FailNow(t, "expected heartbeat status message")
+	}
+	close(releaseValidation)
+	err := <-result
+
+	require.NoError(t, err)
+	heartbeatFound := false
+	for _, msg := range statusMessages {
+		if strings.HasPrefix(msg, "Startup check phase validation still running (") {
+			heartbeatFound = true
+			break
+		}
+	}
+	assert.True(t, heartbeatFound)
+}
+
+func TestStartOrAttach_RunningContainer_ReportsStartupCheckPhaseFailureStatus(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{}
+	exec.execFn = func(_ string, cmd []string) error {
+		if cmdHasToken(cmd, "run") {
+			return fmt.Errorf("prepare hook failed")
+		}
+		return nil
+	}
+	var statusMessages []string
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec: exec,
+		Status: func(msg string) {
+			statusMessages = append(statusMessages, msg)
+		},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	assert.ErrorContains(t, err, "run optional startup capability havn-session-prepare")
+	assert.Contains(t, statusMessages, "Startup check phase prepare failed: prepare hook failed")
 }
 
 func TestStartOrAttach_RunningContainer_RecordsStartupCheckPhaseFailure(t *testing.T) {
@@ -567,6 +738,7 @@ func TestStartOrAttach_RunningContainer_MissingRequiredDevShell_AbortsBeforePrep
 
 	assert.Equal(t, 0, exitCode)
 	assert.ErrorContains(t, err, "validate required devShell \"default\"")
+	assert.ErrorContains(t, err, "havn enter "+testProjectPath)
 	assert.Empty(t, exec.interactiveName)
 	assert.Len(t, exec.execCalls, 1)
 }

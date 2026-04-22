@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jorgengundersen/havn/internal/config"
 	"github.com/jorgengundersen/havn/internal/mount"
@@ -84,18 +85,24 @@ type PortChecker interface {
 
 // StartDeps aggregates all dependencies for StartOrAttach.
 type StartDeps struct {
-	Container             StartBackend
-	Image                 ImageBackend
-	Network               NetworkBackend
-	Volume                VolumeEnsurer
-	Mount                 MountResolver
-	Dolt                  DoltSetup // nil to skip Dolt setup
-	Exec                  ExecBackend
-	NixRegistry           NixRegistryPreparer
-	PortChecker           PortChecker
-	Status                func(msg string)
-	StartupCheckTelemetry *StartupCheckTelemetry
+	Container                     StartBackend
+	Image                         ImageBackend
+	Network                       NetworkBackend
+	Volume                        VolumeEnsurer
+	Mount                         MountResolver
+	Dolt                          DoltSetup // nil to skip Dolt setup
+	Exec                          ExecBackend
+	NixRegistry                   NixRegistryPreparer
+	PortChecker                   PortChecker
+	Status                        func(msg string)
+	StartupCheckTelemetry         *StartupCheckTelemetry
+	StartupCheckHeartbeatInterval time.Duration
+	StartupCheckHeartbeatTicker   StartupCheckHeartbeatTickerFactory
 }
+
+// StartupCheckHeartbeatTickerFactory creates a heartbeat ticker channel and a
+// stop function for startup-check status updates.
+type StartupCheckHeartbeatTickerFactory func(interval time.Duration) (<-chan time.Time, func())
 
 // StartOptions controls startup behavior that is invocation-scoped.
 type StartOptions struct {
@@ -250,13 +257,13 @@ func prepareNixRegistry(ctx context.Context, deps StartDeps, containerName strin
 }
 
 func prepareStartupSession(ctx context.Context, deps StartDeps, containerName string, cfg config.Config, projectPath string, opts StartOptions) error {
-	if err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, StartupCheckPhaseValidation, func() error {
+	if err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, deps.Status, deps.StartupCheckHeartbeatInterval, deps.StartupCheckHeartbeatTicker, StartupCheckPhaseValidation, func() error {
 		return deps.Exec.ContainerExec(ctx, containerName, requiredDevShellValidationCmd(cfg, opts))
 	}); err != nil {
-		return fmt.Errorf("validate required devShell %q in container %q: %w", cfg.Shell, containerName, err)
+		return fmt.Errorf("validate required devShell %q in container %q: %w (run 'havn enter %s' to debug startup validation manually)", cfg.Shell, containerName, err, projectPath)
 	}
 
-	err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, StartupCheckPhasePrepare, func() error {
+	err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, deps.Status, deps.StartupCheckHeartbeatInterval, deps.StartupCheckHeartbeatTicker, StartupCheckPhasePrepare, func() error {
 		return deps.Exec.ContainerExec(ctx, containerName, sessionPrepareCmd(cfg, opts))
 	})
 	if err == nil {
@@ -272,28 +279,79 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 	return fmt.Errorf("run optional startup capability havn-session-prepare in container %q: %w (run 'havn enter %s' to debug startup preparation manually)", containerName, err, projectPath)
 }
 
-func runStartupCheckPhase(ctx context.Context, telemetry *StartupCheckTelemetry, phase StartupCheckPhase, run func() error) error {
+func runStartupCheckPhase(ctx context.Context, telemetry *StartupCheckTelemetry, status func(msg string), heartbeatInterval time.Duration, tickerFactory StartupCheckHeartbeatTickerFactory, phase StartupCheckPhase, run func() error) error {
+	startedAt := time.Now()
+	if status != nil {
+		status(fmt.Sprintf("Startup check phase %s started", phase))
+	}
+	heartbeatDone := make(chan struct{})
+	heartbeatStop := make(chan struct{})
+	if status != nil {
+		go emitStartupCheckHeartbeats(phase, status, startedAt, heartbeatInterval, tickerFactory, heartbeatStop, heartbeatDone)
+	}
 	if telemetry != nil {
 		telemetry.StartPhase(phase)
 	}
 
 	err := run()
+	if status != nil {
+		close(heartbeatStop)
+		<-heartbeatDone
+	}
 	if err == nil {
 		if telemetry != nil {
 			telemetry.FinishPhase(phase)
 		}
+		if status != nil {
+			status(fmt.Sprintf("Startup check phase %s completed in %s", phase, time.Since(startedAt).Round(time.Second)))
+		}
 		return nil
 	}
 
-	if telemetry != nil {
-		if interruption, ok := startupCheckInterruption(ctx, err); ok {
+	if interruption, ok := startupCheckInterruption(ctx, err); ok {
+		if telemetry != nil {
 			telemetry.CancelPhase(phase, interruption)
-		} else {
+		}
+		if status != nil {
+			status(fmt.Sprintf("Startup check phase %s interrupted: %s", phase, interruption.Detail))
+		}
+	} else {
+		if telemetry != nil {
 			telemetry.ErrorPhase(phase, err)
+		}
+		if status != nil {
+			status(fmt.Sprintf("Startup check phase %s failed: %s", phase, err.Error()))
 		}
 	}
 
 	return err
+}
+
+const defaultStartupCheckHeartbeatInterval = 10 * time.Second
+
+func emitStartupCheckHeartbeats(phase StartupCheckPhase, status func(msg string), startedAt time.Time, interval time.Duration, tickerFactory StartupCheckHeartbeatTickerFactory, stop <-chan struct{}, done chan<- struct{}) {
+	defer close(done)
+	if interval <= 0 {
+		interval = defaultStartupCheckHeartbeatInterval
+	}
+	if tickerFactory == nil {
+		tickerFactory = defaultStartupCheckHeartbeatTicker
+	}
+	ticks, stopTicker := tickerFactory(interval)
+	defer stopTicker()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticks:
+			status(fmt.Sprintf("Startup check phase %s still running (%s elapsed)", phase, time.Since(startedAt).Round(time.Second)))
+		}
+	}
+}
+
+func defaultStartupCheckHeartbeatTicker(interval time.Duration) (<-chan time.Time, func()) {
+	ticker := time.NewTicker(interval)
+	return ticker.C, ticker.Stop
 }
 
 func startupCheckInterruption(ctx context.Context, err error) (StartupCheckInterruption, bool) {
