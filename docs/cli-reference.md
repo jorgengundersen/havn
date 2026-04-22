@@ -62,13 +62,16 @@ For retained startup-log investigation and cleanup workflow, see `docs/doctor-tr
 - `havn [path]`: start or attach to the project container
 - `havn --version`: print CLI version
 
-Environment startup-preparation behavior for startup and entry:
+Environment startup-check and preparation behavior:
 
-- startup commands (`havn [path]`, `havn up [path]`) may run an optional,
-  environment-owned preparation capability when the environment exposes it
-- `havn [path]` is fail-closed if that prepare step runs and fails
-- `havn up [path]` stays non-interactive and fails non-zero if that prepare step
-  runs and fails
+- `havn [path]` runs startup checks plus optional environment preparation before
+  attach; if preparation runs and fails, the command fails
+- `havn up [path]` is non-interactive and defaults to lifecycle-only startup
+  (no startup validation or preparation)
+- `havn up --validate [path]` runs required startup validation, then exits
+  without attaching
+- `havn up --prepare [path]` runs required startup validation plus optional
+  environment preparation, then exits without attaching
 - `havn enter [path]` remains plain-shell entry and does not run startup
   preparation
 - missing optional capability is not a startup failure
@@ -100,6 +103,15 @@ Root startup resource behavior:
 - `havn stop --all`: stop all running havn-managed project containers with
   best-effort reporting
 - `havn build`: build the base image used for project containers
+
+Startup-check examples for `havn up`:
+
+```bash
+havn up .
+havn up --validate .
+havn up --prepare .
+havn enter .
+```
 
 `havn stop [name|path]` target rules:
 

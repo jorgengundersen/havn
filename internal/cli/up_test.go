@@ -125,6 +125,17 @@ func TestUpCommand_HelpDescribesLifecycleDefaultAndStartupCheckModes(t *testing.
 	assert.Contains(t, upCmd.Long, "--prepare")
 }
 
+func TestUpCommand_HelpIncludesStartupCheckWorkflowExamples(t *testing.T) {
+	root := cli.NewRoot(cli.Deps{})
+	upCmd, _, err := root.Find([]string{"up"})
+
+	require.NoError(t, err)
+	assert.Contains(t, upCmd.Example, "havn up .")
+	assert.Contains(t, upCmd.Example, "havn up --validate .")
+	assert.Contains(t, upCmd.Example, "havn up --prepare .")
+	assert.Contains(t, upCmd.Example, "havn enter .")
+}
+
 func TestUpCommand_DoesNotAcceptShellFlag(t *testing.T) {
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)

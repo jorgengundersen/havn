@@ -94,8 +94,11 @@ it.
 
 Environment startup preparation is command-scoped and capability-driven.
 
-- startup commands (`havn [path]`, `havn up [path]`) may run an optional,
-  environment-owned prepare capability when exposed by the target flake
+- `havn [path]` runs required startup checks and optional environment-owned
+  prepare capability (when exposed by the target flake)
+- `havn up [path]` defaults to lifecycle-only startup and skips startup checks
+- `havn up --validate [path]` runs required startup validation
+- `havn up --prepare [path]` runs validation plus optional startup preparation
 - plain entry (`havn enter [path]`) keeps plain-shell behavior and does not run
   startup preparation
 - no new configuration precedence layer is introduced by this behavior;

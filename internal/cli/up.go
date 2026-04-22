@@ -19,6 +19,10 @@ func newUpCmd(startService StartService) *cobra.Command {
 		Long: "Start or reuse a project container without interactive attach.\n\n" +
 			"`havn up` defaults to lifecycle-only startup. Use `--validate` to run required startup validation, " +
 			"or `--prepare` to run validation plus optional startup preparation.",
+		Example: "  havn up .\n" +
+			"  havn up --validate .\n" +
+			"  havn up --prepare .\n" +
+			"  havn enter .",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if startService == nil {

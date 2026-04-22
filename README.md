@@ -54,6 +54,15 @@ This builds `bin/havn` and installs the CLI to your Go binary path via
    to the project shell.
 4. On later runs, it reuses the existing running container when possible.
 
+### Lifecycle-only startup and debugging flow
+
+- `havn up [path]` is non-interactive lifecycle startup only (create/start/init)
+- `havn up --validate [path]` adds required environment validation
+- `havn up --prepare [path]` adds validation plus optional environment
+  preparation (`havn-session-prepare` when provided)
+- debugging-first workflow: run `havn up .` to get the container running, then
+  use `havn enter .` for a plain shell
+
 Useful follow-up commands:
 
 ```bash
