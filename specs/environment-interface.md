@@ -42,7 +42,8 @@ An environment must expose:
 configuration.
 
 If the required shell output is missing for the resolved pair,
-startup-oriented commands fail with a command error.
+commands that execute environment validation or shell handoff fail with a
+command error.
 
 ## Optional capability entrypoint
 
@@ -69,9 +70,15 @@ Capability behavior is command-scoped:
   - runs `havn-session-prepare` when available
   - if prepare fails, exits non-zero and does not hand off to interactive shell
 - `havn up [path]`
-  - runs `havn-session-prepare` when available
-  - remains non-interactive and never attaches
-  - if prepare fails, exits non-zero with actionable command-scoped error
+  - default run remains non-interactive and never attaches
+  - default run does not execute `havn-session-prepare`
+  - `havn up --validate [path]` validates that
+    `devShells.<system>.<shell>` is realizable in non-interactive mode
+  - `havn up --prepare [path]` runs `havn-session-prepare` when available
+  - `havn up --prepare [path]` performs the same validation before running
+    `havn-session-prepare`
+  - when `--prepare` is used and prepare fails, exits non-zero with actionable
+    command-scoped error
 - `havn enter [path]`
   - plain-shell entry only
   - does not run startup preparation capability

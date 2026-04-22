@@ -58,16 +58,19 @@ Environment startup-preparation contract for this split:
   remaining gaps are runtime-alignment follow-up
 - primary interactive startup (`havn [path]`) runs preparation when available
   and is fail-closed if that prepare step runs and fails
-- `havn up [path]` runs the same preparation step when available, remains
-  non-interactive, and returns a command error on prepare failure
+- `havn up [path]` remains non-interactive and lifecycle-focused by default; it
+  does not run optional startup preparation unless explicitly requested
+- `havn up [path] --prepare` runs optional startup preparation when available
+  and returns a command error on prepare failure
 - `havn enter [path]` remains plain-shell entry and does not run startup
   preparation
 - ad-hoc `nix develop` from inside entered sessions remains supported
 
 `havn up [path]` uses the same startup override surface as
 `havn [path]` for `--env`, `--cpus`, `--memory`, `--port`, `--no-dolt`, and
-`--image`. `--shell` remains exclusive to `havn [path]` because `up` does not
-start an interactive shell session.
+`--image`. `havn up [path]` also supports startup-check modifiers
+`--validate` and `--prepare`. `--shell` remains exclusive to `havn [path]`
+because `up` does not start an interactive shell session.
 
 `havn enter [path]` requires the project container to already be running. If the
 container is missing or stopped, the command returns actionable guidance to run
@@ -98,7 +101,8 @@ At overview level, startup works like this:
 6. exec into the configured dev shell
 
 `havn up [path]` runs the same startup orchestration through step 5 and
-then exits without entering a shell.
+then exits without entering a shell. Optional startup-check flags may add
+non-interactive validation/preparation phases before command completion.
 
 On successful attach, the root command exits with the shell session's exit code.
 

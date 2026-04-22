@@ -320,6 +320,15 @@ nix flake show devenv
 # enter a shell from that environment
 nix develop devenv#default
 # or: nix develop devenv#codex
+
+# refresh flake metadata when you want latest upstream
+nix --refresh develop devenv#default
+
+# non-interactive refresh/smoke check
+nix --refresh develop devenv#default --command true
+
+# verify what the alias resolves to
+nix registry list | rg 'flake:devenv|jorgengundersen/dev-environments'
 ```
 
 ### Home Manager activation (optional)

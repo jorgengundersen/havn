@@ -104,6 +104,11 @@ Shared startup runtime flags (accepted by `havn [path]` and
 - `--no-dolt`
 - `--image <name>`
 
+`havn up [path]` startup-check flags:
+
+- `--validate`
+- `--prepare` (implies `--validate`)
+
 Attach-only startup runtime flag:
 
 - `--shell <name>` (accepted by `havn [path]` only)
@@ -154,7 +159,8 @@ For startup runtime resource flags (`--cpus`, `--memory`):
 `havn` has three workflow surfaces with distinct intent:
 
 - `havn [path]`: start-or-attach, then enter `nix develop <ref>#<shell> -c bash`
-- `havn up [path]`: lifecycle startup without interactive attach
+- `havn up [path]`: lifecycle startup without interactive attach; default run is
+  container lifecycle only
 - `havn enter [path]`: interactive plain `bash` entry without `nix develop`
 
 `havn [path]`, `havn up [path]`, and `havn enter [path]` are implemented.
@@ -162,9 +168,9 @@ For startup runtime resource flags (`--cpus`, `--memory`):
 `havn enter [path]` returns an actionable CLI error for missing or stopped
 project containers that includes `havn up <path>` guidance.
 
-Before plain-shell attach, `havn enter [path]` performs the same in-container
-Nix registry persistence preparation as startup-oriented entry, so users do not
-need to run startup first solely for registry alias persistence.
+Before plain-shell attach, `havn enter [path]` performs in-container
+Nix registry persistence preparation, so users do not need startup checks to
+run first solely for registry alias persistence.
 
 ### Environment startup preparation lifecycle contract
 
@@ -174,17 +180,37 @@ entrypoint is defined by `specs/environment-interface.md`.
 The environment-interface contract is ratified at `Status: Partial`; remaining
 gaps for this behavior are runtime-alignment work, not contract-planning work.
 
-- `havn [path]` runs the optional prepare capability when present before shell
-  handoff. If the prepare command runs and fails, `havn` exits non-zero and
-  must not attach to an interactive shell.
-- `havn up [path]` runs the same optional prepare capability when present and
-  remains non-interactive. It must not attach or prompt. If prepare runs and
-  fails, `up` exits non-zero with actionable command-scoped guidance.
+- `havn [path]` runs required environment validation and then runs the optional
+  prepare capability when present before shell handoff. If either phase fails,
+  `havn` exits non-zero and must not attach to an interactive shell.
+- `havn up [path]` by default does not run environment validation or optional
+  prepare capability; it remains non-interactive and lifecycle-focused.
+- default `havn up [path]` lifecycle startup also does not run in-container Nix
+  registry persistence preparation.
+- `havn up [path] --validate` runs required environment validation and remains
+  non-interactive.
+- `havn up [path] --prepare` runs required environment validation and then runs
+  optional prepare capability when present; it remains non-interactive.
+- for `havn up [path]` with `--validate` or `--prepare`, phase failures exit
+  non-zero with actionable command-scoped guidance.
 - `havn enter [path]` remains plain-shell entry and does not run startup
   preparation.
 - Missing optional capability is not a command failure.
 - Startup preparation behavior must not invalidate ad-hoc `nix develop` usage
   from entered sessions.
+
+### Startup phase observability contract
+
+For startup checks and preparation phases:
+
+- phase start and completion events are emitted on `stderr`
+- completion events include elapsed duration
+- long-running phases emit progress heartbeat messages on `stderr` at least
+  every 10 seconds while the phase is active
+- `--verbose` includes concrete command details for active startup phases
+- interrupting startup reports the interrupted phase before exiting
+- phase-scoped failures report the phase name, exit semantics, and actionable
+  guidance
 
 ### Startup logging contract
 

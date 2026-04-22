@@ -101,6 +101,8 @@ project config, environment, or flags.
   `--memory`, `--port`, `--no-dolt`, and `--image`.
 - `havn up [path]` accepts the same startup runtime overrides except
   `--shell`.
+- `havn up [path]` also accepts startup-check modifiers `--validate` and
+  `--prepare` (`--prepare` implies `--validate`).
 - For `havn [path]` startup and `havn up [path]` startup, the resolved
   project path must be under the user's home directory.
 - `havn build` may honor `--image` and `--config` because they affect build-time
@@ -122,9 +124,11 @@ follow-up, not planned contract definition.
 
 - The optional startup preparation capability entrypoint is owned by
   `specs/environment-interface.md`.
-- `havn [path]` and `havn up [path]` evaluate startup preparation behavior after
-  startup prerequisites are ready and before command completion (`havn up`) or
-  shell handoff (`havn`).
+- `havn [path]` evaluates startup preparation behavior after startup
+  prerequisites are ready and before shell handoff.
+- `havn up [path]` default startup does not evaluate startup preparation.
+- `havn up [path] --prepare` evaluates startup preparation behavior after
+  startup prerequisites are ready and before command completion.
 - `havn enter [path]` remains plain-shell entry and does not run startup
   preparation.
 - No new precedence layer is introduced by startup preparation. Precedence
