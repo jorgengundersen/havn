@@ -180,8 +180,10 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		if err := prepareNixRegistry(ctx, deps, string(cname)); err != nil {
 			return 0, err
 		}
-		if err := prepareStartupSession(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
-			return 0, err
+		if shouldRunStartupChecks(opts) {
+			if err := prepareStartupSession(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
+				return 0, err
+			}
 		}
 		if opts.Mode == StartupModeNoAttach {
 			return 0, nil
@@ -199,8 +201,10 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		if err := prepareNixRegistry(ctx, deps, string(cname)); err != nil {
 			return 0, err
 		}
-		if err := prepareStartupSession(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
-			return 0, err
+		if shouldRunStartupChecks(opts) {
+			if err := prepareStartupSession(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
+				return 0, err
+			}
 		}
 
 		if opts.Mode == StartupModeNoAttach {
@@ -239,8 +243,10 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		return 0, err
 	}
 
-	if err := prepareStartupSession(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
-		return 0, err
+	if shouldRunStartupChecks(opts) {
+		if err := prepareStartupSession(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
+			return 0, err
+		}
 	}
 
 	if opts.Mode == StartupModeNoAttach {
@@ -262,6 +268,10 @@ func prepareNixRegistry(ctx context.Context, deps StartDeps, containerName strin
 }
 
 func prepareStartupSession(ctx context.Context, deps StartDeps, containerName string, cfg config.Config, projectPath string, opts StartOptions) error {
+	if !shouldRunStartupChecks(opts) {
+		return nil
+	}
+
 	if err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, deps.Status, deps.StartupCheckHeartbeatInterval, deps.StartupCheckHeartbeatTicker, StartupCheckPhaseValidation, func() error {
 		return deps.Exec.ContainerExec(ctx, containerName, requiredDevShellValidationCmd(cfg, opts))
 	}); err != nil {
@@ -282,6 +292,17 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 	}
 
 	return fmt.Errorf("run optional startup capability havn-session-prepare in container %q: %w (run 'havn enter %s' to debug startup preparation manually)", containerName, err, projectPath)
+}
+
+func shouldRunStartupChecks(opts StartOptions) bool {
+	switch opts.StartupChecks {
+	case StartupCheckValidate, StartupCheckPrepare:
+		return true
+	case StartupCheckDefault:
+		return opts.Mode != StartupModeNoAttach
+	default:
+		return opts.Mode != StartupModeNoAttach
+	}
 }
 
 func runStartupCheckPhase(ctx context.Context, telemetry *StartupCheckTelemetry, status func(msg string), heartbeatInterval time.Duration, tickerFactory StartupCheckHeartbeatTickerFactory, phase StartupCheckPhase, run func() error) error {
