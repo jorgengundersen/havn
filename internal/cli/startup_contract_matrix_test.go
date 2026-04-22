@@ -133,7 +133,7 @@ func TestStartupContractMatrix_RootAndUpAndEnter(t *testing.T) {
 				require.NoError(t, upValidateErr)
 			} else {
 				require.Error(t, upValidateErr)
-				assert.Contains(t, upValidateErr.Error(), "havn up:")
+				assert.Contains(t, upValidateErr.Error(), "havn up --validate:")
 				assert.Contains(t, upValidateErr.Error(), tt.errPart)
 			}
 			require.True(t, startSvc.called)
@@ -147,7 +147,7 @@ func TestStartupContractMatrix_RootAndUpAndEnter(t *testing.T) {
 				require.NoError(t, upPrepareErr)
 			} else {
 				require.Error(t, upPrepareErr)
-				assert.Contains(t, upPrepareErr.Error(), "havn up:")
+				assert.Contains(t, upPrepareErr.Error(), "havn up --prepare:")
 				assert.Contains(t, upPrepareErr.Error(), tt.errPart)
 			}
 			require.True(t, startSvc.called)

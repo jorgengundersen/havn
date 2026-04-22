@@ -42,13 +42,14 @@ func newUpCmd(startService StartService) *cobra.Command {
 
 			verbose, _ := cmd.Flags().GetBool("verbose")
 			out := commandOutput(cmd)
+			checkMode := startupCheckModeForUp(validate, prepare)
 			_, err = startService.StartOrAttach(cmd.Context(), cfg, projectCtx.Path, out.Status, container.StartOptions{
 				VerboseStartup: verbose,
 				Mode:           container.StartupModeNoAttach,
-				StartupChecks:  startupCheckModeForUp(validate, prepare),
+				StartupChecks:  checkMode,
 			})
 			if err != nil {
-				return fmt.Errorf("havn up: %w", err)
+				return fmt.Errorf("%s: %w", upCommandScope(checkMode), err)
 			}
 
 			containerName, err := projectCtx.ContainerName()
@@ -56,6 +57,15 @@ func newUpCmd(startService StartService) *cobra.Command {
 				return fmt.Errorf("havn up: %w", err)
 			}
 			out.Status(fmt.Sprintf("Container %s is running for project %s", containerName, projectCtx.Path))
+			if out.IsJSON() {
+				return out.DataJSON(map[string]any{
+					"status":         "ok",
+					"message":        "container running",
+					"container":      string(containerName),
+					"project_path":   projectCtx.Path,
+					"startup_checks": startupCheckModeLabel(checkMode),
+				})
+			}
 
 			return nil
 		},
@@ -71,6 +81,28 @@ func newUpCmd(startService StartService) *cobra.Command {
 	cmd.Flags().BoolVar(&prepare, "prepare", false, "run startup validation and optional preparation (implies --validate)")
 
 	return cmd
+}
+
+func upCommandScope(mode container.StartupCheckMode) string {
+	switch mode {
+	case container.StartupCheckValidate:
+		return "havn up --validate"
+	case container.StartupCheckPrepare:
+		return "havn up --prepare"
+	default:
+		return "havn up"
+	}
+}
+
+func startupCheckModeLabel(mode container.StartupCheckMode) string {
+	switch mode {
+	case container.StartupCheckValidate:
+		return "validate"
+	case container.StartupCheckPrepare:
+		return "prepare"
+	default:
+		return "default"
+	}
 }
 
 func startupCheckModeForUp(validate, prepare bool) container.StartupCheckMode {

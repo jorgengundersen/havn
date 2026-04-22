@@ -332,6 +332,21 @@ Command-specific exit codes may extend this. `havn doctor` is the main example:
 - for path-like targets (for example `.` and `./project`), the reported
   container identity is the derived havn container name
 
+### `havn up [path]`
+
+- in human mode, successful runs report lifecycle completion on `stderr`
+- in JSON mode, successful runs emit a stable action result object on `stdout`
+  with:
+  - `status` (`"ok"`)
+  - `message` (`"container running"`)
+  - `container` (resolved container name)
+  - `project_path` (resolved project path)
+  - `startup_checks` (`"default"`, `"validate"`, or `"prepare"`)
+- startup-check failures (`--validate` / `--prepare`) are command-scoped in
+  error framing and exit non-zero
+- in JSON mode, startup-check errors are emitted on `stderr` via the shared
+  JSON error contract
+
 ### `havn config show`
 
 - produces the effective-config inspection output
