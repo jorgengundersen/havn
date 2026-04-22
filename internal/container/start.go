@@ -623,6 +623,6 @@ func attach(ctx context.Context, exec ExecBackend, containerName string, cfg con
 
 func shellCmd(cfg config.Config, opts StartOptions) []string {
 	cmd := nixFlakeCmdBase(opts)
-	cmd = append(cmd, "develop", cfg.Env+"#"+cfg.Shell, "-c", "bash")
+	cmd = append(cmd, "develop", cfg.Env+"#"+cfg.Shell)
 	return cmd
 }

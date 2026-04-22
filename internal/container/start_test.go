@@ -201,7 +201,7 @@ func TestStartOrAttach_RunningContainer_DefaultStartupRetainsNixBuildLogs(t *tes
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
-	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "-c", "bash"}, exec.interactiveCmd)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default"}, exec.interactiveCmd)
 	assert.Equal(t, "/home/devuser/Repos/github.com/user/project", exec.interactiveWorkdir)
 }
 
@@ -224,7 +224,7 @@ func TestStartOrAttach_RunningContainer_VerboseStartupEnablesDetailedNixLogs(t *
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
-	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "-v", "-L", "develop", "github:user/env#default", "-c", "bash"}, exec.interactiveCmd)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "-v", "-L", "develop", "github:user/env#default"}, exec.interactiveCmd)
 }
 
 func TestStartOrAttach_RunningContainer_DotProjectPathDerivesContainerName(t *testing.T) {

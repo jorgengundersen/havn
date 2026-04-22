@@ -158,7 +158,7 @@ For startup runtime resource flags (`--cpus`, `--memory`):
 
 `havn` has three workflow surfaces with distinct intent:
 
-- `havn [path]`: start-or-attach, then enter `nix develop <ref>#<shell> -c bash`
+- `havn [path]`: start-or-attach, then enter interactive `nix develop <ref>#<shell>`
 - `havn up [path]`: lifecycle startup without interactive attach; default run is
   container lifecycle only
 - `havn enter [path]`: interactive plain `bash` entry without `nix develop`
