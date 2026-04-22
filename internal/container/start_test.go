@@ -794,6 +794,98 @@ func TestStart_RunningContainer_SkipsStartupChecksWithoutInteractiveAttachByDefa
 	assert.Empty(t, exec.execCalls)
 }
 
+func TestStartWithOptions_RunningContainer_ValidateOnlyRunsValidationPhase(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:   exec,
+		Status: func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	err := container.StartWithOptions(ctx, deps, cfg, testProjectPath, container.StartOptions{StartupChecks: container.StartupCheckValidate})
+
+	require.NoError(t, err)
+	require.Len(t, exec.execCalls, 1)
+	assert.Equal(t, "havn-user-project", exec.execCalls[0].name)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "--command", "true"}, exec.execCalls[0].cmd)
+	assert.Empty(t, exec.interactiveName)
+}
+
+func TestStartWithOptions_InvalidStartupCheckMode_ReturnsError(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:   exec,
+		Status: func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	err := container.StartWithOptions(ctx, deps, cfg, testProjectPath, container.StartOptions{StartupChecks: container.StartupCheckMode(99)})
+
+	assert.ErrorContains(t, err, "invalid startup check mode")
+	assert.Empty(t, exec.execCalls)
+	assert.Empty(t, exec.interactiveName)
+}
+
+func TestStartWithOptions_RunningContainer_PrepareModeRunsValidationAndPrepare(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:   exec,
+		Status: func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	err := container.StartWithOptions(ctx, deps, cfg, testProjectPath, container.StartOptions{StartupChecks: container.StartupCheckPrepare})
+
+	require.NoError(t, err)
+	require.Len(t, exec.execCalls, 2)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default", "--command", "true"}, exec.execCalls[0].cmd)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "run", "github:user/env#havn-session-prepare"}, exec.execCalls[1].cmd)
+	assert.Empty(t, exec.interactiveName)
+}
+
+func TestStartOrAttachWithOptions_InvalidStartupMode_ReturnsError(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:   exec,
+		Status: func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	_, err := container.StartOrAttachWithOptions(ctx, deps, cfg, testProjectPath, container.StartOptions{Mode: container.StartupMode(99)})
+
+	assert.ErrorContains(t, err, "invalid startup mode")
+	assert.Empty(t, exec.execCalls)
+	assert.Empty(t, exec.interactiveName)
+}
+
 func TestStartOrAttach_NewContainer(t *testing.T) {
 	ctx := context.Background()
 	cb := &fakeStartBackend{

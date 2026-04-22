@@ -159,6 +159,12 @@ func StartWithOptions(ctx context.Context, deps StartDeps, cfg config.Config, pr
 // StartOrAttachWithOptions runs startup orchestration with invocation-scoped
 // runtime options.
 func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Config, projectPath string, opts StartOptions) (int, error) {
+	resolvedOpts, err := normalizeStartOptions(opts)
+	if err != nil {
+		return 0, err
+	}
+	opts = resolvedOpts
+
 	if deps.StartupCheckTelemetry == nil {
 		deps.StartupCheckTelemetry = opts.StartupCheckTelemetry
 	}
@@ -180,7 +186,7 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		if err := prepareNixRegistry(ctx, deps, string(cname)); err != nil {
 			return 0, err
 		}
-		if shouldRunStartupChecks(opts) {
+		if shouldRunValidation(opts) {
 			if err := prepareStartupSession(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
 				return 0, err
 			}
@@ -201,7 +207,7 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		if err := prepareNixRegistry(ctx, deps, string(cname)); err != nil {
 			return 0, err
 		}
-		if shouldRunStartupChecks(opts) {
+		if shouldRunValidation(opts) {
 			if err := prepareStartupSession(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
 				return 0, err
 			}
@@ -243,7 +249,7 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		return 0, err
 	}
 
-	if shouldRunStartupChecks(opts) {
+	if shouldRunValidation(opts) {
 		if err := prepareStartupSession(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
 			return 0, err
 		}
@@ -268,7 +274,7 @@ func prepareNixRegistry(ctx context.Context, deps StartDeps, containerName strin
 }
 
 func prepareStartupSession(ctx context.Context, deps StartDeps, containerName string, cfg config.Config, projectPath string, opts StartOptions) error {
-	if !shouldRunStartupChecks(opts) {
+	if !shouldRunValidation(opts) {
 		return nil
 	}
 
@@ -276,6 +282,10 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 		return deps.Exec.ContainerExec(ctx, containerName, requiredDevShellValidationCmd(cfg, opts))
 	}); err != nil {
 		return fmt.Errorf("validate required devShell %q in container %q: %w (run 'havn enter %s' to debug startup validation manually)", cfg.Shell, containerName, err, projectPath)
+	}
+
+	if !shouldRunPrepare(opts) {
+		return nil
 	}
 
 	err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, deps.Status, deps.StartupCheckHeartbeatInterval, deps.StartupCheckHeartbeatTicker, StartupCheckPhasePrepare, func() error {
@@ -294,7 +304,7 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 	return fmt.Errorf("run optional startup capability havn-session-prepare in container %q: %w (run 'havn enter %s' to debug startup preparation manually)", containerName, err, projectPath)
 }
 
-func shouldRunStartupChecks(opts StartOptions) bool {
+func shouldRunValidation(opts StartOptions) bool {
 	switch opts.StartupChecks {
 	case StartupCheckValidate, StartupCheckPrepare:
 		return true
@@ -303,6 +313,37 @@ func shouldRunStartupChecks(opts StartOptions) bool {
 	default:
 		return opts.Mode != StartupModeNoAttach
 	}
+}
+
+func shouldRunPrepare(opts StartOptions) bool {
+	switch opts.StartupChecks {
+	case StartupCheckPrepare:
+		return true
+	case StartupCheckValidate:
+		return false
+	case StartupCheckDefault:
+		return opts.Mode != StartupModeNoAttach
+	default:
+		return opts.Mode != StartupModeNoAttach
+	}
+}
+
+func normalizeStartOptions(opts StartOptions) (StartOptions, error) {
+	switch opts.Mode {
+	case StartupModeAttach, StartupModeNoAttach:
+		// valid
+	default:
+		return StartOptions{}, fmt.Errorf("invalid startup mode %d", opts.Mode)
+	}
+
+	switch opts.StartupChecks {
+	case StartupCheckDefault, StartupCheckValidate, StartupCheckPrepare:
+		// valid
+	default:
+		return StartOptions{}, fmt.Errorf("invalid startup check mode %d", opts.StartupChecks)
+	}
+
+	return opts, nil
 }
 
 func runStartupCheckPhase(ctx context.Context, telemetry *StartupCheckTelemetry, status func(msg string), heartbeatInterval time.Duration, tickerFactory StartupCheckHeartbeatTickerFactory, phase StartupCheckPhase, run func() error) error {
