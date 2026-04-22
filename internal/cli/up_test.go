@@ -106,6 +106,20 @@ func TestUpCommand_ValidateFailureUsesValidateScopedCommandPrefix(t *testing.T) 
 	assert.Contains(t, err.Error(), "havn up --validate:")
 }
 
+func TestUpCommand_ValidateAndPrepareFailureUsesPrepareScopedCommandPrefix(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := &fakeStartService{err: assert.AnError}
+	_, _, err := executeCommandWithDeps(cli.Deps{StartService: svc}, "up", "--validate", "--prepare", projectPath)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, assert.AnError)
+	assert.Contains(t, err.Error(), "havn up --prepare:")
+}
+
 func TestUpCommand_PrepareFlagHelpMentionsValidateImplication(t *testing.T) {
 	root := cli.NewRoot(cli.Deps{})
 	upCmd, _, err := root.Find([]string{"up"})
@@ -231,6 +245,31 @@ func TestUpCommand_JSONValidateSuccessEmitsStableResultPayloadToStdout(t *testin
 	assert.Equal(t, "container running", payload["message"])
 	assert.Equal(t, "validate", payload["startup_checks"])
 	assert.Equal(t, projectPath, payload["project_path"])
+}
+
+func TestUpCommand_JSONDefaultSuccessEmitsLifecycleOnlyStartupCheckMode(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := &fakeStartService{}
+	stdout, stderr, err := executeCommandWithDeps(cli.Deps{StartService: svc}, "--json", "up", projectPath)
+
+	require.NoError(t, err)
+	assert.True(t, svc.called)
+	assert.Contains(t, stderr, "is running for project")
+
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal([]byte(stdout), &payload))
+	assert.Equal(t, "ok", payload["status"])
+	assert.Equal(t, "container running", payload["message"])
+	assert.Equal(t, "default", payload["startup_checks"])
+	assert.Equal(t, projectPath, payload["project_path"])
+
+	phases, ok := payload["startup_check_phases"].([]any)
+	require.True(t, ok)
+	assert.Empty(t, phases)
 }
 
 func TestUpCommand_JSONValidateIncludesStartupCheckPhaseSummary(t *testing.T) {

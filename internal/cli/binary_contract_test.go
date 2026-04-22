@@ -100,6 +100,27 @@ func TestHAVNBinary_CLIContractAtProcessBoundary(t *testing.T) {
 		require.True(t, ok)
 		assert.Contains(t, errMsg, "unknown flag: --shell")
 	})
+
+	t.Run("up validate and prepare with shell flag fails in human mode", func(t *testing.T) {
+		stdout, stderr, exitCode := runHAVNBinary(t, binaryPath, projectDir, homeDir, "up", "--validate", "--prepare", "--shell", "zsh")
+
+		assert.Equal(t, 1, exitCode)
+		assert.Empty(t, stdout)
+		assert.Contains(t, stderr, "Error: unknown flag: --shell")
+	})
+
+	t.Run("up validate and prepare with shell flag fails in json mode", func(t *testing.T) {
+		stdout, stderr, exitCode := runHAVNBinary(t, binaryPath, projectDir, homeDir, "--json", "up", "--validate", "--prepare", "--shell", "zsh")
+
+		assert.Equal(t, 1, exitCode)
+		assert.Empty(t, stdout)
+
+		var payload map[string]any
+		require.NoError(t, json.Unmarshal([]byte(stderr), &payload))
+		errMsg, ok := payload["error"].(string)
+		require.True(t, ok)
+		assert.Contains(t, errMsg, "unknown flag: --shell")
+	})
 }
 
 func buildHAVNBinary(t *testing.T) string {
