@@ -84,16 +84,17 @@ type PortChecker interface {
 
 // StartDeps aggregates all dependencies for StartOrAttach.
 type StartDeps struct {
-	Container   StartBackend
-	Image       ImageBackend
-	Network     NetworkBackend
-	Volume      VolumeEnsurer
-	Mount       MountResolver
-	Dolt        DoltSetup // nil to skip Dolt setup
-	Exec        ExecBackend
-	NixRegistry NixRegistryPreparer
-	PortChecker PortChecker
-	Status      func(msg string)
+	Container             StartBackend
+	Image                 ImageBackend
+	Network               NetworkBackend
+	Volume                VolumeEnsurer
+	Mount                 MountResolver
+	Dolt                  DoltSetup // nil to skip Dolt setup
+	Exec                  ExecBackend
+	NixRegistry           NixRegistryPreparer
+	PortChecker           PortChecker
+	Status                func(msg string)
+	StartupCheckTelemetry *StartupCheckTelemetry
 }
 
 // StartOptions controls startup behavior that is invocation-scoped.
@@ -249,11 +250,15 @@ func prepareNixRegistry(ctx context.Context, deps StartDeps, containerName strin
 }
 
 func prepareStartupSession(ctx context.Context, deps StartDeps, containerName string, cfg config.Config, projectPath string, opts StartOptions) error {
-	if err := deps.Exec.ContainerExec(ctx, containerName, requiredDevShellValidationCmd(cfg, opts)); err != nil {
+	if err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, StartupCheckPhaseValidation, func() error {
+		return deps.Exec.ContainerExec(ctx, containerName, requiredDevShellValidationCmd(cfg, opts))
+	}); err != nil {
 		return fmt.Errorf("validate required devShell %q in container %q: %w", cfg.Shell, containerName, err)
 	}
 
-	err := deps.Exec.ContainerExec(ctx, containerName, sessionPrepareCmd(cfg, opts))
+	err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, StartupCheckPhasePrepare, func() error {
+		return deps.Exec.ContainerExec(ctx, containerName, sessionPrepareCmd(cfg, opts))
+	})
 	if err == nil {
 		return nil
 	}
@@ -265,6 +270,50 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 	}
 
 	return fmt.Errorf("run optional startup capability havn-session-prepare in container %q: %w (run 'havn enter %s' to debug startup preparation manually)", containerName, err, projectPath)
+}
+
+func runStartupCheckPhase(ctx context.Context, telemetry *StartupCheckTelemetry, phase StartupCheckPhase, run func() error) error {
+	if telemetry != nil {
+		telemetry.StartPhase(phase)
+	}
+
+	err := run()
+	if err == nil {
+		if telemetry != nil {
+			telemetry.FinishPhase(phase)
+		}
+		return nil
+	}
+
+	if telemetry != nil {
+		if interruption, ok := startupCheckInterruption(ctx, err); ok {
+			telemetry.CancelPhase(phase, interruption)
+		} else {
+			telemetry.ErrorPhase(phase, err)
+		}
+	}
+
+	return err
+}
+
+func startupCheckInterruption(ctx context.Context, err error) (StartupCheckInterruption, bool) {
+	if errors.Is(err, context.Canceled) {
+		return StartupCheckInterruption{Cause: "context_canceled", Detail: err.Error()}, true
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return StartupCheckInterruption{Cause: "deadline_exceeded", Detail: err.Error()}, true
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		cause := "context_interrupted"
+		if errors.Is(ctxErr, context.Canceled) {
+			cause = "context_canceled"
+		}
+		if errors.Is(ctxErr, context.DeadlineExceeded) {
+			cause = "deadline_exceeded"
+		}
+		return StartupCheckInterruption{Cause: cause, Detail: ctxErr.Error()}, true
+	}
+	return StartupCheckInterruption{}, false
 }
 
 func isMissingSessionPrepareCapability(err error) bool {

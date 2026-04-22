@@ -350,6 +350,109 @@ func TestStartOrAttach_RunningContainer_PreparesStartupSessionBeforeAttach(t *te
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
 }
 
+func TestStartOrAttach_RunningContainer_RecordsStartupCheckPhaseTelemetry(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	telemetry := container.NewStartupCheckTelemetry()
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:                  exec,
+		StartupCheckTelemetry: telemetry,
+		Status:                func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	events := telemetry.Events()
+	require.Len(t, events, 4)
+	assert.Equal(t, container.StartupCheckPhaseValidation, events[0].Phase)
+	assert.Equal(t, container.StartupCheckPhaseOutcomeStart, events[0].Outcome)
+	assert.Equal(t, container.StartupCheckPhaseValidation, events[1].Phase)
+	assert.Equal(t, container.StartupCheckPhaseOutcomeFinish, events[1].Outcome)
+	assert.Equal(t, container.StartupCheckPhasePrepare, events[2].Phase)
+	assert.Equal(t, container.StartupCheckPhaseOutcomeStart, events[2].Outcome)
+	assert.Equal(t, container.StartupCheckPhasePrepare, events[3].Phase)
+	assert.Equal(t, container.StartupCheckPhaseOutcomeFinish, events[3].Outcome)
+}
+
+func TestStartOrAttach_RunningContainer_RecordsStartupCheckPhaseCancellation(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{}
+	exec.execFn = func(_ string, cmd []string) error {
+		if cmdHasToken(cmd, "develop") {
+			return context.Canceled
+		}
+		return nil
+	}
+	telemetry := container.NewStartupCheckTelemetry()
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:                  exec,
+		StartupCheckTelemetry: telemetry,
+		Status:                func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	assert.ErrorContains(t, err, "validate required devShell")
+	events := telemetry.Events()
+	require.Len(t, events, 2)
+	assert.Equal(t, container.StartupCheckPhaseOutcomeStart, events[0].Outcome)
+	assert.Equal(t, container.StartupCheckPhaseOutcomeCancel, events[1].Outcome)
+	require.NotNil(t, events[1].Interruption)
+	assert.Equal(t, "context_canceled", events[1].Interruption.Cause)
+	assert.Equal(t, context.Canceled.Error(), events[1].Interruption.Detail)
+}
+
+func TestStartOrAttach_RunningContainer_RecordsStartupCheckPhaseFailure(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{}
+	exec.execFn = func(_ string, cmd []string) error {
+		if cmdHasToken(cmd, "run") {
+			return fmt.Errorf("prepare hook failed")
+		}
+		return nil
+	}
+	telemetry := container.NewStartupCheckTelemetry()
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:                  exec,
+		StartupCheckTelemetry: telemetry,
+		Status:                func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	assert.ErrorContains(t, err, "run optional startup capability havn-session-prepare")
+	events := telemetry.Events()
+	require.Len(t, events, 4)
+	assert.Equal(t, container.StartupCheckPhaseOutcomeFinish, events[1].Outcome)
+	assert.Equal(t, container.StartupCheckPhaseOutcomeStart, events[2].Outcome)
+	assert.Equal(t, container.StartupCheckPhaseOutcomeError, events[3].Outcome)
+	assert.Equal(t, "prepare hook failed", events[3].Error)
+	assert.Nil(t, events[3].Interruption)
+}
+
 func TestStartOrAttach_RunningContainer_NixRegistryPrepareFailure_Aborts(t *testing.T) {
 	ctx := context.Background()
 	exec := &fakeExecBackend{interactiveExitCode: 0}
