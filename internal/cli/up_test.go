@@ -232,6 +232,34 @@ func TestUpCommand_JSONValidateSuccessEmitsStableResultPayloadToStdout(t *testin
 	assert.Equal(t, projectPath, payload["project_path"])
 }
 
+func TestUpCommand_JSONValidateIncludesStartupCheckPhaseSummary(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := &fakeStartService{onStart: func(opts container.StartOptions) {
+		require.NotNil(t, opts.StartupCheckTelemetry)
+		opts.StartupCheckTelemetry.StartPhase(container.StartupCheckPhaseValidation)
+		opts.StartupCheckTelemetry.FinishPhase(container.StartupCheckPhaseValidation)
+	}}
+	stdout, _, err := executeCommandWithDeps(cli.Deps{StartService: svc}, "--json", "up", "--validate", projectPath)
+
+	require.NoError(t, err)
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal([]byte(stdout), &payload))
+
+	phases, ok := payload["startup_check_phases"].([]any)
+	require.True(t, ok)
+	require.Len(t, phases, 1)
+
+	phase, ok := phases[0].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "validation", phase["phase"])
+	assert.Equal(t, "finish", phase["outcome"])
+	assert.Contains(t, phase, "duration_ms")
+}
+
 func TestUpCommand_HomeManagerActivationFailureReturnsCommandScopedErrorWithoutSuccessStatus(t *testing.T) {
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)

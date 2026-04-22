@@ -47,10 +47,12 @@ func newUpCmd(startService StartService) *cobra.Command {
 			verbose, _ := cmd.Flags().GetBool("verbose")
 			out := commandOutput(cmd)
 			checkMode := startupCheckModeForUp(validate, prepare)
+			startupTelemetry := container.NewStartupCheckTelemetry()
 			_, err = startService.StartOrAttach(cmd.Context(), cfg, projectCtx.Path, out.Status, container.StartOptions{
-				VerboseStartup: verbose,
-				Mode:           container.StartupModeNoAttach,
-				StartupChecks:  checkMode,
+				VerboseStartup:        verbose,
+				Mode:                  container.StartupModeNoAttach,
+				StartupChecks:         checkMode,
+				StartupCheckTelemetry: startupTelemetry,
 			})
 			if err != nil {
 				return fmt.Errorf("%s: %w", upCommandScope(checkMode), err)
@@ -62,12 +64,14 @@ func newUpCmd(startService StartService) *cobra.Command {
 			}
 			out.Status(fmt.Sprintf("Container %s is running for project %s", containerName, projectCtx.Path))
 			if out.IsJSON() {
+				phaseSummary := startupCheckJSONPhaseSummary(startupTelemetry.Events())
 				return out.DataJSON(map[string]any{
-					"status":         "ok",
-					"message":        "container running",
-					"container":      string(containerName),
-					"project_path":   projectCtx.Path,
-					"startup_checks": startupCheckModeLabel(checkMode),
+					"status":               "ok",
+					"message":              "container running",
+					"container":            string(containerName),
+					"project_path":         projectCtx.Path,
+					"startup_checks":       startupCheckModeLabel(checkMode),
+					"startup_check_phases": phaseSummary,
 				})
 			}
 
@@ -85,6 +89,21 @@ func newUpCmd(startService StartService) *cobra.Command {
 	cmd.Flags().BoolVar(&prepare, "prepare", false, "run startup validation and optional preparation (implies --validate)")
 
 	return cmd
+}
+
+func startupCheckJSONPhaseSummary(events []container.StartupCheckPhaseEvent) []map[string]any {
+	summary := make([]map[string]any, 0, len(events))
+	for _, event := range events {
+		if event.Outcome == container.StartupCheckPhaseOutcomeStart {
+			continue
+		}
+		summary = append(summary, map[string]any{
+			"phase":       string(event.Phase),
+			"outcome":     string(event.Outcome),
+			"duration_ms": event.Duration.Milliseconds(),
+		})
+	}
+	return summary
 }
 
 func upCommandScope(mode container.StartupCheckMode) string {

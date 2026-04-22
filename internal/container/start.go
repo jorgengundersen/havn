@@ -106,9 +106,10 @@ type StartupCheckHeartbeatTickerFactory func(interval time.Duration) (<-chan tim
 
 // StartOptions controls startup behavior that is invocation-scoped.
 type StartOptions struct {
-	VerboseStartup bool
-	Mode           StartupMode
-	StartupChecks  StartupCheckMode
+	VerboseStartup        bool
+	Mode                  StartupMode
+	StartupChecks         StartupCheckMode
+	StartupCheckTelemetry *StartupCheckTelemetry
 }
 
 // StartupMode selects whether startup enters an interactive shell.
@@ -158,6 +159,10 @@ func StartWithOptions(ctx context.Context, deps StartDeps, cfg config.Config, pr
 // StartOrAttachWithOptions runs startup orchestration with invocation-scoped
 // runtime options.
 func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Config, projectPath string, opts StartOptions) (int, error) {
+	if deps.StartupCheckTelemetry == nil {
+		deps.StartupCheckTelemetry = opts.StartupCheckTelemetry
+	}
+
 	cname, err := deriveContainerName(projectPath)
 	if err != nil {
 		return 0, err

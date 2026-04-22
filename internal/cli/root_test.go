@@ -26,6 +26,7 @@ type fakeStartService struct {
 	lastOpts    container.StartOptions
 	exitCode    int
 	err         error
+	onStart     func(opts container.StartOptions)
 }
 
 type rootBoundaryStartService struct {
@@ -145,6 +146,9 @@ func (f *fakeStartService) StartOrAttach(_ context.Context, cfg config.Config, p
 	f.lastCfg = cfg
 	f.lastProject = projectPath
 	f.lastOpts = opts
+	if f.onStart != nil {
+		f.onStart(opts)
+	}
 	return f.exitCode, f.err
 }
 
