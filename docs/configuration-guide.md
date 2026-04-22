@@ -301,6 +301,59 @@ If you previously relied on host-global alias persistence for havn work:
 This migration keeps alias persistence scoped to havn state volumes and avoids
 broad host-global side effects.
 
+## Nix session quickstart (inside `havn enter`)
+
+When you are inside a plain entered shell, `nix develop` without arguments may
+fail if the project root has no local `flake.nix`. Use an explicit flake alias
+or reference.
+
+### Minimal flow
+
+```bash
+# one-time alias setup in a havn session
+nix registry add flake:devenv "path:./.havn/environments/default"
+
+# inspect and verify
+nix registry list | rg devenv
+nix flake show devenv
+
+# enter a shell from that environment
+nix develop devenv#default
+# or: nix develop devenv#codex
+```
+
+### Home Manager activation (optional)
+
+If your environment flake exposes Home Manager targets, activate one after
+entering the dev shell:
+
+```bash
+nix build devenv#homeConfigurations.default.activationPackage
+./result/activate
+exec bash -l
+```
+
+### Quality-of-life shortcuts
+
+- one-liner startup from a plain entered shell:
+
+```bash
+nix develop devenv#default -c bash -lc 'nix build devenv#homeConfigurations.default.activationPackage && ./result/activate && exec bash -l'
+```
+
+- shell function for repeat use:
+
+```bash
+devup() {
+  nix develop devenv#default -c bash -lc 'nix build devenv#homeConfigurations.default.activationPackage && ./result/activate && exec bash -l'
+}
+```
+
+- environment-owned startup prep: if your environment implements
+  `apps.<system>.havn-session-prepare`, startup commands (`havn [path]`,
+  `havn up [path]`) can automate session preparation. See
+  `docs/environment-interface.md`.
+
 ## Current partial-support gaps
 
 - `havn config show` does not yet expose every provenance detail for all returned fields; the stable `source` map currently focuses on core scalar/resource and Dolt fields

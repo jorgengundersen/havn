@@ -73,6 +73,8 @@ Environment startup-preparation behavior for startup and entry:
   preparation
 - missing optional capability is not a startup failure
 - ad-hoc `nix develop` usage from entered sessions remains supported
+- for alias setup and quickstart commands inside entered sessions, see
+  `docs/configuration-guide.md` (`Nix session quickstart`)
 
 Normative behavior and scope live in `specs/cli-framework.md` and
 `specs/environment-interface.md`.
