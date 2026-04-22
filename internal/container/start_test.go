@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -222,6 +223,79 @@ func TestStartOrAttach_RunningContainer_VerboseStartupEnablesDetailedNixLogs(t *
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
 	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "-v", "-L", "develop", "github:user/env#default", "-c", "bash"}, exec.interactiveCmd)
+}
+
+func TestStartOrAttach_RunningContainer_DotProjectPathDerivesContainerName(t *testing.T) {
+	workspace := t.TempDir()
+	projectPath := filepath.Join(workspace, "user", "project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(projectPath)
+
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{inspectState: container.State{ID: "abc123", Running: true}},
+		Exec:      exec,
+		Status:    func(string) {},
+	}
+	cfg := config.Config{Env: "github:user/env", Shell: "default"}
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, ".")
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	assert.Equal(t, "havn-user-project", exec.interactiveName)
+	assert.Equal(t, ".", exec.interactiveWorkdir)
+}
+
+func TestStartOrAttach_RunningContainer_DotSlashProjectPathDerivesContainerName(t *testing.T) {
+	workspace := t.TempDir()
+	basePath := filepath.Join(workspace, "user")
+	projectPath := filepath.Join(basePath, "project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(basePath)
+
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{inspectState: container.State{ID: "abc123", Running: true}},
+		Exec:      exec,
+		Status:    func(string) {},
+	}
+	cfg := config.Config{Env: "github:user/env", Shell: "default"}
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, "./project")
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	assert.Equal(t, "havn-user-project", exec.interactiveName)
+	assert.Equal(t, "./project", exec.interactiveWorkdir)
+}
+
+func TestStartOrAttach_RunningContainer_DotDotProjectPathDerivesContainerName(t *testing.T) {
+	workspace := t.TempDir()
+	parentPath := filepath.Join(workspace, "user")
+	projectPath := filepath.Join(parentPath, "project")
+	currentPath := filepath.Join(parentPath, "current")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	require.NoError(t, os.MkdirAll(currentPath, 0o755))
+	t.Chdir(currentPath)
+
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{inspectState: container.State{ID: "abc123", Running: true}},
+		Exec:      exec,
+		Status:    func(string) {},
+	}
+	cfg := config.Config{Env: "github:user/env", Shell: "default"}
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, "../project")
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	assert.Equal(t, "havn-user-project", exec.interactiveName)
+	assert.Equal(t, "../project", exec.interactiveWorkdir)
 }
 
 func TestStartOrAttach_RunningContainer_PreparesNixRegistry(t *testing.T) {

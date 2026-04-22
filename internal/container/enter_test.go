@@ -92,6 +92,52 @@ func TestEnter_RunningContainer_RelativeProjectPathDerivesContainerName(t *testi
 	assert.Equal(t, ".", exec.interactiveWorkdir)
 }
 
+func TestEnter_RunningContainer_DotSlashProjectPathDerivesContainerName(t *testing.T) {
+	workspace := t.TempDir()
+	basePath := filepath.Join(workspace, "user")
+	projectPath := filepath.Join(basePath, "project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(basePath)
+
+	ctx := context.Background()
+	exec := &fakeEnterExecBackend{interactiveExitCode: 0}
+	deps := container.EnterDeps{
+		Container: &fakeEnterBackend{inspectState: container.State{ID: "abc123", Running: true}},
+		Exec:      exec,
+	}
+
+	exitCode, err := container.Enter(ctx, deps, "./project")
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	assert.Equal(t, "havn-user-project", exec.interactiveName)
+	assert.Equal(t, "./project", exec.interactiveWorkdir)
+}
+
+func TestEnter_RunningContainer_DotDotProjectPathDerivesContainerName(t *testing.T) {
+	workspace := t.TempDir()
+	parentPath := filepath.Join(workspace, "user")
+	projectPath := filepath.Join(parentPath, "project")
+	currentPath := filepath.Join(parentPath, "current")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	require.NoError(t, os.MkdirAll(currentPath, 0o755))
+	t.Chdir(currentPath)
+
+	ctx := context.Background()
+	exec := &fakeEnterExecBackend{interactiveExitCode: 0}
+	deps := container.EnterDeps{
+		Container: &fakeEnterBackend{inspectState: container.State{ID: "abc123", Running: true}},
+		Exec:      exec,
+	}
+
+	exitCode, err := container.Enter(ctx, deps, "../project")
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	assert.Equal(t, "havn-user-project", exec.interactiveName)
+	assert.Equal(t, "../project", exec.interactiveWorkdir)
+}
+
 func TestEnter_MissingContainer_ReturnsActionableNotRunningError(t *testing.T) {
 	ctx := context.Background()
 	registry := &fakeEnterNixRegistryPreparer{}
