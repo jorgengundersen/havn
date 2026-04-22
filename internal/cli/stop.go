@@ -72,15 +72,17 @@ func newStopCmd(backend container.StopBackend) *cobra.Command {
 				return fmt.Errorf("havn stop: requires a non-empty container name/path")
 			}
 
-			if err := container.Stop(cmd.Context(), backend, target); err != nil {
+			containerName, err := container.Stop(cmd.Context(), backend, target)
+			if err != nil {
 				return fmt.Errorf("havn stop: %w", err)
 			}
 
-			out.Status("Stopped " + target)
+			out.Status("Stopped " + containerName)
 			if out.IsJSON() {
-				return out.DataJSON(map[string]string{
-					"status":  "ok",
-					"message": "container stopped",
+				return out.DataJSON(map[string]any{
+					"status":    "ok",
+					"message":   "container stopped",
+					"container": containerName,
 				})
 			}
 			return nil

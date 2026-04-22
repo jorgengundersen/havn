@@ -72,6 +72,15 @@ func TestStopCommand_StopsNamedContainer(t *testing.T) {
 	assert.Equal(t, []string{"havn-user-api"}, backend.stopCalls)
 }
 
+func TestStopCommand_LiteralTargetReportsContainerName(t *testing.T) {
+	backend := &fakeStopBackend{}
+
+	_, stderr, err := executeCommandWithDeps(cli.Deps{ContainerStop: backend}, "stop", "havn-user-api")
+
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "Stopped havn-user-api")
+}
+
 func TestStopCommand_DotPathStopsResolvedProjectContainer(t *testing.T) {
 	backend := &fakeStopBackend{}
 
@@ -84,6 +93,44 @@ func TestStopCommand_DotPathStopsResolvedProjectContainer(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"havn-user-api"}, backend.stopCalls)
+}
+
+func TestStopCommand_DotPathReportsResolvedContainerName(t *testing.T) {
+	backend := &fakeStopBackend{}
+
+	workspace := t.TempDir()
+	projectPath := filepath.Join(workspace, "user", "api")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(projectPath)
+
+	_, stderr, err := executeCommandWithDeps(cli.Deps{ContainerStop: backend}, "stop", ".")
+
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "Stopped havn-user-api")
+	assert.NotContains(t, stderr, "Stopped .")
+}
+
+func TestStopCommand_JSONOutputIncludesResolvedLiteralContainer(t *testing.T) {
+	backend := &fakeStopBackend{}
+
+	stdout, _, err := executeCommandWithDeps(cli.Deps{ContainerStop: backend}, "--json", "stop", "havn-user-api")
+
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"status":"ok","message":"container stopped","container":"havn-user-api"}`+"\n", stdout)
+}
+
+func TestStopCommand_JSONOutputIncludesResolvedPathContainer(t *testing.T) {
+	backend := &fakeStopBackend{}
+
+	workspace := t.TempDir()
+	projectPath := filepath.Join(workspace, "user", "api")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(projectPath)
+
+	stdout, _, err := executeCommandWithDeps(cli.Deps{ContainerStop: backend}, "--json", "stop", ".")
+
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"status":"ok","message":"container stopped","container":"havn-user-api"}`+"\n", stdout)
 }
 
 func TestStopCommand_StopAllBestEffort(t *testing.T) {

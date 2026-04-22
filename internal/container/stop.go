@@ -35,13 +35,16 @@ const stopTimeout = 10 * time.Second
 
 // Stop stops a single container by name. If target is a filesystem path,
 // the container name is derived first via name.SplitProjectPath and
-// name.DeriveContainerName.
-func Stop(ctx context.Context, backend StopBackend, target string) error {
+// name.DeriveContainerName. It returns the resolved container name.
+func Stop(ctx context.Context, backend StopBackend, target string) (string, error) {
 	containerName, err := resolveTarget(target)
 	if err != nil {
-		return fmt.Errorf("resolve target %q: %w", target, err)
+		return "", fmt.Errorf("resolve target %q: %w", target, err)
 	}
-	return backend.ContainerStop(ctx, containerName, stopTimeout)
+	if err := backend.ContainerStop(ctx, containerName, stopTimeout); err != nil {
+		return "", err
+	}
+	return containerName, nil
 }
 
 // doltContainerName is the shared Dolt container excluded from StopAll.

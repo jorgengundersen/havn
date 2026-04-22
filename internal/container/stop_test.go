@@ -40,9 +40,10 @@ func TestStop_RunningContainer(t *testing.T) {
 	ctx := context.Background()
 	backend := &fakeStopBackend{}
 
-	err := container.Stop(ctx, backend, "havn-user-api")
+	gotName, err := container.Stop(ctx, backend, "havn-user-api")
 
 	require.NoError(t, err)
+	assert.Equal(t, "havn-user-api", gotName)
 	assert.Equal(t, []string{"havn-user-api"}, backend.stopCalls)
 }
 
@@ -52,7 +53,7 @@ func TestStop_NotFound(t *testing.T) {
 		stopErr: &container.NotFoundError{Name: "havn-user-api"},
 	}
 
-	err := container.Stop(ctx, backend, "havn-user-api")
+	_, err := container.Stop(ctx, backend, "havn-user-api")
 
 	var notFound *container.NotFoundError
 	assert.ErrorAs(t, err, &notFound)
@@ -67,9 +68,10 @@ func TestStop_PathArgDerivesContainerName(t *testing.T) {
 	projectPath := filepath.Join(workspace, "user", "api")
 	require.NoError(t, os.MkdirAll(projectPath, 0o755))
 
-	err := container.Stop(ctx, backend, projectPath)
+	gotName, err := container.Stop(ctx, backend, projectPath)
 
 	require.NoError(t, err)
+	assert.Equal(t, "havn-user-api", gotName)
 	assert.Equal(t, []string{"havn-user-api"}, backend.stopCalls)
 }
 
@@ -82,9 +84,10 @@ func TestStop_DotPathArgDerivesContainerName(t *testing.T) {
 	require.NoError(t, os.MkdirAll(projectPath, 0o755))
 	t.Chdir(projectPath)
 
-	err := container.Stop(ctx, backend, ".")
+	gotName, err := container.Stop(ctx, backend, ".")
 
 	require.NoError(t, err)
+	assert.Equal(t, "havn-user-api", gotName)
 	assert.Equal(t, []string{"havn-user-api"}, backend.stopCalls)
 }
 
@@ -98,9 +101,10 @@ func TestStop_RelativePathArgDerivesContainerName(t *testing.T) {
 	require.NoError(t, os.MkdirAll(projectPath, 0o755))
 	t.Chdir(basePath)
 
-	err := container.Stop(ctx, backend, "./api")
+	gotName, err := container.Stop(ctx, backend, "./api")
 
 	require.NoError(t, err)
+	assert.Equal(t, "havn-user-api", gotName)
 	assert.Equal(t, []string{"havn-user-api"}, backend.stopCalls)
 }
 
@@ -111,7 +115,7 @@ func TestStop_PathLikeTargetRequiresExistingDirectory(t *testing.T) {
 	workspace := t.TempDir()
 	t.Chdir(workspace)
 
-	err := container.Stop(ctx, backend, "./missing")
+	_, err := container.Stop(ctx, backend, "./missing")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "path does not exist")
@@ -126,7 +130,7 @@ func TestStop_PathLikeFileTargetReturnsDirectoryError(t *testing.T) {
 	filePath := filepath.Join(workspace, "note.txt")
 	require.NoError(t, os.WriteFile(filePath, []byte("x"), 0o644))
 
-	err := container.Stop(ctx, backend, filePath)
+	_, err := container.Stop(ctx, backend, filePath)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "path is not a directory")
