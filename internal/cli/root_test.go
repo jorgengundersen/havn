@@ -26,7 +26,7 @@ type fakeStartService struct {
 	lastOpts    container.StartOptions
 	exitCode    int
 	err         error
-	onStart     func(opts container.StartOptions)
+	onStart     func(status func(string), opts container.StartOptions)
 }
 
 type rootBoundaryStartService struct {
@@ -141,13 +141,13 @@ func (rootBoundaryFakeExecBackend) ContainerExecInteractive(_ context.Context, _
 	return 0, nil
 }
 
-func (f *fakeStartService) StartOrAttach(_ context.Context, cfg config.Config, projectPath string, _ func(string), opts container.StartOptions) (int, error) {
+func (f *fakeStartService) StartOrAttach(_ context.Context, cfg config.Config, projectPath string, status func(string), opts container.StartOptions) (int, error) {
 	f.called = true
 	f.lastCfg = cfg
 	f.lastProject = projectPath
 	f.lastOpts = opts
 	if f.onStart != nil {
-		f.onStart(opts)
+		f.onStart(status, opts)
 	}
 	return f.exitCode, f.err
 }
@@ -329,6 +329,24 @@ func TestNewRoot_RunE_UsesAttachStartupMode(t *testing.T) {
 	assert.True(t, svc.called)
 	assert.Equal(t, container.StartupModeAttach, svc.lastOpts.Mode)
 	assert.Equal(t, container.StartupCheckPrepare, svc.lastOpts.StartupChecks)
+}
+
+func TestNewRoot_RunE_EmitsStartupCheckPhaseStatusMessagesToStderr(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := &fakeStartService{onStart: func(status func(string), _ container.StartOptions) {
+		require.NotNil(t, status)
+		status("Startup check phase validation started")
+		status("Startup check phase validation completed in 1s")
+	}}
+	_, stderr, err := executeCommandWithDeps(cli.Deps{StartService: svc}, projectPath)
+
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "Startup check phase validation started")
+	assert.Contains(t, stderr, "Startup check phase validation completed in 1s")
 }
 
 func TestNewRoot_RunE_DefaultsDoltDatabaseToProjectNameWhenEnabled(t *testing.T) {

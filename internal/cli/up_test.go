@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -238,7 +239,7 @@ func TestUpCommand_JSONValidateIncludesStartupCheckPhaseSummary(t *testing.T) {
 	projectPath := filepath.Join(homeDir, "work", "sample-project")
 	require.NoError(t, os.MkdirAll(projectPath, 0o755))
 
-	svc := &fakeStartService{onStart: func(opts container.StartOptions) {
+	svc := &fakeStartService{onStart: func(_ func(string), opts container.StartOptions) {
 		require.NotNil(t, opts.StartupCheckTelemetry)
 		opts.StartupCheckTelemetry.StartPhase(container.StartupCheckPhaseValidation)
 		opts.StartupCheckTelemetry.FinishPhase(container.StartupCheckPhaseValidation)
@@ -258,6 +259,45 @@ func TestUpCommand_JSONValidateIncludesStartupCheckPhaseSummary(t *testing.T) {
 	assert.Equal(t, "validation", phase["phase"])
 	assert.Equal(t, "finish", phase["outcome"])
 	assert.Contains(t, phase, "duration_ms")
+}
+
+func TestUpCommand_JSONPrepareIncludesStartupCheckPhaseOutcomeSummary(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := &fakeStartService{onStart: func(_ func(string), opts container.StartOptions) {
+		require.NotNil(t, opts.StartupCheckTelemetry)
+		opts.StartupCheckTelemetry.StartPhase(container.StartupCheckPhaseValidation)
+		opts.StartupCheckTelemetry.ErrorPhase(container.StartupCheckPhaseValidation, assert.AnError)
+		opts.StartupCheckTelemetry.StartPhase(container.StartupCheckPhasePrepare)
+		opts.StartupCheckTelemetry.CancelPhase(container.StartupCheckPhasePrepare, container.StartupCheckInterruption{
+			Cause:  "context_canceled",
+			Detail: context.Canceled.Error(),
+		})
+	}}
+	stdout, _, err := executeCommandWithDeps(cli.Deps{StartService: svc}, "--json", "up", "--prepare", projectPath)
+
+	require.NoError(t, err)
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal([]byte(stdout), &payload))
+
+	phases, ok := payload["startup_check_phases"].([]any)
+	require.True(t, ok)
+	require.Len(t, phases, 2)
+
+	phaseOne, ok := phases[0].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "validation", phaseOne["phase"])
+	assert.Equal(t, "error", phaseOne["outcome"])
+	assert.Contains(t, phaseOne, "duration_ms")
+
+	phaseTwo, ok := phases[1].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "prepare", phaseTwo["phase"])
+	assert.Equal(t, "cancel", phaseTwo["outcome"])
+	assert.Contains(t, phaseTwo, "duration_ms")
 }
 
 func TestUpCommand_HomeManagerActivationFailureReturnsCommandScopedErrorWithoutSuccessStatus(t *testing.T) {

@@ -559,6 +559,35 @@ func TestStartOrAttach_RunningContainer_EmitsHeartbeatForLongRunningStartupCheck
 	assert.True(t, heartbeatFound)
 }
 
+func TestStartOrAttach_RunningContainer_UsesDefaultHeartbeatCadenceForStartupCheckPhases(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	heartbeatIntervals := make([]time.Duration, 0, 2)
+
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec: exec,
+		Status: func(string) {
+		},
+		StartupCheckHeartbeatTicker: func(interval time.Duration) (<-chan time.Time, func()) {
+			heartbeatIntervals = append(heartbeatIntervals, interval)
+			return make(chan time.Time), func() {}
+		},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	assert.Equal(t, []time.Duration{10 * time.Second, 10 * time.Second}, heartbeatIntervals)
+}
+
 func TestStartOrAttach_RunningContainer_ReportsStartupCheckPhaseFailureStatus(t *testing.T) {
 	ctx := context.Background()
 	exec := &fakeExecBackend{}
