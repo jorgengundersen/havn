@@ -108,6 +108,25 @@ func TestStop_RelativePathArgDerivesContainerName(t *testing.T) {
 	assert.Equal(t, []string{"havn-user-api"}, backend.stopCalls)
 }
 
+func TestStop_DotDotPathArgDerivesContainerName(t *testing.T) {
+	ctx := context.Background()
+	backend := &fakeStopBackend{}
+
+	workspace := t.TempDir()
+	parentPath := filepath.Join(workspace, "user")
+	projectPath := filepath.Join(parentPath, "api")
+	currentPath := filepath.Join(parentPath, "current")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	require.NoError(t, os.MkdirAll(currentPath, 0o755))
+	t.Chdir(currentPath)
+
+	gotName, err := container.Stop(ctx, backend, "../api")
+
+	require.NoError(t, err)
+	assert.Equal(t, "havn-user-api", gotName)
+	assert.Equal(t, []string{"havn-user-api"}, backend.stopCalls)
+}
+
 func TestStop_PathLikeTargetRequiresExistingDirectory(t *testing.T) {
 	ctx := context.Background()
 	backend := &fakeStopBackend{}
