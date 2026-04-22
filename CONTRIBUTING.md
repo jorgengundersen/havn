@@ -52,8 +52,8 @@ Follow these standards while implementing:
 
 Run these targets before opening a PR:
 
-- `make fmt` - format code and imports
-- `make lint` - run static analysis (`golangci-lint`)
+- `make fmt` - format code (`gofmt`)
+- `make lint` - run static analysis (`go vet` + `staticcheck`)
 - `make test` - run unit tests
 - `make test-integration` - run Docker-backed integration tests
 - `make test-boundary-confidence` - run boundary-confidence suites for shipped CLI contracts

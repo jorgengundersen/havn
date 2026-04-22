@@ -22,15 +22,14 @@ test-boundary-confidence:
 	go test -tags integration ./internal/dolt -run TestSharedDoltLifecycleAndReadiness_Integration
 
 lint:
-	go tool golangci-lint run
+	go vet ./...
+	go tool staticcheck ./...
 
 fmt:
 	gofmt -w .
-	go tool gci write --section standard --section default --section "prefix(github.com/jorgengundersen/havn)" .
 
 fmt-check:
 	@out="$$(gofmt -l .)"; [ -z "$$out" ] || { echo "gofmt check failed - run 'make fmt'"; exit 1; }
-	@out="$$(go tool gci list --section standard --section default --section 'prefix(github.com/jorgengundersen/havn)' .)"; [ -z "$$out" ] || { echo "gci import order check failed - run 'make fmt'"; exit 1; }
 
 install:
 	go install $(LDFLAGS) ./cmd/havn/

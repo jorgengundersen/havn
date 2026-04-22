@@ -8,7 +8,7 @@ pre-commit:
       run: make fmt-check
     - name: lint
       glob: "*.go"
-      run: go tool golangci-lint run
+      run: make lint
     - name: test
       glob: "*.go"
       run: go test ./...

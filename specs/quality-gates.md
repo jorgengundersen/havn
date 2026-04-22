@@ -7,16 +7,16 @@ Concrete tooling and `make` targets that enforce
 
 ## Prerequisites
 
-Only Go is required. All tool dependencies are pinned in `go.mod` via the
-`tool` directive and resolved automatically by `go tool`.
+Go is required. Static analysis uses `staticcheck`, pinned in `go.mod` via the
+`tool` directive and executed through `go tool`.
 
 ## Targets
 
 | Target | Command | Purpose |
 |--------|---------|---------|
-| `make fmt` | `gofmt -w .` + `go tool gci write ...` | Format code and sort imports |
-| `make fmt-check` | `gofmt -l .` + `go tool gci list ...` | Validate formatting without rewriting files |
-| `make lint` | `go tool golangci-lint run` | Static analysis (see `.golangci.yml`) |
+| `make fmt` | `gofmt -w .` | Format code |
+| `make fmt-check` | `gofmt -l .` | Validate formatting without rewriting files |
+| `make lint` | `go vet ./...` + `go tool staticcheck ./...` | Lean static analysis focused on correctness |
 | `make test` | `go test ./...` | Unit tests |
 | `make test-contract-matrix` | Contract scenarios in `internal/container` and `internal/cli` | Authoritative environment-interface matrix gate |
 | `make test-integration` | `go test -tags integration ./...` | Integration tests (may need Docker) |
@@ -109,25 +109,15 @@ At minimum, `integration-tests` and `boundary-confidence` are required merge che
 
 ## Toolchain dependency-surface decision
 
-The current toolchain dependency surface is justified by active quality gates.
-`make check` and pre-commit both require formatting, linting, unit tests, and
-binary build validation. In practice this means both `gci` and
-`golangci-lint` are actively exercised on every change, and each is pinned in
-the `go.mod` `tool` block to keep the quality-gate behavior reproducible.
+The quality-gate standard is intentionally lean: `gofmt`, `go vet`,
+`staticcheck`, `go test`, and `go build`.
 
-`golangci-lint` carries a large transitive graph even when havn enables a small
-curated linter set. That graph is accepted because the project standard is a
-single orchestrated lint gate (`go tool golangci-lint run`) that keeps local
-and CI behavior aligned.
+This keeps dependency surface low while preserving high-signal correctness
+checks for a Go CLI with container/runtime integrations.
 
-No safe reduction is currently accepted that preserves all active gates,
-including reproducible local/CI parity and the same lint orchestration
-contract.
-
-Revisit this decision only if one of the following changes:
-- active merge gates are reduced by spec change
-- the lint orchestration contract changes away from `golangci-lint`
-- the Go toolchain gains equivalent built-in checks that replace external tools
+The project does not require a multi-linter orchestrator for merge gates.
+If additional checks are proposed, they must justify their signal and
+maintenance cost, not only stylistic preference.
 
 ## Tool versions
 
@@ -135,8 +125,7 @@ Tool versions are pinned in `go.mod` under the `tool` directive:
 
 ```
 tool (
-    github.com/daixiang0/gci
-    github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+    honnef.co/go/tools/cmd/staticcheck
 )
 ```
 
@@ -144,5 +133,6 @@ Update with `go get -tool <package>@latest`.
 
 ## Linter configuration
 
-See `.golangci.yml`. The linter set and rationale are documented in
+Lint behavior is defined by `go vet` and `staticcheck` invocation in the
+quality-gate commands above. Rationale is documented in
 [code-standards.md](code-standards.md) Section 6.

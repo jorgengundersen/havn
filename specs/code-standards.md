@@ -31,7 +31,7 @@ _Ref: [Principles 1, 7, 11](architecture-principles.md)_
 
 ### Imports
 
-Group and order with `gci`:
+Use standard Go import layout as maintained by `gofmt`:
 
 ```go
 import (
@@ -49,7 +49,9 @@ import (
 )
 ```
 
-Blank line between each group. `gci` enforces this automatically.
+Blank line between each group is preferred for readability.
+Blank lines between groups are allowed when they improve readability, but
+custom import-sorting rules are not required.
 
 ### Shared CLI orchestration boundary
 
@@ -458,35 +460,22 @@ _Ref: [Principles 10](architecture-principles.md)_
 ### Non-negotiable
 
 - `gofmt` — standard formatting, enforced on save and in CI.
-- `goimports` / `gci` — import grouping and ordering.
+- `go vet` — built-in correctness checks.
+- `staticcheck` — high-signal static analysis for correctness and maintainability.
 
 ### Linter configuration
 
-Use `golangci-lint` with a curated set focused on correctness and
-consistency:
+Use a lean lint baseline centered on `go vet` and `staticcheck`.
 
-**Correctness:**
-- `govet` — catches real bugs (shadow, printf mismatches).
-- `errcheck` — unchecked errors violate error contracts.
-- `staticcheck` — the best single Go linter.
-- `gosimple` — simplification suggestions (staticcheck suite).
-- `unused` — dead code is a confusing signal for agents.
-
-**Consistency:**
-- `gci` — import group ordering.
-- `revive` — configurable successor to `golint`.
-
-**Add when justified:**
-- `gocritic` — opinionated but catches real issues.
-- `exhaustive` — exhaustive switch on enums (add when havn uses enums).
-
-New linters are added when a recurring issue justifies encoding as a
-check. Not preemptively.
+The default gate optimizes for correctness over style breadth. Add another
+external linter only when recurring production or maintenance issues justify
+its ongoing dependency and tuning cost.
 
 ### CI
 
-All linters run in CI. A lint failure blocks merge. No `//nolint` without
-a comment explaining why.
+`go vet` and `staticcheck` run in CI and in pre-commit quality gates. A lint
+failure blocks merge. Do not suppress warnings unless there is a documented,
+local justification at the suppression site.
 
 ## 7. Go Idioms
 
