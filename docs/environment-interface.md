@@ -146,6 +146,14 @@ Use this as a starter and replace `x86_64-linux` and `default` as needed.
 - If external repos are referenced, pin revisions when reproducibility matters.
 - Keep `havn-session-prepare` idempotent and non-interactive.
 
+## Common prepare-hook pitfalls
+
+- Do not assume `USER` is set in non-interactive container exec contexts.
+- When identity is required, resolve it defensively (`id -un` or `whoami`) and
+  fail with a clear actionable message only when no safe fallback exists.
+- For optional Home Manager integration, prefer explicit opt-out behavior (for
+  example `HAVN_SKIP_HOME_MANAGER=1`) over unconditional hard failure.
+
 ## Validation guidance for contributors and agents
 
 Authoritative validation for this interface is fixture-backed and local-first:
