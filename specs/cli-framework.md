@@ -297,6 +297,14 @@ Command-specific exit codes may extend this. `havn doctor` is the main example:
   using the same project-name derivation rules as startup commands
 - invalid path-like targets fail with actionable path errors (for example,
   missing path or not-a-directory), not container-name lookup errors
+- single-target success status reports the resolved container identity, never
+  the raw CLI target text
+- in human mode, single-target success output is `Stopped <container-name>`
+  for both literal-name and path-like inputs
+- in JSON mode, single-target success output includes the resolved container
+  identity as a stable `container` field in addition to baseline success fields
+- for path-like targets (for example `.` and `./project`), the reported
+  container identity is the derived havn container name
 
 ### `havn config show`
 
