@@ -49,6 +49,8 @@ Use this checklist when generating or modifying havn-compatible environments.
 - Do define `devShells.<system>.<shell>` first. This is the required entrypoint.
 - Do treat `apps.<system>.havn-session-prepare` as optional capability only.
 - Do make `havn-session-prepare` non-interactive and idempotent.
+- Do make `havn-session-prepare` resilient to minimal env contexts (do not assume
+  `USER` is set; derive identity safely when needed).
 - Do use flake-relative inputs and portable paths.
 - Do not hardcode one user's home directory, username, or repo location.
 - Do not require prompts, manual confirmations, or one-time local state.
@@ -65,13 +67,20 @@ Authoring order for agents:
 
 - `havn [path]`
   - Starts or reuses container and attaches interactively.
+  - Validates required `devShells.<system>.<shell>` resolution before shell
+    handoff.
   - Runs `havn-session-prepare` if available.
-  - If prepare runs and exits non-zero, command fails with actionable error.
+  - If validation or prepare fails, command fails non-zero with actionable
+    error.
 
 - `havn up [path]`
-  - Starts or reuses container in non-interactive mode.
-  - Runs `havn-session-prepare` if available.
-  - If prepare runs and exits non-zero, command fails non-zero without attach.
+  - Default run starts or reuses container in non-interactive mode.
+  - Default run does not execute `havn-session-prepare`.
+  - `havn up --validate [path]` validates required
+    `devShells.<system>.<shell>` realizability in non-interactive mode.
+  - `havn up --prepare [path]` implies validation, then runs
+    `havn-session-prepare` when available.
+  - For `--validate`/`--prepare`, failures are non-zero and non-interactive.
 
 - `havn enter [path]`
   - Enters running container with plain shell semantics.
