@@ -336,28 +336,51 @@ nix registry list | rg 'flake:devenv|jorgengundersen/dev-environments'
 
 ### Home Manager activation (optional)
 
-If your environment flake exposes Home Manager targets, activate one after
-entering the dev shell:
+If your environment flake exposes `apps.<system>.havn-session-prepare`, use it
+as the primary refresh-and-activate path from inside a plain entered shell:
 
 ```bash
-nix build devenv#homeConfigurations.default.activationPackage
+nix run --refresh devenv#havn-session-prepare && exec bash -l
+```
+
+This is the same environment-owned preparation capability that `havn [path]`
+and `havn up --prepare [path]` can run automatically.
+
+Optional control knobs (when your prepare app supports them):
+
+```bash
+# skip Home Manager activation for this run
+HAVN_SKIP_HOME_MANAGER=1 nix run --refresh devenv#havn-session-prepare
+
+# force a specific Home Manager target name
+HAVN_HOME_MANAGER_TARGET=default nix run --refresh devenv#havn-session-prepare
+```
+
+If your environment does not expose `havn-session-prepare`, you can activate
+Home Manager manually:
+
+```bash
+nix build --refresh --impure devenv#homeConfigurations.default.activationPackage
 ./result/activate
 exec bash -l
 ```
+
+Use `nix flake show devenv` (or your explicit flake ref) to discover available
+`homeConfigurations` names.
 
 ### Quality-of-life shortcuts
 
 - one-liner startup from a plain entered shell:
 
 ```bash
-nix develop devenv#default -c bash -lc 'nix build devenv#homeConfigurations.default.activationPackage && ./result/activate && exec bash -l'
+nix run --refresh devenv#havn-session-prepare && exec bash -l
 ```
 
 - shell function for repeat use:
 
 ```bash
 devup() {
-  nix develop devenv#default -c bash -lc 'nix build devenv#homeConfigurations.default.activationPackage && ./result/activate && exec bash -l'
+  nix run --refresh devenv#havn-session-prepare && exec bash -l
 }
 ```
 
