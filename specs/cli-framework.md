@@ -69,7 +69,8 @@ havn
 | `havn config show` | Partial |
 | `havn volume list` | Implemented |
 | `havn doctor` | Partial |
-| `havn dolt start/stop/status/databases/drop/connect/import/export` | Partial |
+| `havn dolt start/stop/status/databases/drop/connect` | Partial |
+| `havn dolt import/export` | Partial |
 | `havn completion <shell>` | Planned |
 
 Derivative docs must not label a command as implemented when its published
@@ -361,8 +362,10 @@ Command-specific exit codes may extend this. `havn doctor` is the main example:
 
 ### `havn dolt ...`
 
-- shared-Dolt lifecycle, readiness, ownership, and safety semantics are owned by
-  `specs/shared-dolt-server.md`
+- shared-Dolt lifecycle, readiness, ownership, startup provisioning, and
+  status/databases semantics are owned by `specs/shared-dolt-server.md`
+- beads data-migration and identity policy semantics are outside this spec's
+  ownership boundary
 - this spec owns the command naming and CLI-level flag and output rules
 
 ### `havn completion`

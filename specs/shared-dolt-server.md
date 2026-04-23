@@ -10,9 +10,8 @@ This spec owns:
 
 - shared Dolt lifecycle and readiness semantics
 - ownership checks for the shared server container
-- project database provisioning rules
-- import and export behavior
-- migration and project-identity safety semantics
+- project database provisioning rules for startup integration
+- shared-server status/databases observability contract
 
 Configuration discovery and override precedence come from
 `specs/configuration.md`. CLI naming and general output rules come from
@@ -33,6 +32,19 @@ Overview-level consequences:
 - `bd` remains the primary interface for issue data inside the project
   container
 
+## Out Of Scope (Owned By beads)
+
+`havn` does not define or guarantee beads data-migration semantics.
+
+Out of scope for this spec:
+
+- project-identity verification and mismatch policy during migration
+- import/export correctness, rollback, and reconciliation semantics
+- migration override policy and conflict resolution
+
+These behaviors are owned by beads tooling and workflows. `havn` is responsible
+for providing and operating shared Dolt infrastructure that those workflows use.
+
 ## Lifecycle
 
 ### Explicit lifecycle commands
@@ -43,8 +55,15 @@ Overview-level consequences:
 - `havn dolt databases`
 - `havn dolt drop <name> --yes`
 - `havn dolt connect`
+
+Compatibility command surfaces currently present in the CLI:
+
 - `havn dolt import <path> [--force]`
 - `havn dolt export <name> [--dest <path>]`
+
+Command naming and output routing for these commands still follow
+`specs/cli-framework.md`, but migration semantics are out of scope for this
+spec and owned by beads.
 
 ### Startup integration
 
@@ -75,7 +94,7 @@ must treat that as a conflict rather than silently taking it over.
 ### Readiness
 
 After starting or reusing the server, `havn` waits for readiness before project
-database work or migration steps continue.
+database work continues.
 
 Canonical readiness probe: a successful read-only query such as `SELECT 1`.
 
@@ -119,64 +138,6 @@ projects.
 Shared-Dolt commands that perform multiple independent steps must report where a
 failure happened. They must not report full success when a later verification
 step failed.
-
-### Project identity
-
-When importing or otherwise connecting project data, `havn` must preserve or
-check the beads project identity where the workflow exposes it.
-
-At minimum:
-
-- import verifies that the copied database is visible on the shared server
-- when project identity can be compared between `.beads/metadata.json` and the
-  database, `havn` performs that comparison
-- identity mismatch is surfaced clearly; it is never silently ignored as a
-  successful migration
-
-## Import Contract
-
-`havn dolt import <path>` migrates an existing project-local beads database into
-the shared server.
-
-Source shape:
-
-- `<project>/.beads/dolt/<database>/`
-
-Nominal flow:
-
-1. resolve project path and effective config
-2. resolve the database name
-3. verify the source database directory exists
-4. ensure the shared Dolt server is running and ready
-5. check whether the destination database already exists
-6. if it exists and `--force` is not set, fail without modifying the destination
-7. copy the database into the shared server data location
-8. verify the database is now visible on the server
-9. compare project identity when available and report any mismatch
-
-### Overwrite semantics
-
-- without `--force`, import must fail if the destination database already exists
-- with `--force`, import may overwrite the destination database, but the command
-  must make the overwrite explicit in its output
-
-### Rollback semantics
-
-Import does not promise transactional rollback. If a copy or verification step
-fails after partial destination changes, the command must report that exact
-state so the user can decide whether to retry or clean up.
-
-## Export Contract
-
-`havn dolt export <name> [--dest <path>]` copies a database from the shared
-server back into a project-local layout.
-
-Destination shape:
-
-- `<dest>/.beads/dolt/<name>/`
-
-Export must fail clearly when the source database does not exist. It must not
-claim success if the final copied database is missing from the destination.
 
 ## Status And Databases Output
 
@@ -228,4 +189,4 @@ of the default shared-Dolt contract today.
 
 User-facing docs such as `docs/dolt-beads-guide.md` explain how to use the
 shared server, but they should point back here for lifecycle, readiness,
-ownership, import/export, and safety semantics.
+ownership, startup provisioning, and status/databases observability semantics.

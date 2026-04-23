@@ -42,10 +42,11 @@ When a new major contract is added:
 ## Cross-Spec Invariants
 
 - Configuration discovery, precedence, and provenance are owned by `specs/configuration.md`.
-- `havn doctor` uses the same project context, effective-config rules, and project-identity semantics as startup unless `specs/havn-doctor.md` explicitly narrows the behavior.
+- `havn doctor` uses the same project context, effective-config rules, and shared-Dolt startup semantics as startup unless `specs/havn-doctor.md` explicitly narrows the behavior.
 - CLI stream separation is consistent across commands: status, logs, and errors go to `stderr`; command data and stable JSON go to `stdout`.
 - `specs/havn-overview.md` is never the hidden authority for config, doctor, CLI, or shared-Dolt detail; it points to the owning spec.
-- Shared Dolt lifecycle, readiness, ownership, and import/export safety semantics are owned by `specs/shared-dolt-server.md`.
+- Shared Dolt lifecycle, readiness, ownership, startup provisioning, and shared-server status/databases semantics are owned by `specs/shared-dolt-server.md`.
+- Beads data migration and project-identity migration policy are owned by beads tooling/contracts.
 - Environment flake integration entrypoints and optional startup capabilities are owned by `specs/environment-interface.md`.
 
 ## Spec Index
@@ -62,4 +63,4 @@ When a new major contract is added:
 | [havn-overview.md](havn-overview.md) | Product overview, core workflows, and pointers to authoritative subsystem specs |
 | [base-image.md](base-image.md) | Base image and runtime-init contract |
 | [havn-doctor.md](havn-doctor.md) | Authoritative doctor contract: checks, tiers, selection rules, and output |
-| [shared-dolt-server.md](shared-dolt-server.md) | Authoritative shared-Dolt contract: lifecycle, readiness, ownership, and migration safety |
+| [shared-dolt-server.md](shared-dolt-server.md) | Authoritative shared-Dolt contract: lifecycle, readiness, ownership, startup provisioning, and shared-server status/databases |

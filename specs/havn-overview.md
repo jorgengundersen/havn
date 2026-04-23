@@ -139,7 +139,7 @@ At overview level, `havn` provides command surfaces for:
 - building the base image
 - inspecting effective configuration
 - running diagnostics (`doctor`)
-- managing shared Dolt lifecycle and data migration
+- managing shared Dolt lifecycle and connectivity
 
 Exact command names, flag scope, output semantics, support status, and
 best-effort behavior are owned by `specs/cli-framework.md`,
@@ -155,7 +155,7 @@ Use this order when moving from product framing to detailed contracts:
 2. `specs/cli-framework.md` for command tree, flags, output, and CLI errors
 3. `specs/configuration.md` for discovery, precedence, and effective config
 4. `specs/havn-doctor.md` for diagnostic checks and output behavior
-5. `specs/shared-dolt-server.md` for shared-Dolt lifecycle and safety semantics
+5. `specs/shared-dolt-server.md` for shared-Dolt infrastructure semantics
 6. `specs/environment-interface.md` for environment integration entrypoints and
    startup preparation capability boundaries
 7. `specs/base-image.md` for base-image and runtime assumptions
@@ -192,8 +192,8 @@ all project databases. Overview-level expectations:
 - each project gets a separate database on the shared server
 - `bd` remains the main interface for issue data inside the container
 
-Exact lifecycle, readiness, import, export, and safety semantics are owned by
-`specs/shared-dolt-server.md`.
+Exact lifecycle, readiness, ownership, startup provisioning, and
+status/databases semantics are owned by `specs/shared-dolt-server.md`.
 
 ### Doctor
 
