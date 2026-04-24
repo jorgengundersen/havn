@@ -61,6 +61,45 @@ that belong where migration state is authored and reconciled (beads/Dolt), while
 - `havn dolt drop <name> --yes`
 - `havn dolt connect`
 
+### Shared image lifecycle contract
+
+The shared-server image reference comes from effective config (`dolt.image`).
+
+When `havn` needs to create the shared Dolt container and the configured image is
+not present locally, `havn` attempts an automatic image pull before container
+creation.
+
+This applies to:
+
+- explicit shared-server startup (`havn dolt start`)
+- project startup paths that provision shared Dolt when Dolt is enabled
+
+`havn` does not perform opportunistic image updates during normal startup. If
+the image already exists locally, lifecycle continues without a pull.
+
+### Pull and startup failure semantics
+
+Image-lifecycle failures are command failures. `havn` does not report success
+for `havn dolt start` or Dolt-enabled startup if image acquisition or follow-on
+startup phases fail.
+
+Failure semantics:
+
+- image pull failure (registry auth, connectivity, rate limits, mirror policy,
+  image-not-found) fails the command
+- create/start/readiness failure after a successful pull also fails the command
+- command errors are command-scoped and include actionable remediation guidance
+  for the operator
+
+Fresh-environment and constrained-registry expectations:
+
+- first-run hosts without the configured image may require registry access at
+  startup time
+- offline or registry-constrained environments should pre-seed the configured
+  image before invoking Dolt startup paths
+- pre-seeding can be done with Docker-native workflows (for example pull in a
+  connected environment plus `docker save`/`docker load` into the target host)
+
 Compatibility command surfaces currently present in the CLI:
 
 - `havn dolt import <path> [--force]`

@@ -71,6 +71,30 @@ havn doctor [--all] [--verbose] [--json]
 3. Retry the server lifecycle: `havn dolt stop && havn dolt start`.
 4. Rerun `havn doctor`.
 
+### Dolt image pull/startup failed
+
+Use this flow when Dolt startup reports image missing, pull/auth failure, or
+registry connectivity/rate-limit issues.
+
+1. Confirm the configured image name:
+
+   ```bash
+   havn config show --json
+   ```
+
+   Check `dolt.image` in the output.
+
+2. If the host should be online, test manual pull for the same image:
+
+   ```bash
+   docker pull <dolt-image>
+   ```
+
+3. If the host is offline or registry-constrained, pre-seed the image with your
+   environment's approved transfer flow (for example `docker save`/`docker load`).
+4. Retry startup: `havn dolt start` (or your original Dolt-enabled startup command).
+5. Rerun `havn doctor` to verify host-side Dolt checks recover.
+
 ### Container-level Nix or mount checks failed
 
 1. Stop and restart the project container with `havn .`.

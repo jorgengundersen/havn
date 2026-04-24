@@ -36,6 +36,21 @@ The shared server lifecycle is independent from project containers:
 - stopping a project container does not stop `havn-dolt`
 - use `havn dolt start` and `havn dolt stop` for server lifecycle
 
+### Shared image lifecycle expectations
+
+- the shared-server image comes from effective `dolt.image`
+- when startup needs to create `havn-dolt` and that image is missing locally,
+  `havn` is expected to auto-pull before container create/start
+- startup is not an implicit image-update path: if the configured image already
+  exists locally, startup proceeds without pulling
+
+Operator expectations for fresh or constrained hosts:
+
+- fresh hosts may need registry access on first Dolt startup
+- offline/air-gapped/registry-constrained hosts should pre-seed the configured
+  image before running Dolt startup paths
+- pre-seeding can use Docker-native image transfer (`docker save`/`docker load`)
+
 ## Project configuration
 
 Enable Dolt in project config:
@@ -169,5 +184,8 @@ commands.
   use beads workflows/contracts as the authority
 - `havn dolt status` does not claim runtime listening-port verification; use
   Docker-native inspection when runtime-port validation is required
+- shared-image auto-pull/failure-path behavior is contract-defined but still
+  being tightened; if startup reports image-missing/pull failures, pre-pull the
+  configured image and retry
 
 When this guide and the spec disagree, follow `specs/shared-dolt-server.md`.
