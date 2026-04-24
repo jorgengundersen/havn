@@ -97,7 +97,7 @@ func newDoltStatusCmd(manager *dolt.Manager) *cobra.Command {
 			}
 
 			if out.IsJSON() {
-				return out.DataJSON(doltStatusPayload(status))
+				return out.DataJSON(doltStatusPayload(status, cfg.Dolt.Port))
 			}
 
 			if !status.Running {
@@ -117,8 +117,8 @@ func newDoltStatusCmd(manager *dolt.Manager) *cobra.Command {
 	}
 }
 
-func doltStatusPayload(status dolt.Status) map[string]any {
-	payload := map[string]any{"running": status.Running}
+func doltStatusPayload(status dolt.Status, configuredPort int) map[string]any {
+	payload := map[string]any{"running": status.Running, "configured_port": configuredPort}
 	if !status.Running {
 		return payload
 	}

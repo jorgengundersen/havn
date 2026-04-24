@@ -190,6 +190,17 @@ func TestDoltStatusCommand_ReturnsNotImplemented(t *testing.T) {
 }
 
 func TestDoltStatusCommand_PrintsJSONStatus(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectDir := t.TempDir()
+	originalWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectDir))
+	t.Cleanup(func() {
+		require.NoError(t, os.Chdir(originalWD))
+	})
+
 	backend := &fakeDoltBackend{
 		inspectFound: true,
 		inspectInfo: dolt.ContainerInfo{
@@ -203,7 +214,27 @@ func TestDoltStatusCommand_PrintsJSONStatus(t *testing.T) {
 	stdout, _, err := executeDoltWithRoot(root, "--json", "dolt", "status")
 
 	require.NoError(t, err)
-	assert.JSONEq(t, `{"running":true,"container":"havn-dolt","image":"dolthub/dolt-sql-server:latest","network":"havn-net","managed_by_havn":true}`+"\n", stdout)
+	assert.JSONEq(t, `{"running":true,"configured_port":3308,"container":"havn-dolt","image":"dolthub/dolt-sql-server:latest","network":"havn-net","managed_by_havn":true}`+"\n", stdout)
+}
+
+func TestDoltStatusCommand_NotRunningPrintsJSONConfiguredPortOnly(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectDir := t.TempDir()
+	originalWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectDir))
+	t.Cleanup(func() {
+		require.NoError(t, os.Chdir(originalWD))
+	})
+
+	backend := &fakeDoltBackend{inspectFound: false}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	stdout, _, err := executeDoltWithRoot(root, "--json", "dolt", "status")
+
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"running":false,"configured_port":3308}`+"\n", stdout)
 }
 
 func TestDoltStatusCommand_PrintsConfiguredPortAndRuntimeGuidance(t *testing.T) {
