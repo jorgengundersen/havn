@@ -135,6 +135,36 @@ func TestStart_MissingImageStartFailureAfterPullReturnsStartError(t *testing.T) 
 	assert.Equal(t, []string{"dolthub/dolt-sql-server:latest"}, backend.pullCalls)
 }
 
+func TestStart_MissingImageHealthTimeoutAfterPullReturnsTimeoutError(t *testing.T) {
+	createCalls := 0
+	backend := &fakeBackend{
+		inspectFound: false,
+		createFunc: func(opts dolt.ContainerCreateOpts) (string, error) {
+			createCalls++
+			if createCalls == 1 {
+				return "", &dolt.ImageNotFoundError{Image: opts.Image}
+			}
+			return "new-id", nil
+		},
+		execErr: errors.New("connection refused"),
+	}
+	mgr := dolt.NewManagerWithHealthTimeout(backend, 0)
+	cfg := config.Config{
+		Network: "havn-net",
+		Dolt: config.DoltConfig{
+			Port:  3308,
+			Image: "dolthub/dolt-sql-server:latest",
+		},
+	}
+
+	err := mgr.Start(context.Background(), cfg)
+
+	require.Error(t, err)
+	var timeoutErr *dolt.HealthCheckTimeoutError
+	assert.ErrorAs(t, err, &timeoutErr)
+	assert.Equal(t, []string{"dolthub/dolt-sql-server:latest"}, backend.pullCalls)
+}
+
 func TestStart_CopiesConfigAfterContainerCreate(t *testing.T) {
 	var backend *fakeBackend
 	backend = &fakeBackend{
