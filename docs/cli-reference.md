@@ -202,7 +202,8 @@ Ownership boundary for migration surfaces:
 | `havn config show` | Partial | Normative config contract lives in `specs/configuration.md` |
 | `havn volume list` | Implemented | Shared volume inspection |
 | `havn doctor` | Implemented | Normative doctor contract lives in `specs/havn-doctor.md` |
-| `havn dolt start/stop/status/databases/drop/connect/import/export` | Implemented | Normative Dolt contract lives in `specs/shared-dolt-server.md` |
+| `havn dolt start/stop/status/databases/drop/connect` | Implemented | Shared-Dolt infrastructure lifecycle and observability; normative contract lives in `specs/shared-dolt-server.md` |
+| `havn dolt import/export` | Implemented | Command execution framing only; migration correctness semantics are owned by beads/Dolt workflows |
 | `havn completion` | Planned | Planned CLI surface owned by `specs/cli-framework.md` |
 
 ## Current partial-support gaps

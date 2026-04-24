@@ -70,7 +70,7 @@ havn
 | `havn volume list` | Implemented |
 | `havn doctor` | Implemented |
 | `havn dolt start/stop/status/databases/drop/connect` | Implemented |
-| `havn dolt import/export` | Implemented |
+| `havn dolt import/export` | Implemented (command execution framing only; migration semantics are a non-goal) |
 | `havn completion <shell>` | Planned |
 
 Derivative docs must not label a command as implemented when its published
