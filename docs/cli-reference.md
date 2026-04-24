@@ -14,7 +14,7 @@ For the normative CLI contract, see `specs/cli-framework.md`.
 
 These persistent flags apply to all commands:
 
-- `--json`: machine-readable JSON output
+- `--json`: machine-readable JSON output (`stdout` data; `stderr` errors)
 - `--verbose`: detailed status output and diagnostics
 - `--config <path>`: alternate global config file for this invocation
 
@@ -42,8 +42,15 @@ Adjust it through config files (`[resources].memory_swap`).
   errors go to `stderr`, command data goes to `stdout`
 - normal mode writes concise human-readable output
 - `--verbose` adds detailed diagnostics to `stderr`
-- `--json` writes structured JSON to `stdout` for data-producing commands
+- `--json` writes structured JSON to `stdout` for query commands and
+  non-interactive action command results
 - root startup (`havn [path]`) retains baseline Nix diagnostics for post-run troubleshooting even in normal output mode
+- action commands are completion-oriented:
+  - human mode: completion/status text is written to `stderr`
+  - JSON mode: a result object is written to `stdout` (status/progress may still
+    appear on `stderr`)
+- query commands return data only (no success wrapper) in both human and JSON
+  modes
 - action commands return JSON result objects in JSON mode, typically:
 
 ```json
@@ -52,6 +59,36 @@ Adjust it through config files (`[resources].memory_swap`).
 
 - JSON errors are emitted on `stderr` and include `error`; typed errors may also
   include `type` and `details`
+
+Action success-message examples in JSON mode:
+
+```json
+{"status":"ok","message":"container running","container":"havn-user-api","project_path":"/home/user/work/api","startup_checks":"default","startup_check_phases":[]}
+{"status":"ok","message":"container stopped","container":"havn-user-api"}
+{"status":"ok","message":"base image built"}
+```
+
+`havn list` examples:
+
+```text
+havn-user-api	/home/user/work/api
+```
+
+```json
+[
+  {
+    "name": "havn-user-api",
+    "path": "/home/user/work/api",
+    "image": "havn-base:latest",
+    "status": "running",
+    "shell": "bash",
+    "cpus": 4,
+    "memory": "8g",
+    "memory_swap": "12g",
+    "dolt": false
+  }
+]
+```
 
 For retained startup-log investigation and cleanup workflow, see `docs/doctor-troubleshooting.md`.
 
@@ -98,9 +135,9 @@ Root startup resource behavior:
 
 - `havn up [path]`: run lifecycle startup without interactive attach
 - `havn enter [path]`: enter a running project container with plain `bash`
-- `havn list`: list havn-managed project containers
+- `havn list`: list running havn-managed containers as `name<TAB>path` (or JSON)
 - `havn stop [name|path]`: stop one project container
-- `havn stop --all`: stop all running havn-managed project containers with
+- `havn stop --all`: stop all running havn-managed containers with
   best-effort reporting
 - `havn build`: build the base image used for project containers
 
@@ -159,7 +196,7 @@ Ownership boundary for migration surfaces:
 | `havn [path]` | Implemented | Start-or-attach entry point |
 | `havn up [path]` | Implemented | Lifecycle startup without attach; contract owned by `specs/cli-framework.md` |
 | `havn enter [path]` | Implemented | Plain `bash` entry for running project containers |
-| `havn list` | Implemented | Human and JSON output |
+| `havn list` | Implemented | Query semantics: human `name<TAB>path`; JSON array of container records |
 | `havn stop` | Implemented | Single stop and `--all` best-effort behavior |
 | `havn build` | Implemented | Base-image build surface |
 | `havn config show` | Partial | Normative config contract lives in `specs/configuration.md` |

@@ -71,6 +71,13 @@ havn stop --all
 havn doctor
 ```
 
+Output contract quick notes:
+
+- status/progress/errors are written to `stderr`
+- command data is written to `stdout`
+- `havn list` prints `name<TAB>path` in human mode and a JSON array with
+  `--json`
+
 ## Documentation
 
 - [CLI reference](docs/cli-reference.md)
