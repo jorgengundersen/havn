@@ -16,6 +16,8 @@ const migrationOwnershipBoundaryCode = "beads_migration_workflow"
 
 const migrationOwnershipBoundaryMessage = "Ownership boundary [beads_migration_workflow]: migration semantics are owned by beads/Dolt workflows; havn manages shared Dolt infrastructure only."
 
+const doltWarningPrefix = "WARNING: "
+
 func newDoltCmd(manager *dolt.Manager, setup *dolt.Setup) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dolt",
@@ -309,10 +311,10 @@ func newDoltImportCmd(manager *dolt.Manager, _ *dolt.Setup) *cobra.Command {
 			}
 
 			for _, warning := range result.Warnings {
-				out.Status("Warning: " + warning)
+				out.Status(doltWarningMessage(warning))
 			}
 
-			out.Status(migrationOwnershipBoundaryMessage)
+			out.Status(doltWarningMessage(migrationOwnershipBoundaryMessage))
 
 			warnings := result.Warnings
 			if warnings == nil {
@@ -401,7 +403,7 @@ func newDoltExportCmd(manager *dolt.Manager) *cobra.Command {
 				return doltCommandError("export", err)
 			}
 
-			out.Status(migrationOwnershipBoundaryMessage)
+			out.Status(doltWarningMessage(migrationOwnershipBoundaryMessage))
 
 			if out.IsJSON() {
 				return out.DataJSON(map[string]any{
@@ -422,4 +424,8 @@ func newDoltExportCmd(manager *dolt.Manager) *cobra.Command {
 	cmd.Flags().StringVar(&opts.Dest, "dest", ".", "destination project directory")
 
 	return cmd
+}
+
+func doltWarningMessage(message string) string {
+	return doltWarningPrefix + message
 }
