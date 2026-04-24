@@ -14,7 +14,7 @@ import (
 
 const migrationOwnershipBoundaryCode = "beads_migration_workflow"
 
-const migrationOwnershipBoundaryMessage = "Ownership boundary [beads_migration_workflow]: migration semantics are owned by beads/Dolt workflows; havn manages shared Dolt infrastructure only."
+const migrationOwnershipBoundaryMessage = "Ownership boundary [beads_migration_workflow]: migration semantics are owned by beads/Dolt workflows; havn manages shared Dolt infrastructure only. For migration workflows, run 'bd migrate --help' and see docs/dolt-beads-guide.md."
 
 const doltWarningPrefix = "WARNING: "
 
