@@ -134,6 +134,7 @@ func TestDoltStartCommand_StartsSharedDoltServer(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, stdout)
 	assert.Contains(t, stderr, "Starting shared Dolt server")
+	assert.Contains(t, stderr, "Shared Dolt server started")
 }
 
 func TestDoltStartCommand_UsesEffectiveProjectDoltConfig(t *testing.T) {
@@ -246,6 +247,7 @@ func TestDoltStopCommand_StopsSharedDoltServer(t *testing.T) {
 	assert.Empty(t, stdout)
 	assert.Equal(t, "havn-dolt", backend.lastStoppedName)
 	assert.Contains(t, stderr, "Stopping shared Dolt server")
+	assert.Contains(t, stderr, "Shared Dolt server stopped")
 }
 
 func TestDoltStopCommand_WhenServerNotRunning_ReturnsGuidance(t *testing.T) {
@@ -441,6 +443,7 @@ func TestDoltDropCommand_DropsDatabaseWhenConfirmed(t *testing.T) {
 	assert.Empty(t, stdout)
 	assert.Equal(t, []string{"dolt", "sql", "-q", "DROP DATABASE `mydb`"}, backend.lastExec)
 	assert.Contains(t, stderr, "Dropping database mydb")
+	assert.Contains(t, stderr, "Database mydb dropped")
 }
 
 func TestDoltConnectCommand_ReturnsNotImplemented(t *testing.T) {
@@ -514,6 +517,7 @@ func TestDoltImportCommand_ImportsDatabase(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, stdout)
 	assert.Contains(t, stderr, "Importing Dolt database")
+	assert.Contains(t, stderr, "Database sample imported")
 }
 
 func TestDoltImportCommand_WhenServerNotRunning_ReturnsGuidance(t *testing.T) {
@@ -638,6 +642,7 @@ func TestDoltExportCommand_ExportsDatabaseToDestination(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, stdout)
 	assert.Contains(t, stderr, "Exporting Dolt database")
+	assert.Contains(t, stderr, "Database mydb exported to")
 
 	manifest, readErr := os.ReadFile(destDir + "/.beads/dolt/mydb/manifest")
 	require.NoError(t, readErr)

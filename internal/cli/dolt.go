@@ -55,7 +55,7 @@ func newDoltStartCmd(manager *dolt.Manager) *cobra.Command {
 				return doltCommandError("start", err)
 			}
 
-			return doltOKResponse(out, "dolt server started")
+			return doltOKResponse(out, "Shared Dolt server started", "dolt server started")
 		},
 	}
 }
@@ -75,7 +75,7 @@ func newDoltStopCmd(manager *dolt.Manager) *cobra.Command {
 				return doltCommandError("stop", err)
 			}
 
-			return doltOKResponse(out, "dolt server stopped")
+			return doltOKResponse(out, "Shared Dolt server stopped", "dolt server stopped")
 		},
 	}
 }
@@ -189,7 +189,7 @@ func newDoltDropCmd(manager *dolt.Manager) *cobra.Command {
 				return doltCommandError("drop", err)
 			}
 
-			return doltOKResponse(out, "database dropped")
+			return doltOKResponse(out, fmt.Sprintf("Database %s dropped", name), "database dropped")
 		},
 	}
 
@@ -266,12 +266,13 @@ func resolveDoltConfigFromTarget(command, target string) (string, config.Config,
 	return projectCtx.Path, cfg, nil
 }
 
-func doltOKResponse(out *Output, message string) error {
+func doltOKResponse(out *Output, humanMessage, jsonMessage string) error {
 	if !out.IsJSON() {
+		out.Status(humanMessage)
 		return nil
 	}
 
-	return out.DataJSON(map[string]string{"status": "ok", "message": message})
+	return out.DataJSON(map[string]string{"status": "ok", "message": jsonMessage})
 }
 
 func newDoltImportCmd(manager *dolt.Manager, _ *dolt.Setup) *cobra.Command {
@@ -329,6 +330,8 @@ func newDoltImportCmd(manager *dolt.Manager, _ *dolt.Setup) *cobra.Command {
 					"ownership_boundary": migrationOwnershipBoundaryCode,
 				})
 			}
+
+			out.Status(fmt.Sprintf("Database %s imported", result.DatabaseName))
 
 			return nil
 		},
@@ -409,6 +412,8 @@ func newDoltExportCmd(manager *dolt.Manager) *cobra.Command {
 					"ownership_boundary": migrationOwnershipBoundaryCode,
 				})
 			}
+
+			out.Status(fmt.Sprintf("Database %s exported to %s", name, destPath))
 
 			return nil
 		},

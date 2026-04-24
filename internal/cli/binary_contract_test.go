@@ -121,6 +121,50 @@ func TestHAVNBinary_CLIContractAtProcessBoundary(t *testing.T) {
 		require.True(t, ok)
 		assert.Contains(t, errMsg, "unknown flag: --shell")
 	})
+
+	t.Run("dolt drop requires explicit confirmation in human mode", func(t *testing.T) {
+		stdout, stderr, exitCode := runHAVNBinary(t, binaryPath, projectDir, homeDir, "dolt", "drop", "mydb")
+
+		assert.Equal(t, 1, exitCode)
+		assert.Empty(t, stdout)
+		assert.Contains(t, stderr, "Error: havn dolt drop requires --yes")
+	})
+
+	t.Run("dolt drop requires explicit confirmation in json mode", func(t *testing.T) {
+		stdout, stderr, exitCode := runHAVNBinary(t, binaryPath, projectDir, homeDir, "--json", "dolt", "drop", "mydb")
+
+		assert.Equal(t, 1, exitCode)
+		assert.Empty(t, stdout)
+
+		var payload map[string]any
+		require.NoError(t, json.Unmarshal([]byte(stderr), &payload))
+		errMsg, ok := payload["error"].(string)
+		require.True(t, ok)
+		assert.Equal(t, "havn dolt drop requires --yes", errMsg)
+		assert.NotContains(t, payload, "type")
+		assert.NotContains(t, payload, "details")
+	})
+
+	t.Run("dolt status parse failure reports typed json error payload", func(t *testing.T) {
+		brokenProjectDir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(brokenProjectDir, ".havn"), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(brokenProjectDir, ".havn", "config.toml"), []byte("[dolt\nport = 3308\n"), 0o644))
+
+		stdout, stderr, exitCode := runHAVNBinary(t, binaryPath, brokenProjectDir, homeDir, "--json", "dolt", "status")
+
+		assert.Equal(t, 1, exitCode)
+		assert.Empty(t, stdout)
+
+		var payload map[string]any
+		require.NoError(t, json.Unmarshal([]byte(stderr), &payload))
+		errMsg, ok := payload["error"].(string)
+		require.True(t, ok)
+		assert.Contains(t, errMsg, "Config parse error")
+		assert.Equal(t, "config_parse_error", payload["type"])
+		details, ok := payload["details"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, float64(2), details["line"])
+	})
 }
 
 func buildHAVNBinary(t *testing.T) string {
