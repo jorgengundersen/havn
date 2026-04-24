@@ -82,6 +82,8 @@ func newBuildCmd(service BuildService) *cobra.Command {
 				return fmt.Errorf("havn build: %w", err)
 			}
 
+			out.Status("Base image built")
+
 			if out.IsJSON() {
 				return out.DataJSON(map[string]string{
 					"status":  "ok",

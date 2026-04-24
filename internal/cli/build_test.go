@@ -53,6 +53,7 @@ func TestBuildCommand_CallsBuildServiceWithSpecContract(t *testing.T) {
 	assert.NotZero(t, service.lastOpts.GID)
 	assert.Same(t, stderrBuf, service.lastOutput)
 	assert.Contains(t, stderrBuf.String(), "Building base image...")
+	assert.Contains(t, stderrBuf.String(), "Base image built")
 	assert.Empty(t, stdoutBuf.String())
 }
 
