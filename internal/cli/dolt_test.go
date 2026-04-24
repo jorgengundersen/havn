@@ -204,7 +204,7 @@ func TestDoltStartCommand_MissingImageJSONOmitsAcquisitionProgress(t *testing.T)
 	stdout, stderr, err := executeDoltWithRoot(root, "--json", "dolt", "start")
 
 	require.NoError(t, err)
-	assert.JSONEq(t, `{"status":"ok","message":"dolt server started"}`+"\n", stdout)
+	assert.JSONEq(t, `{"status":"ok","message":"dolt server started","container":"havn-dolt"}`+"\n", stdout)
 	assert.Contains(t, stderr, "Starting shared Dolt server")
 	assert.NotContains(t, stderr, "acquiring image")
 	assert.NotContains(t, stderr, "resuming shared Dolt startup")
@@ -248,6 +248,19 @@ func TestDoltStopCommand_StopsSharedDoltServer(t *testing.T) {
 	assert.Equal(t, "havn-dolt", backend.lastStoppedName)
 	assert.Contains(t, stderr, "Stopping shared Dolt server")
 	assert.Contains(t, stderr, "Shared Dolt server stopped")
+}
+
+func TestDoltStopCommand_JSONIncludesContainerIdentity(t *testing.T) {
+	backend := &fakeDoltBackend{
+		inspectFound: true,
+		inspectInfo:  dolt.ContainerInfo{ID: "running-id", Running: true, Labels: map[string]string{"managed-by": "havn"}},
+	}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	stdout, stderr, err := executeDoltWithRoot(root, "--json", "dolt", "stop")
+
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"status":"ok","message":"dolt server stopped","container":"havn-dolt"}`+"\n", stdout)
+	assert.Contains(t, stderr, "Stopping shared Dolt server")
 }
 
 func TestDoltStopCommand_WhenServerNotRunning_ReturnsGuidance(t *testing.T) {
@@ -444,6 +457,19 @@ func TestDoltDropCommand_DropsDatabaseWhenConfirmed(t *testing.T) {
 	assert.Equal(t, []string{"dolt", "sql", "-q", "DROP DATABASE `mydb`"}, backend.lastExec)
 	assert.Contains(t, stderr, "Dropping database mydb")
 	assert.Contains(t, stderr, "Database mydb dropped")
+}
+
+func TestDoltDropCommand_JSONIncludesDroppedDatabase(t *testing.T) {
+	backend := &fakeDoltBackend{
+		inspectFound: true,
+		inspectInfo:  dolt.ContainerInfo{ID: "running-id", Running: true, Labels: map[string]string{"managed-by": "havn"}},
+	}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	stdout, stderr, err := executeDoltWithRoot(root, "--json", "dolt", "drop", "mydb", "--yes")
+
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"status":"ok","message":"database dropped","database":"mydb"}`+"\n", stdout)
+	assert.Contains(t, stderr, "Dropping database mydb")
 }
 
 func TestDoltConnectCommand_ReturnsNotImplemented(t *testing.T) {

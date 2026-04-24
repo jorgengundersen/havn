@@ -57,7 +57,7 @@ func newDoltStartCmd(manager *dolt.Manager) *cobra.Command {
 				return doltCommandError("start", err)
 			}
 
-			return doltOKResponse(out, "Shared Dolt server started", "dolt server started")
+			return doltOKResponse(out, "Shared Dolt server started", "dolt server started", map[string]any{"container": "havn-dolt"})
 		},
 	}
 }
@@ -77,7 +77,7 @@ func newDoltStopCmd(manager *dolt.Manager) *cobra.Command {
 				return doltCommandError("stop", err)
 			}
 
-			return doltOKResponse(out, "Shared Dolt server stopped", "dolt server stopped")
+			return doltOKResponse(out, "Shared Dolt server stopped", "dolt server stopped", map[string]any{"container": "havn-dolt"})
 		},
 	}
 }
@@ -191,7 +191,7 @@ func newDoltDropCmd(manager *dolt.Manager) *cobra.Command {
 				return doltCommandError("drop", err)
 			}
 
-			return doltOKResponse(out, fmt.Sprintf("Database %s dropped", name), "database dropped")
+			return doltOKResponse(out, fmt.Sprintf("Database %s dropped", name), "database dropped", map[string]any{"database": name})
 		},
 	}
 
@@ -272,13 +272,18 @@ func resolveDoltConfigFromTarget(command, target string) (string, config.Config,
 	return projectCtx.Path, cfg, nil
 }
 
-func doltOKResponse(out *Output, humanMessage, jsonMessage string) error {
+func doltOKResponse(out *Output, humanMessage, jsonMessage string, fields map[string]any) error {
 	if !out.IsJSON() {
 		out.Status(humanMessage)
 		return nil
 	}
 
-	return out.DataJSON(map[string]string{"status": "ok", "message": jsonMessage})
+	payload := map[string]any{"status": "ok", "message": jsonMessage}
+	for key, value := range fields {
+		payload[key] = value
+	}
+
+	return out.DataJSON(payload)
 }
 
 func newDoltImportCmd(manager *dolt.Manager, _ *dolt.Setup) *cobra.Command {
