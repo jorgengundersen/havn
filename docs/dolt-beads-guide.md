@@ -73,8 +73,14 @@ havn dolt status
 
 `status` reports shared-server state, not project-specific state.
 
-Current status payloads include running/container/image/network/ownership state.
-They do not currently include a runtime port field.
+Current status payloads include shared-server state plus `configured_port`.
+`configured_port` is configuration-derived intent, not a runtime-observed
+listening-port fact.
+
+When runtime-port mismatch is suspected, verify runtime state with Docker
+inspection (`docker inspect`, `docker port`, or container process inspection).
+That runtime verification path is intentionally external to
+`havn dolt status`.
 
 ### Database operations
 
@@ -157,6 +163,7 @@ commands.
 ## Current partial-support gaps
 
 - project-identity verification during import currently reports mismatch as warnings (not a hard failure), and only when both metadata sources are available
-- `havn dolt status` currently does not report a runtime port field
+- `havn dolt status` does not claim runtime listening-port verification; use
+  Docker-native inspection when runtime-port validation is required
 
 When this guide and the spec disagree, follow `specs/shared-dolt-server.md`.

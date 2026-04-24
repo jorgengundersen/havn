@@ -145,15 +145,20 @@ step failed.
 
 The status payload describes shared-server state, not project state.
 
-`havn dolt status` currently does not report a runtime port. The payload is
-limited to fields that the runtime adapter can report faithfully on supported
-paths.
+`configured_port` in the status payload is a configuration-derived value from
+effective config. It is the intended Dolt SQL port, not a runtime-observed
+listening-port fact.
+
+`havn dolt status` does not claim runtime listening-port verification. Runtime
+port verification remains an external operator check when mismatch is
+suspected.
 
 Canonical shape:
 
 ```json
 {
   "running": true,
+  "configured_port": 3308,
   "container": "havn-dolt",
   "image": "dolthub/dolt-sql-server:latest",
   "network": "havn-net",
@@ -164,8 +169,21 @@ Canonical shape:
 When the server is not running:
 
 ```json
-{"running": false}
+{"running": false, "configured_port": 3308}
 ```
+
+### Manual runtime-port verification (external)
+
+When `configured_port` appears to disagree with observed behavior, verify
+runtime state outside `havn` using Docker-native inspection paths. Examples:
+
+- inspect live process arguments inside `havn-dolt` to confirm the running
+  server command port
+- inspect container networking/publication details via `docker inspect` /
+  `docker port` when host publishing is part of the setup
+
+These checks are environment-specific and intentionally remain outside the
+`havn dolt status` contract.
 
 ### `havn dolt databases --json`
 
