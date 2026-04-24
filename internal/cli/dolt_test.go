@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -483,6 +484,30 @@ func TestDoltImportCommand_ForceMakesOverwriteExplicit(t *testing.T) {
 	assert.Contains(t, stderr, "Overwriting existing database sample")
 }
 
+func TestDoltImportCommand_FailuresAreCommandScoped(t *testing.T) {
+	projectDir := t.TempDir()
+	dbName := "sample"
+	require.NoError(t, os.MkdirAll(projectDir+"/.havn", 0o755))
+	require.NoError(t, os.WriteFile(projectDir+"/.havn/config.toml", []byte("[dolt]\ndatabase = \"sample\"\n"), 0o644))
+	require.NoError(t, os.MkdirAll(projectDir+"/.beads/dolt/"+dbName, 0o755))
+	require.NoError(t, os.WriteFile(projectDir+"/.beads/dolt/"+dbName+"/manifest", []byte("data"), 0o644))
+
+	backend := &fakeDoltBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "running-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+		execErr: errors.New("import failed"),
+	}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	_, _, err := executeDoltWithRoot(root, "dolt", "import", projectDir)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "havn dolt import:")
+}
+
 func TestDoltImportCommand_JSONIncludesOwnershipBoundary(t *testing.T) {
 	projectDir := t.TempDir()
 	dbName := "sample"
@@ -572,6 +597,22 @@ func TestDoltExportCommand_JSONIncludesOwnershipBoundary(t *testing.T) {
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"status":"ok","message":"database exported","database":"mydb","dest":"`+absDestDir+`","ownership_boundary":"beads_migration_workflow"}`+"\n", stdout)
 	assert.Contains(t, stderr, "Migration semantics are owned by beads/Dolt workflows")
+}
+
+func TestDoltExportCommand_FailuresAreCommandScoped(t *testing.T) {
+	destDir := t.TempDir()
+
+	backend := &fakeDoltBackend{
+		inspectFound: true,
+		inspectInfo:  dolt.ContainerInfo{ID: "running-id", Running: true, Labels: map[string]string{"managed-by": "havn"}},
+		execOutput:   "+--------------------+\n| Database           |\n+--------------------+\n| mydb               |\n+--------------------+\n",
+		copyFromErr:  errors.New("export failed"),
+	}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	_, _, err := executeDoltWithRoot(root, "dolt", "export", "mydb", "--dest", destDir)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "havn dolt export:")
 }
 
 func buildTarArchive(t *testing.T, prefix string, files map[string]string) []byte {

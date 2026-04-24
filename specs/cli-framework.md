@@ -367,6 +367,8 @@ Command-specific exit codes may extend this. `havn doctor` is the main example:
 - beads data-migration and identity policy semantics are outside this spec's
   ownership boundary
 - this spec owns the command naming and CLI-level flag and output rules
+- for `havn dolt import/export`, CLI ownership is limited to command execution
+  framing (status/error/result shape), not migration correctness policy
 
 ### `havn completion`
 

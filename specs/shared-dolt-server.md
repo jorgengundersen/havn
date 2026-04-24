@@ -65,6 +65,37 @@ Command naming and output routing for these commands still follow
 `specs/cli-framework.md`, but migration semantics are out of scope for this
 spec and owned by beads.
 
+### Import/export command-boundary contract
+
+For compatibility surfaces `havn dolt import` and `havn dolt export`, `havn`
+owns command execution framing only.
+
+At the CLI boundary, these commands may report:
+
+- command-scoped execution progress for infrastructure steps (for example import
+  target resolution, shared-server availability, transfer start/completion)
+- transfer-surface outcomes such as overwrite and warning signals returned by
+  the command path
+- explicit ownership-boundary guidance that migration semantics are owned by
+  beads/Dolt workflows
+
+They must not claim migration correctness semantics (identity policy,
+reconciliation, rollback guarantees, or conflict-policy authority).
+
+JSON success framing is command-local and stable at this boundary:
+
+- `havn dolt import --json` returns `status`, `message`, `database`, `path`,
+  `overwrote`, `warnings`, and `ownership_boundary`
+- `havn dolt export --json` returns `status`, `message`, `database`, `dest`,
+  and `ownership_boundary`
+
+`ownership_boundary` is a stable discriminator indicating migration-semantics
+ownership outside `havn` (current value: `beads_migration_workflow`).
+
+Failure framing is command-scoped (`havn dolt import: ...`,
+`havn dolt export: ...`) and reports command execution/infrastructure failures,
+not migration correctness verdicts.
+
 ### Startup integration
 
 When effective config enables Dolt for a project startup:
