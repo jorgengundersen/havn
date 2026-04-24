@@ -1236,7 +1236,7 @@ func TestStartOrAttach_DoltEnabled_WithMigrationNotice_ShowsStatus(t *testing.T)
 			"BEADS_DOLT_SERVER_HOST": "havn-dolt",
 			"BEADS_DOLT_SERVER_PORT": "3308",
 		},
-		notice: "Found local beads database at .beads/dolt/mydb for \"mydb\"; migrate with: havn dolt import /home/devuser/Repos/github.com/user/project",
+		notice: "Found local beads database at .beads/dolt/mydb for \"mydb\"; follow beads migration workflows (run 'bd migrate --help' and see docs/dolt-beads-guide.md) for /home/devuser/Repos/github.com/user/project",
 	}
 	deps := container.StartDeps{
 		Container: cb,

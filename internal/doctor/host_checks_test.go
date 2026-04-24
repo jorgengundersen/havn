@@ -402,6 +402,8 @@ func TestDoltDatabaseCheck_Missing(t *testing.T) {
 
 	assert.Equal(t, doctor.StatusWarn, result.Status)
 	assert.Contains(t, result.Recommendation, "mydb")
+	assert.Contains(t, result.Recommendation, "bd migrate --help")
+	assert.Contains(t, result.Recommendation, "docs/dolt-beads-guide.md")
 }
 
 func TestDoltDatabaseCheck_Prerequisites(t *testing.T) {

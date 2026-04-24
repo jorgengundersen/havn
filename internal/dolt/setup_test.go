@@ -222,5 +222,6 @@ func TestMigrationNotice_WhenLocalDatabaseExists_ReturnsImportHint(t *testing.T)
 
 	require.NoError(t, err)
 	assert.Contains(t, notice, "Found local beads database at .beads/dolt/myproject")
-	assert.Contains(t, notice, "havn dolt import "+projectPath)
+	assert.Contains(t, notice, "bd migrate --help")
+	assert.Contains(t, notice, "docs/dolt-beads-guide.md")
 }

@@ -53,7 +53,7 @@ func (s *Setup) MigrationNotice(ctx context.Context, cfg config.Config, projectP
 	if hint == nil {
 		return "", nil
 	}
-	return fmt.Sprintf("Found local beads database at %s for %q; migrate with: havn dolt import %s", hint.LocalPath, hint.DatabaseName, projectPath), nil
+	return fmt.Sprintf("Found local beads database at %s for %q; follow beads migration workflows (run 'bd migrate --help' and see docs/dolt-beads-guide.md) for %s", hint.LocalPath, hint.DatabaseName, projectPath), nil
 }
 
 func pathExists(path string) bool {

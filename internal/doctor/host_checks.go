@@ -399,6 +399,6 @@ func (c *doltDatabaseCheck) Run(ctx context.Context) CheckResult {
 	return CheckResult{
 		Status:         StatusWarn,
 		Message:        fmt.Sprintf("Database '%s' does not exist on the shared server", c.database),
-		Recommendation: fmt.Sprintf("Run 'havn dolt import <path>' if migrating, or 'bd init' inside the container for '%s'", c.database),
+		Recommendation: fmt.Sprintf("Use beads migration workflows (run 'bd migrate --help' and see docs/dolt-beads-guide.md), or run 'bd init' inside the container for '%s'", c.database),
 	}
 }
