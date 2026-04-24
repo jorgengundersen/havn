@@ -101,6 +101,7 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 					mountResult.Env["SSH_AUTH_SOCK"],
 					mountResult.ConfigMounts,
 					target.BeadsExist,
+					opts.Dolt,
 				)
 				checks = append(checks, cc...)
 			}

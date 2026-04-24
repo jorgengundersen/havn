@@ -455,6 +455,63 @@ func TestDoctorCommand_DoltFlagRunsDoltChecksWhenConfigDisabled(t *testing.T) {
 	assert.Contains(t, stdout, "Dolt server is not running")
 }
 
+func TestDoctorCommand_DoltFlagRunsContainerDoltConnectivityWhenConfigDisabled(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectPath := filepath.Join(homeDir, "workspace", "projectfoxtrot")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectPath, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "config.toml"), []byte("[dolt]\nenabled = false\n"), 0o644))
+
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectPath))
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	parent, project, err := name.SplitProjectPath(projectPath)
+	require.NoError(t, err)
+	containerName, err := name.DeriveContainerName(parent, project)
+	require.NoError(t, err)
+
+	backend := &fakeDoctorBackend{
+		containerInfos: map[string]doctor.ContainerInfo{
+			string(containerName): {
+				Running: true,
+				Labels:  map[string]string{"havn.path": projectPath},
+			},
+		},
+	}
+
+	stdout, _, err := executeDoctorCommand(backend, "--dolt", "--json")
+
+	require.Error(t, err)
+	assert.Equal(t, 2, cli.ExitCode(err))
+
+	var parsed struct {
+		Checks []struct {
+			Name    string `json:"name"`
+			Status  string `json:"status"`
+			Message string `json:"message"`
+		} `json:"checks"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(stdout), &parsed))
+
+	doltConnectivityFound := false
+	for _, check := range parsed.Checks {
+		if check.Name != "dolt_connectivity" {
+			continue
+		}
+		doltConnectivityFound = true
+		assert.Equal(t, "error", check.Status)
+		assert.NotEqual(t, "Dolt not enabled", check.Message)
+		break
+	}
+
+	assert.True(t, doltConnectivityFound, "expected dolt_connectivity check in output")
+}
+
 func TestDoctorCommand_DoltFlagReportsMissingDoltImage(t *testing.T) {
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)

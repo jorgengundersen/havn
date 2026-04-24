@@ -24,6 +24,7 @@ func TestContainerChecks_AllChecksForSingleContainer(t *testing.T) {
 		"/ssh-agent",
 		[]mount.Spec{{Target: "/home/devuser/.gitconfig", ReadOnly: true}},
 		true,
+		false,
 	)
 
 	// Should have all 7 checks: nix_store, nix_devshell, project_mount, config_mounts, ssh_agent, dolt_connectivity, beads_health
@@ -47,7 +48,7 @@ func TestContainerChecks_DoltDisabledSkipsConnectivity(t *testing.T) {
 	cfg := config.Default()
 	cfg.Dolt.Enabled = false
 
-	checks := doctor.ContainerChecks(backend, cfg, "havn-user-myproject", "/home/devuser/project", "", nil, false)
+	checks := doctor.ContainerChecks(backend, cfg, "havn-user-myproject", "/home/devuser/project", "", nil, false, false)
 
 	// All 7 checks are still created (dolt_connectivity will skip at runtime)
 	require.Len(t, checks, 7)

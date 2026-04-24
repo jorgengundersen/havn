@@ -6,11 +6,13 @@ import (
 )
 
 // ContainerChecks builds the tier-2 check list for a single container.
-func ContainerChecks(backend Backend, cfg config.Config, container, projectPath, sshAuthSock string, configMounts []mount.Spec, beadsExists bool) []Check {
+func ContainerChecks(backend Backend, cfg config.Config, container, projectPath, sshAuthSock string, configMounts []mount.Spec, beadsExists, explicitDolt bool) []Check {
 	configExpectations := make([]ConfigMountExpectation, 0, len(configMounts))
 	for _, m := range configMounts {
 		configExpectations = append(configExpectations, ConfigMountExpectation{Target: m.Target, ReadOnly: m.ReadOnly})
 	}
+
+	doltChecksEnabled := cfg.Dolt.Enabled || explicitDolt
 
 	return []Check{
 		NewNixStoreCheck(backend, container),
@@ -18,7 +20,7 @@ func ContainerChecks(backend Backend, cfg config.Config, container, projectPath,
 		NewProjectMountCheck(backend, container, projectPath),
 		NewConfigMountsCheck(backend, container, configExpectations),
 		NewSSHAgentCheck(backend, container, sshAuthSock),
-		NewDoltConnectivityCheck(backend, container, cfg.Network, cfg.Dolt.Enabled),
+		NewDoltConnectivityCheck(backend, container, cfg.Network, doltChecksEnabled),
 		NewBeadsHealthCheck(backend, container, beadsExists),
 	}
 }
