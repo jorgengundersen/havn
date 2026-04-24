@@ -38,12 +38,17 @@ Overview-level consequences:
 
 Out of scope for this spec:
 
+- `havn dolt import/export` migration correctness semantics as a policy surface
 - project-identity verification and mismatch policy during migration
 - import/export correctness, rollback, and reconciliation semantics
 - migration override policy and conflict resolution
 
 These behaviors are owned by beads tooling and workflows. `havn` is responsible
 for providing and operating shared Dolt infrastructure that those workflows use.
+
+Rationale: migration correctness decisions are project/workflow policy concerns
+that belong where migration state is authored and reconciled (beads/Dolt), while
+`havn` owns reusable infrastructure lifecycle and command execution framing.
 
 ## Lifecycle
 
