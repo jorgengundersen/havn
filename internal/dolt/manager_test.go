@@ -72,6 +72,44 @@ func TestStart_CopiesConfigAfterContainerCreate(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestStart_MissingImagePullsThenResumesStartup(t *testing.T) {
+	createCalls := 0
+	backend := &fakeBackend{
+		inspectFound: false,
+		execOutput:   "1",
+		createFunc: func(opts dolt.ContainerCreateOpts) (string, error) {
+			createCalls++
+			if createCalls == 1 {
+				return "", &dolt.ImageNotFoundError{Image: opts.Image}
+			}
+			return "new-id", nil
+		},
+	}
+	mgr := dolt.NewManager(backend)
+	cfg := config.Config{
+		Network: "havn-net",
+		Dolt: config.DoltConfig{
+			Port:  3308,
+			Image: "dolthub/dolt-sql-server:latest",
+		},
+	}
+
+	var events []dolt.StartProgressEvent
+	err := mgr.StartWithProgress(context.Background(), cfg, func(event dolt.StartProgressEvent) {
+		events = append(events, event)
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"dolthub/dolt-sql-server:latest"}, backend.pullCalls)
+	assert.Equal(t,
+		[]dolt.StartProgressEvent{
+			{Stage: dolt.StartProgressImageAcquisitionStarted, Image: "dolthub/dolt-sql-server:latest"},
+			{Stage: dolt.StartProgressStartupResumed, Image: "dolthub/dolt-sql-server:latest"},
+		},
+		events,
+	)
+}
+
 func TestStart_ExistingManagedStopped(t *testing.T) {
 	backend := &fakeBackend{
 		inspectFound: true,

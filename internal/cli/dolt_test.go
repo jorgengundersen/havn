@@ -22,7 +22,11 @@ type fakeDoltBackend struct {
 	inspectFound    bool
 	inspectErr      error
 	createOpts      dolt.ContainerCreateOpts
+	createFunc      func(opts dolt.ContainerCreateOpts) (string, error)
 	stopErr         error
+	pullErr         error
+	pullFunc        func(image string) error
+	pullCalls       []string
 	execOutput      string
 	execErr         error
 	execFunc        func(cmd []string) (string, error)
@@ -38,7 +42,18 @@ type fakeDoltBackend struct {
 
 func (f *fakeDoltBackend) ContainerCreate(_ context.Context, opts dolt.ContainerCreateOpts) (string, error) {
 	f.createOpts = opts
+	if f.createFunc != nil {
+		return f.createFunc(opts)
+	}
 	return "created-id", nil
+}
+
+func (f *fakeDoltBackend) ImagePull(_ context.Context, image string) error {
+	f.pullCalls = append(f.pullCalls, image)
+	if f.pullFunc != nil {
+		return f.pullFunc(image)
+	}
+	return f.pullErr
 }
 
 func (f *fakeDoltBackend) ContainerStart(_ context.Context, _ string) error {
@@ -150,6 +165,43 @@ func TestDoltStartCommand_UsesEffectiveProjectDoltConfig(t *testing.T) {
 	assert.Equal(t, "dolthub/dolt-sql-server:v2", backend.createOpts.Image)
 	assert.Equal(t, "/etc/dolt/servercfg.d", backend.copyToDest)
 	assert.Contains(t, string(backend.copyToData), "port: 4400")
+}
+
+func TestDoltStartCommand_MissingImageReportsAcquisitionProgress(t *testing.T) {
+	createCalls := 0
+	backend := &fakeDoltBackend{
+		createFunc: func(opts dolt.ContainerCreateOpts) (string, error) {
+			createCalls++
+			if createCalls == 1 {
+				return "", &dolt.ImageNotFoundError{Image: opts.Image}
+			}
+			return "created-id", nil
+		},
+	}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	_, stderr, err := executeDoltWithRoot(root, "dolt", "start")
+
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "Starting shared Dolt server")
+	assert.Contains(t, stderr, "acquiring image")
+	assert.Contains(t, stderr, "resuming shared Dolt startup")
+	assert.Contains(t, stderr, "completed after image acquisition")
+}
+
+func TestDoltStartCommand_MissingImagePullFailureReportsContext(t *testing.T) {
+	backend := &fakeDoltBackend{
+		createFunc: func(opts dolt.ContainerCreateOpts) (string, error) {
+			return "", &dolt.ImageNotFoundError{Image: opts.Image}
+		},
+		pullErr: errors.New("registry unavailable"),
+	}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	_, stderr, err := executeDoltWithRoot(root, "dolt", "start")
+
+	require.Error(t, err)
+	assert.Contains(t, stderr, "acquiring image")
+	assert.Contains(t, stderr, "failed during image acquisition path")
+	assert.Contains(t, err.Error(), "havn dolt start:")
 }
 
 func TestDoltStopCommand_ReturnsNotImplemented(t *testing.T) {

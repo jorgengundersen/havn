@@ -24,7 +24,7 @@ func (b dockerDoltBackend) ContainerCreate(ctx context.Context, opts dolt.Contai
 		volumeMounts = append(volumeMounts, docker.VolumeMount{Name: name, Target: target})
 	}
 
-	return b.docker.ContainerCreate(ctx, docker.CreateOpts{
+	id, err := b.docker.ContainerCreate(ctx, docker.CreateOpts{
 		Name:          opts.Name,
 		Image:         opts.Image,
 		Network:       opts.Network,
@@ -33,6 +33,19 @@ func (b dockerDoltBackend) ContainerCreate(ctx context.Context, opts dolt.Contai
 		Labels:        opts.Labels,
 		VolumeMounts:  volumeMounts,
 	})
+	if err != nil {
+		var imageNotFound *docker.ImageNotFoundError
+		if errors.As(err, &imageNotFound) {
+			return "", &dolt.ImageNotFoundError{Image: imageNotFound.Name}
+		}
+		return "", err
+	}
+
+	return id, nil
+}
+
+func (b dockerDoltBackend) ImagePull(ctx context.Context, image string) error {
+	return b.docker.ImagePull(ctx, image, io.Discard)
 }
 
 func (b dockerDoltBackend) ContainerStart(ctx context.Context, id string) error {

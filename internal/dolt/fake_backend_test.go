@@ -17,8 +17,13 @@ type fakeBackend struct {
 
 	createID     string
 	createErr    error
+	createFunc   func(opts dolt.ContainerCreateOpts) (string, error)
 	createOpts   dolt.ContainerCreateOpts
 	createCalled bool
+
+	pullErr   error
+	pullCalls []string
+	pullFunc  func(image string) error
 
 	execOutput string
 	execErr    error
@@ -46,7 +51,18 @@ type execCall struct {
 func (f *fakeBackend) ContainerCreate(_ context.Context, opts dolt.ContainerCreateOpts) (string, error) {
 	f.createOpts = opts
 	f.createCalled = true
+	if f.createFunc != nil {
+		return f.createFunc(opts)
+	}
 	return f.createID, f.createErr
+}
+
+func (f *fakeBackend) ImagePull(_ context.Context, image string) error {
+	f.pullCalls = append(f.pullCalls, image)
+	if f.pullFunc != nil {
+		return f.pullFunc(image)
+	}
+	return f.pullErr
 }
 
 func (f *fakeBackend) ContainerStart(_ context.Context, _ string) error {

@@ -86,6 +86,16 @@ func (e *ServerNotRunningError) ErrorDetails() map[string]any {
 	return map[string]any{"name": e.Name}
 }
 
+// ImageNotFoundError indicates the configured Dolt image does not exist
+// locally and must be acquired before startup can continue.
+type ImageNotFoundError struct {
+	Image string
+}
+
+func (e *ImageNotFoundError) Error() string {
+	return fmt.Sprintf("image %q not found", e.Image)
+}
+
 // DatabaseExistsError indicates a database already exists on the shared server.
 type DatabaseExistsError struct {
 	Name string

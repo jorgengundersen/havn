@@ -11,6 +11,7 @@ import (
 
 	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/build"
+	"github.com/docker/docker/api/types/image"
 )
 
 // ImageInfo holds read-only metadata about a Docker image.
@@ -55,6 +56,26 @@ func (c *Client) ImageExists(ctx context.Context, name string) (bool, error) {
 		return false, fmt.Errorf("docker image exists: %w", err)
 	}
 	return true, nil
+}
+
+// ImagePull pulls an image reference from the configured registry and streams
+// daemon output to output when provided.
+func (c *Client) ImagePull(ctx context.Context, ref string, output io.Writer) error {
+	rc, err := c.docker.ImagePull(ctx, ref, image.PullOptions{})
+	if err != nil {
+		return fmt.Errorf("docker image pull: %w", err)
+	}
+	defer func() { _ = rc.Close() }()
+
+	if output == nil {
+		output = io.Discard
+	}
+
+	if _, err := io.Copy(output, rc); err != nil {
+		return fmt.Errorf("docker image pull: read output: %w", err)
+	}
+
+	return nil
 }
 
 // BuildOpts holds parameters for building a Docker image.

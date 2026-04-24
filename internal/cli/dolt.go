@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -50,8 +51,7 @@ func newDoltStartCmd(manager *dolt.Manager) *cobra.Command {
 			}
 
 			out := commandOutput(cmd)
-			out.Status("Starting shared Dolt server...")
-			if err := manager.Start(cmd.Context(), cfg); err != nil {
+			if err := startSharedDoltServerWithProgress(cmd.Context(), out, manager, cfg); err != nil {
 				return doltCommandError("start", err)
 			}
 
@@ -294,7 +294,7 @@ func newDoltImportCmd(manager *dolt.Manager, _ *dolt.Setup) *cobra.Command {
 			out := commandOutput(cmd)
 			out.Status(fmt.Sprintf("Importing Dolt database from %s...", projectPath))
 
-			if err := manager.Start(cmd.Context(), cfg); err != nil {
+			if err := startSharedDoltServerWithProgress(cmd.Context(), out, manager, cfg); err != nil {
 				return doltCommandError("import", err)
 			}
 
@@ -337,6 +337,36 @@ func newDoltImportCmd(manager *dolt.Manager, _ *dolt.Setup) *cobra.Command {
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing database on shared server")
 
 	return cmd
+}
+
+func startSharedDoltServerWithProgress(ctx context.Context, out *Output, manager *dolt.Manager, cfg config.Config) error {
+	out.Status("Starting shared Dolt server...")
+
+	imageAcquired := false
+	if err := manager.StartWithProgress(ctx, cfg, func(event dolt.StartProgressEvent) {
+		if out.IsJSON() {
+			return
+		}
+
+		switch event.Stage {
+		case dolt.StartProgressImageAcquisitionStarted:
+			imageAcquired = true
+			out.Status(fmt.Sprintf("Dolt image %s not present locally; acquiring image...", event.Image))
+		case dolt.StartProgressStartupResumed:
+			out.Status("Image acquisition complete; resuming shared Dolt startup...")
+		}
+	}); err != nil {
+		if imageAcquired && !out.IsJSON() {
+			out.Status("Shared Dolt startup failed during image acquisition path")
+		}
+		return err
+	}
+
+	if imageAcquired && !out.IsJSON() {
+		out.Status("Shared Dolt startup completed after image acquisition")
+	}
+
+	return nil
 }
 
 type doltExportOpts struct {

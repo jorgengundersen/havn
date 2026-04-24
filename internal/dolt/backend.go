@@ -8,6 +8,8 @@ import "context"
 type Backend interface {
 	// ContainerCreate creates a container with the given options and returns its ID.
 	ContainerCreate(ctx context.Context, opts ContainerCreateOpts) (string, error)
+	// ImagePull acquires an image from the configured registry.
+	ImagePull(ctx context.Context, image string) error
 	// ContainerStart starts an existing container by ID.
 	ContainerStart(ctx context.Context, id string) error
 	// ContainerStop stops a running container by name.

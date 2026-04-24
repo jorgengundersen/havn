@@ -2,6 +2,7 @@ package dolt
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -31,6 +32,20 @@ type Manager struct {
 	healthTimeout time.Duration
 }
 
+// StartProgressStage identifies a start-progress lifecycle stage.
+type StartProgressStage string
+
+const (
+	StartProgressImageAcquisitionStarted StartProgressStage = "image_acquisition_started"
+	StartProgressStartupResumed          StartProgressStage = "startup_resumed"
+)
+
+// StartProgressEvent captures startup progress state for the Dolt lifecycle.
+type StartProgressEvent struct {
+	Stage StartProgressStage
+	Image string
+}
+
 // NewManager creates a Manager with the given backend.
 func NewManager(backend Backend) *Manager {
 	return &Manager{backend: backend, healthTimeout: healthTimeout}
@@ -46,6 +61,12 @@ func NewManagerWithHealthTimeout(backend Backend, timeout time.Duration) *Manage
 // If the container exists but lacks the managed-by=havn label, it returns
 // *NotManagedError. If the container exists but is stopped, it starts it.
 func (m *Manager) Start(ctx context.Context, cfg config.Config) error {
+	return m.StartWithProgress(ctx, cfg, nil)
+}
+
+// StartWithProgress ensures the Dolt server container is running and emits
+// progress events for startup flows that acquire images before retrying.
+func (m *Manager) StartWithProgress(ctx context.Context, cfg config.Config, progress func(StartProgressEvent)) error {
 	info, found, err := m.backend.ContainerInspect(ctx, containerName)
 	if err != nil {
 		return &StartError{Err: fmt.Errorf("inspect container: %w", err)}
@@ -55,7 +76,7 @@ func (m *Manager) Start(ctx context.Context, cfg config.Config) error {
 		return m.startExisting(ctx, info)
 	}
 
-	return m.startNew(ctx, cfg)
+	return m.startNew(ctx, cfg, progress)
 }
 
 func (m *Manager) startExisting(ctx context.Context, info ContainerInfo) error {
@@ -71,8 +92,8 @@ func (m *Manager) startExisting(ctx context.Context, info ContainerInfo) error {
 	return m.pollHealth(ctx)
 }
 
-func (m *Manager) startNew(ctx context.Context, cfg config.Config) error {
-	id, err := m.backend.ContainerCreate(ctx, ContainerCreateOpts{
+func (m *Manager) startNew(ctx context.Context, cfg config.Config, progress func(StartProgressEvent)) error {
+	createOpts := ContainerCreateOpts{
 		Name:    containerName,
 		Image:   cfg.Dolt.Image,
 		Network: cfg.Network,
@@ -83,9 +104,33 @@ func (m *Manager) startNew(ctx context.Context, cfg config.Config) error {
 			"havn-dolt-data":   "/var/lib/dolt",
 			"havn-dolt-config": "/etc/dolt/servercfg.d",
 		},
-	})
+	}
+
+	id, err := m.backend.ContainerCreate(ctx, createOpts)
 	if err != nil {
-		return &StartError{Err: fmt.Errorf("create container: %w", err)}
+		var imageNotFound *ImageNotFoundError
+		if !errors.As(err, &imageNotFound) {
+			return &StartError{Err: fmt.Errorf("create container: %w", err)}
+		}
+
+		reportStartProgress(progress, StartProgressEvent{
+			Stage: StartProgressImageAcquisitionStarted,
+			Image: imageNotFound.Image,
+		})
+
+		if err := m.backend.ImagePull(ctx, imageNotFound.Image); err != nil {
+			return &StartError{Err: fmt.Errorf("pull image %q: %w", imageNotFound.Image, err)}
+		}
+
+		reportStartProgress(progress, StartProgressEvent{
+			Stage: StartProgressStartupResumed,
+			Image: imageNotFound.Image,
+		})
+
+		id, err = m.backend.ContainerCreate(ctx, createOpts)
+		if err != nil {
+			return &StartError{Err: fmt.Errorf("create container: %w", err)}
+		}
 	}
 
 	configData := GenerateConfig(cfg)
@@ -98,6 +143,13 @@ func (m *Manager) startNew(ctx context.Context, cfg config.Config) error {
 	}
 
 	return m.pollHealth(ctx)
+}
+
+func reportStartProgress(progress func(StartProgressEvent), event StartProgressEvent) {
+	if progress == nil {
+		return
+	}
+	progress(event)
 }
 
 func (m *Manager) pollHealth(ctx context.Context) error {
