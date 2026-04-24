@@ -115,7 +115,7 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&opts.All, "all", false, "check all running havn containers")
-	cmd.Flags().BoolVar(&opts.Dolt, "dolt", false, "run shared Dolt diagnostics regardless of project dolt.enabled")
+	cmd.Flags().BoolVar(&opts.Dolt, "dolt", false, "run shared Dolt diagnostics regardless of project dolt.enabled (container scope still controlled by --all)")
 
 	return cmd
 }

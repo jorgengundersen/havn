@@ -11,11 +11,12 @@
 ## Flags and output modes
 
 ```bash
-havn doctor [--all] [--verbose] [--json]
+havn doctor [--all] [--dolt] [--verbose] [--json]
 ```
 
 - Default output is human-readable and grouped by host checks and per-container checks.
 - `--all` checks all running havn containers. Without it, doctor checks only the current project container.
+- `--dolt` forces shared-Dolt host diagnostics even when current-project `dolt.enabled = false`; container scope still follows `--all` behavior.
 - `--verbose` includes details such as versions, paths, timings, and underlying checks.
 - `--json` emits machine-readable output for automation and scripts.
 
@@ -196,6 +197,7 @@ startup build log troubleshooting below) before changing shared defaults.
 
 ```bash
 havn doctor
+havn doctor --dolt
 havn doctor --verbose
 havn doctor --json
 ```

@@ -125,6 +125,16 @@ func TestDoctorCommand_HasDoltFlag(t *testing.T) {
 	assert.Equal(t, "false", f.DefValue)
 }
 
+func TestDoctorCommand_DoltFlagHelpTextExplainsAllScopeInteraction(t *testing.T) {
+	root := cli.NewRoot(cli.Deps{})
+	doctorCmd, _, err := root.Find([]string{"doctor"})
+
+	require.NoError(t, err)
+	f := doctorCmd.Flags().Lookup("dolt")
+	require.NotNil(t, f, "--dolt flag should exist")
+	assert.Contains(t, f.Usage, "container scope still controlled by --all")
+}
+
 func TestDoctorCommand_ExitCode2OnError(t *testing.T) {
 	backend := &fakeDoctorBackend{
 		pingErr: assert.AnError,
