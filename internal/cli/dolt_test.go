@@ -540,7 +540,7 @@ func TestDoltImportCommand_JSONIncludesOwnershipBoundary(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"status":"ok","message":"database imported","database":"sample","path":"`+projectDir+`","overwrote":false,"warnings":[],"ownership_boundary":"beads_migration_workflow"}`+"\n", stdout)
-	assert.Contains(t, stderr, "Migration semantics are owned by beads/Dolt workflows")
+	assert.Contains(t, stderr, "Ownership boundary [beads_migration_workflow]: migration semantics are owned by beads/Dolt workflows")
 }
 
 func TestDoltExportCommand_RequiresName(t *testing.T) {
@@ -596,7 +596,7 @@ func TestDoltExportCommand_JSONIncludesOwnershipBoundary(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"status":"ok","message":"database exported","database":"mydb","dest":"`+absDestDir+`","ownership_boundary":"beads_migration_workflow"}`+"\n", stdout)
-	assert.Contains(t, stderr, "Migration semantics are owned by beads/Dolt workflows")
+	assert.Contains(t, stderr, "Ownership boundary [beads_migration_workflow]: migration semantics are owned by beads/Dolt workflows")
 }
 
 func TestDoltExportCommand_FailuresAreCommandScoped(t *testing.T) {

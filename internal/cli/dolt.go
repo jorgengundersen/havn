@@ -11,7 +11,9 @@ import (
 	"github.com/jorgengundersen/havn/internal/dolt"
 )
 
-const migrationOwnershipBoundaryMessage = "Migration semantics are owned by beads/Dolt workflows; havn manages shared Dolt infrastructure only."
+const migrationOwnershipBoundaryCode = "beads_migration_workflow"
+
+const migrationOwnershipBoundaryMessage = "Ownership boundary [beads_migration_workflow]: migration semantics are owned by beads/Dolt workflows; havn manages shared Dolt infrastructure only."
 
 func newDoltCmd(manager *dolt.Manager, setup *dolt.Setup) *cobra.Command {
 	cmd := &cobra.Command{
@@ -324,7 +326,7 @@ func newDoltImportCmd(manager *dolt.Manager, _ *dolt.Setup) *cobra.Command {
 					"path":               projectPath,
 					"overwrote":          result.Overwrote,
 					"warnings":           warnings,
-					"ownership_boundary": "beads_migration_workflow",
+					"ownership_boundary": migrationOwnershipBoundaryCode,
 				})
 			}
 
@@ -374,7 +376,7 @@ func newDoltExportCmd(manager *dolt.Manager) *cobra.Command {
 					"message":            "database exported",
 					"database":           name,
 					"dest":               destPath,
-					"ownership_boundary": "beads_migration_workflow",
+					"ownership_boundary": migrationOwnershipBoundaryCode,
 				})
 			}
 
