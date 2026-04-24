@@ -106,6 +106,10 @@ func (b *integrationDoltBackend) ContainerStart(ctx context.Context, id string) 
 	return b.docker.ContainerStart(ctx, id)
 }
 
+func (b *integrationDoltBackend) ImagePull(ctx context.Context, image string) error {
+	return b.docker.ImagePull(ctx, image, io.Discard)
+}
+
 func (b *integrationDoltBackend) ContainerStop(ctx context.Context, name string) error {
 	return b.docker.ContainerStop(ctx, name, docker.StopOpts{Timeout: 10})
 }

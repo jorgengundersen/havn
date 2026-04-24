@@ -2,6 +2,7 @@ package dolt_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -31,6 +32,7 @@ func TestStart_CreatesNewContainer(t *testing.T) {
 	err := mgr.Start(context.Background(), cfg)
 
 	require.NoError(t, err)
+	assert.Empty(t, backend.pullCalls)
 	assert.Equal(t, "havn-dolt", backend.createOpts.Name)
 	assert.Equal(t, "dolthub/dolt-sql-server:latest", backend.createOpts.Image)
 	assert.Equal(t, "havn-net", backend.createOpts.Network)
@@ -43,6 +45,94 @@ func TestStart_CreatesNewContainer(t *testing.T) {
 	// Verify config was copied
 	assert.Contains(t, string(backend.copiedData), "port: 3308")
 	assert.Equal(t, "/etc/dolt/servercfg.d", backend.copiedPath)
+}
+
+func TestStart_MissingImagePullFailureReturnsStartError(t *testing.T) {
+	backend := &fakeBackend{
+		inspectFound: false,
+		createFunc: func(opts dolt.ContainerCreateOpts) (string, error) {
+			return "", &dolt.ImageNotFoundError{Image: opts.Image}
+		},
+		pullErr: errors.New("registry unavailable"),
+	}
+	mgr := dolt.NewManager(backend)
+	cfg := config.Config{
+		Network: "havn-net",
+		Dolt: config.DoltConfig{
+			Port:  3308,
+			Image: "dolthub/dolt-sql-server:latest",
+		},
+	}
+
+	err := mgr.Start(context.Background(), cfg)
+
+	require.Error(t, err)
+	var startErr *dolt.StartError
+	assert.ErrorAs(t, err, &startErr)
+	assert.Contains(t, err.Error(), "pull image \"dolthub/dolt-sql-server:latest\": registry unavailable")
+	assert.Equal(t, []string{"dolthub/dolt-sql-server:latest"}, backend.pullCalls)
+}
+
+func TestStart_MissingImageCreateRetryFailureReturnsStartError(t *testing.T) {
+	createCalls := 0
+	backend := &fakeBackend{
+		inspectFound: false,
+		execOutput:   "1",
+		createFunc: func(opts dolt.ContainerCreateOpts) (string, error) {
+			createCalls++
+			if createCalls == 1 {
+				return "", &dolt.ImageNotFoundError{Image: opts.Image}
+			}
+			return "", errors.New("create failed")
+		},
+	}
+	mgr := dolt.NewManager(backend)
+	cfg := config.Config{
+		Network: "havn-net",
+		Dolt: config.DoltConfig{
+			Port:  3308,
+			Image: "dolthub/dolt-sql-server:latest",
+		},
+	}
+
+	err := mgr.Start(context.Background(), cfg)
+
+	require.Error(t, err)
+	var startErr *dolt.StartError
+	assert.ErrorAs(t, err, &startErr)
+	assert.Contains(t, err.Error(), "create container: create failed")
+	assert.Equal(t, []string{"dolthub/dolt-sql-server:latest"}, backend.pullCalls)
+}
+
+func TestStart_MissingImageStartFailureAfterPullReturnsStartError(t *testing.T) {
+	createCalls := 0
+	backend := &fakeBackend{
+		inspectFound: false,
+		startErr:     errors.New("permission denied"),
+		createFunc: func(opts dolt.ContainerCreateOpts) (string, error) {
+			createCalls++
+			if createCalls == 1 {
+				return "", &dolt.ImageNotFoundError{Image: opts.Image}
+			}
+			return "new-id", nil
+		},
+	}
+	mgr := dolt.NewManager(backend)
+	cfg := config.Config{
+		Network: "havn-net",
+		Dolt: config.DoltConfig{
+			Port:  3308,
+			Image: "dolthub/dolt-sql-server:latest",
+		},
+	}
+
+	err := mgr.Start(context.Background(), cfg)
+
+	require.Error(t, err)
+	var startErr *dolt.StartError
+	assert.ErrorAs(t, err, &startErr)
+	assert.Contains(t, err.Error(), "start container: permission denied")
+	assert.Equal(t, []string{"dolthub/dolt-sql-server:latest"}, backend.pullCalls)
 }
 
 func TestStart_CopiesConfigAfterContainerCreate(t *testing.T) {

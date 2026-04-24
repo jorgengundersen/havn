@@ -188,6 +188,28 @@ func TestDoltStartCommand_MissingImageReportsAcquisitionProgress(t *testing.T) {
 	assert.Contains(t, stderr, "completed after image acquisition")
 }
 
+func TestDoltStartCommand_MissingImageJSONOmitsAcquisitionProgress(t *testing.T) {
+	createCalls := 0
+	backend := &fakeDoltBackend{
+		createFunc: func(opts dolt.ContainerCreateOpts) (string, error) {
+			createCalls++
+			if createCalls == 1 {
+				return "", &dolt.ImageNotFoundError{Image: opts.Image}
+			}
+			return "created-id", nil
+		},
+	}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	stdout, stderr, err := executeDoltWithRoot(root, "--json", "dolt", "start")
+
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"status":"ok","message":"dolt server started"}`+"\n", stdout)
+	assert.Contains(t, stderr, "Starting shared Dolt server")
+	assert.NotContains(t, stderr, "acquiring image")
+	assert.NotContains(t, stderr, "resuming shared Dolt startup")
+	assert.NotContains(t, stderr, "completed after image acquisition")
+}
+
 func TestDoltStartCommand_MissingImagePullFailureReportsContext(t *testing.T) {
 	backend := &fakeDoltBackend{
 		createFunc: func(opts dolt.ContainerCreateOpts) (string, error) {
