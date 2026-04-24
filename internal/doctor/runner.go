@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -64,6 +65,10 @@ func (r *Runner) runCheck(ctx context.Context, c Check, results map[string]Statu
 				Name:      c.ID(),
 				Status:    StatusSkip,
 				Message:   "skipped: prerequisite " + prereq + " failed",
+				Detail:    fmt.Sprintf("prerequisite %s status: %s", prereq, s),
+				Recommendation: prerequisiteFailureRecommendation(
+					prereq,
+				),
 			}
 		}
 	}
@@ -100,6 +105,17 @@ func (r *Runner) runCheck(ctx context.Context, c Check, results map[string]Statu
 			Status:    StatusError,
 			Message:   "check timed out",
 		}
+	}
+}
+
+func prerequisiteFailureRecommendation(prerequisite string) string {
+	switch prerequisite {
+	case "docker_daemon":
+		return "Start Docker, or check that the current user is in the docker group"
+	case "dolt_server":
+		return "Resolve the dolt_server check result and rerun 'havn doctor --dolt'"
+	default:
+		return "Resolve the prerequisite check failure and rerun 'havn doctor'"
 	}
 }
 

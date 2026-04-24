@@ -468,6 +468,52 @@ func TestDoctorCommand_DoltFlagReportsMissingDoltImage(t *testing.T) {
 	assert.Contains(t, stdout, "Dolt image not found")
 }
 
+func TestDoctorCommand_DoltFlagReportsActionableSkipRecommendationsInJSON(t *testing.T) {
+	backend := &fakeDoctorBackend{pingErr: errors.New("docker unavailable")}
+
+	stdout, _, err := executeDoctorCommand(backend, "--dolt", "--json")
+
+	require.Error(t, err)
+	assert.Equal(t, 2, cli.ExitCode(err))
+
+	var parsed struct {
+		Checks []struct {
+			Name           string `json:"name"`
+			Status         string `json:"status"`
+			Message        string `json:"message"`
+			Recommendation string `json:"recommendation"`
+		} `json:"checks"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(stdout), &parsed))
+
+	checksByName := make(map[string]struct {
+		Status         string
+		Message        string
+		Recommendation string
+	})
+	for _, check := range parsed.Checks {
+		checksByName[check.Name] = struct {
+			Status         string
+			Message        string
+			Recommendation string
+		}{
+			Status:         check.Status,
+			Message:        check.Message,
+			Recommendation: check.Recommendation,
+		}
+	}
+
+	doltServer := checksByName["dolt_server"]
+	assert.Equal(t, "skip", doltServer.Status)
+	assert.Contains(t, doltServer.Message, "docker_daemon")
+	assert.Contains(t, doltServer.Recommendation, "Start Docker")
+
+	doltDatabase := checksByName["dolt_database"]
+	assert.Equal(t, "skip", doltDatabase.Status)
+	assert.Contains(t, doltDatabase.Message, "dolt_server")
+	assert.Contains(t, doltDatabase.Recommendation, "havn doctor --dolt")
+}
+
 func TestDoctorCommand_JSONWarnExitCodeAndStreamSeparation(t *testing.T) {
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)

@@ -20,13 +20,28 @@ from `specs/cli-framework.md`.
 ## Command Surface
 
 ```text
-havn doctor [--json] [--verbose] [--all]
+havn doctor [--json] [--verbose] [--all] [--dolt]
 ```
 
 - `--json` and `--verbose` are persistent CLI flags defined by
   `specs/cli-framework.md`
 - `--all` is doctor-specific and extends container selection from the current
   project to all running havn-managed project containers
+- `--dolt` is doctor-specific and enables shared-Dolt diagnostics even when the
+  current project's effective config has `dolt.enabled = false`
+
+### Explicit Dolt mode (`--dolt`)
+
+`havn doctor --dolt` is an explicit infrastructure-diagnostics mode for shared
+Dolt.
+
+In this mode:
+
+- host-tier Dolt checks (`dolt_server`, `dolt_database`) always run in the check
+  plan
+- check identifiers remain the same as default mode (no mode-specific renaming)
+- non-Dolt host checks still run (for prerequisite and baseline host context)
+- container-tier selection semantics remain unchanged from default/`--all`
 
 ## Shared Runtime Semantics
 
@@ -111,6 +126,8 @@ Stable check identifiers:
 - Checks run in a stable order.
 - A check that depends on a failed prerequisite is reported as `skip` with a
   reason.
+- prerequisite-based `skip` results include actionable `recommendation` text for
+  remediation and rerun guidance.
 - If Docker is unavailable, Docker-dependent checks are skipped, but config
   parsing and validation still run.
 - `dolt_database` depends on `dolt_server` when a project expects shared Dolt.
@@ -186,6 +203,18 @@ Per-check fields:
 - `message`: human-readable summary
 - `detail`: optional extra context
 - `recommendation`: optional remediation guidance
+
+#### Dolt-mode skip and recommendation contract
+
+When `--dolt` is active and prerequisite failures cause Dolt checks to skip:
+
+- `dolt_server` skip due `docker_daemon` failure reports a skip reason naming
+  `docker_daemon` and includes Docker-start remediation guidance
+- `dolt_database` skip due `dolt_server` failure reports a skip reason naming
+  `dolt_server` and includes rerun guidance for `havn doctor --dolt`
+
+This contract applies consistently to human and JSON output (same check names,
+same status, same remediation intent).
 
 ## Exit Codes
 
