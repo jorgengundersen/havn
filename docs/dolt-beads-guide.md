@@ -13,6 +13,9 @@ framing behavior are shipped per the normative contract.
 Migration correctness and policy semantics are owned by beads/Dolt workflows,
 not by `havn`.
 
+`havn dolt import/export` migration correctness semantics are an explicit
+non-goal for `havn` ownership.
+
 ## What this setup is
 
 - `havn` runs one shared Dolt SQL server container: `havn-dolt`
@@ -120,6 +123,8 @@ havn dolt export <database> [--dest <path>]
 ```
 
 - `import` and `export` are compatibility command surfaces in `havn`
+- migration correctness semantics for these surfaces are an explicit non-goal
+  for `havn` ownership
 - migration correctness, identity policy, rollback, and reconciliation semantics
   are owned by beads/Dolt workflows
 - use beads docs and workflows as the migration policy source of truth

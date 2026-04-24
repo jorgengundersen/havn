@@ -180,6 +180,8 @@ havn enter .
 Ownership boundary for migration surfaces:
 
 - `havn` owns shared-Dolt infrastructure lifecycle and command framing
+- `havn dolt import/export` migration correctness semantics are an explicit
+  non-goal for `havn`
 - migration correctness, project-identity migration policy, rollback, and
   reconciliation semantics are owned by beads/Dolt workflows
 - for migration-policy expectations, follow beads tooling/contracts
@@ -203,7 +205,7 @@ Ownership boundary for migration surfaces:
 | `havn volume list` | Implemented | Shared volume inspection |
 | `havn doctor` | Implemented | Normative doctor contract lives in `specs/havn-doctor.md` |
 | `havn dolt start/stop/status/databases/drop/connect` | Implemented | Shared-Dolt infrastructure lifecycle and observability; normative contract lives in `specs/shared-dolt-server.md` |
-| `havn dolt import/export` | Implemented | Command execution framing only; migration correctness semantics are owned by beads/Dolt workflows |
+| `havn dolt import/export` | Implemented | Command execution framing only; migration correctness semantics are an explicit non-goal for `havn` and are owned by beads/Dolt workflows |
 | `havn completion` | Planned | Planned CLI surface owned by `specs/cli-framework.md` |
 
 ## Current partial-support gaps
