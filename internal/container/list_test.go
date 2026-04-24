@@ -152,7 +152,7 @@ func TestList_MissingMetadataLabelsDefaultToZeroValues(t *testing.T) {
 	assert.False(t, got[0].Dolt)
 }
 
-func TestList_OnlyIncludesRunningProjectContainers(t *testing.T) {
+func TestList_IncludesRunningSharedInfrastructureContainers(t *testing.T) {
 	ctx := context.Background()
 	backend := &fakeContainerBackend{
 		containers: []container.RawContainer{
@@ -185,6 +185,7 @@ func TestList_OnlyIncludesRunningProjectContainers(t *testing.T) {
 	got, err := container.List(ctx, backend)
 
 	require.NoError(t, err)
-	require.Len(t, got, 1)
+	require.Len(t, got, 2)
 	assert.Equal(t, name.ContainerName("havn-user-api"), got[0].Name)
+	assert.Equal(t, name.ContainerName("havn-dolt"), got[1].Name)
 }
