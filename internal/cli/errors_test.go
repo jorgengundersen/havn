@@ -46,7 +46,7 @@ func TestFormatError_ReturnsErrorMessage(t *testing.T) {
 func TestFormatError_StartError(t *testing.T) {
 	err := &dolt.StartError{Err: errors.New("connection refused")}
 
-	assert.Equal(t, "Failed to start Dolt server: connection refused. Retry `havn dolt start`; if this persists, inspect `docker logs havn-dolt`", cli.FormatError(err))
+	assert.Equal(t, "Failed to start Dolt server: connection refused. Retry `havn dolt start`; if this persists, run `havn doctor --dolt` and inspect `docker logs havn-dolt`", cli.FormatError(err))
 }
 
 func TestFormatError_StartErrorPullAuthFailure(t *testing.T) {

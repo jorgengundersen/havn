@@ -143,7 +143,7 @@ func formatDoltStartError(startErr *dolt.StartError) string {
 		return "Failed to start Dolt server: container start failed after image acquisition. Inspect `docker logs havn-dolt`, then retry `havn dolt start`"
 	}
 
-	return fmt.Sprintf("Failed to start Dolt server: %s. Retry `havn dolt start`; if this persists, inspect `docker logs havn-dolt`", message)
+	return fmt.Sprintf("Failed to start Dolt server: %s. Retry `havn dolt start`; if this persists, run `havn doctor --dolt` and inspect `docker logs havn-dolt`", message)
 }
 
 func parseDoltImagePullFailure(message string) (image, detail string, ok bool) {
