@@ -73,8 +73,8 @@ havn dolt status
 
 `status` reports shared-server state, not project-specific state.
 
-Current status payloads include shared-server state plus `configured_port`.
-`configured_port` is configuration-derived intent, not a runtime-observed
+Current status payloads include shared-server state plus `configured_sql_port`.
+`configured_sql_port` is configuration-derived intent, not a runtime-observed
 listening-port fact.
 
 When runtime-port mismatch is suspected, verify runtime state with Docker

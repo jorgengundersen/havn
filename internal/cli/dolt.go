@@ -118,7 +118,7 @@ func newDoltStatusCmd(manager *dolt.Manager) *cobra.Command {
 }
 
 func doltStatusPayload(status dolt.Status, configuredPort int) map[string]any {
-	payload := map[string]any{"running": status.Running, "configured_port": configuredPort}
+	payload := map[string]any{"running": status.Running, "configured_sql_port": configuredPort}
 	if !status.Running {
 		return payload
 	}
