@@ -39,6 +39,25 @@ func TestHAVNBinary_CLIContractAtProcessBoundary(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(stdout), &payload))
 		assert.Equal(t, "path:.", payload["env"])
 		assert.Contains(t, payload, "source")
+		assert.NotContains(t, payload, "status")
+		assert.NotContains(t, payload, "message")
+	})
+
+	t.Run("doctor json writes query payload to stdout without action wrapper", func(t *testing.T) {
+		homeProjectDir := filepath.Join(homeDir, "work", "sample-project")
+		require.NoError(t, os.MkdirAll(homeProjectDir, 0o755))
+
+		stdout, stderr, exitCode := runHAVNBinary(t, binaryPath, homeProjectDir, homeDir, "--json", "doctor")
+
+		assert.Contains(t, []int{0, 1, 2}, exitCode)
+		assert.Empty(t, stderr)
+
+		var payload map[string]any
+		require.NoError(t, json.Unmarshal([]byte(stdout), &payload))
+		assert.Contains(t, payload, "status")
+		assert.Contains(t, payload, "summary")
+		assert.Contains(t, payload, "checks")
+		assert.NotContains(t, payload, "message")
 	})
 
 	t.Run("json mode writes errors to stderr with exit code 1", func(t *testing.T) {
@@ -99,6 +118,34 @@ func TestHAVNBinary_CLIContractAtProcessBoundary(t *testing.T) {
 		errMsg, ok := payload["error"].(string)
 		require.True(t, ok)
 		assert.Contains(t, errMsg, "unknown flag: --shell")
+	})
+
+	t.Run("json fallback error payload shape is consistent across command errors", func(t *testing.T) {
+		tests := []struct {
+			name      string
+			args      []string
+			errSubstr string
+		}{
+			{name: "action validation error", args: []string{"--json", "stop"}, errSubstr: "requires a container name/path or --all"},
+			{name: "flag parsing error", args: []string{"--json", "up", "--validate", "--shell", "zsh"}, errSubstr: "unknown flag: --shell"},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				stdout, stderr, exitCode := runHAVNBinary(t, binaryPath, projectDir, homeDir, tt.args...)
+
+				assert.Equal(t, 1, exitCode)
+				assert.Empty(t, stdout)
+
+				var payload map[string]any
+				require.NoError(t, json.Unmarshal([]byte(stderr), &payload))
+				errMsg, ok := payload["error"].(string)
+				require.True(t, ok)
+				assert.Contains(t, errMsg, tt.errSubstr)
+				assert.NotContains(t, payload, "type")
+				assert.NotContains(t, payload, "details")
+			})
+		}
 	})
 
 	t.Run("up validate and prepare with shell flag fails in human mode", func(t *testing.T) {
