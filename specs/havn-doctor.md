@@ -2,7 +2,7 @@
 
 This is the authoritative doctor contract for `havn`.
 
-Status: Partial
+Status: Implemented
 
 ## Ownership
 

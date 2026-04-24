@@ -68,9 +68,9 @@ havn
 | `havn build` | Implemented |
 | `havn config show` | Partial |
 | `havn volume list` | Implemented |
-| `havn doctor` | Partial |
-| `havn dolt start/stop/status/databases/drop/connect` | Partial |
-| `havn dolt import/export` | Partial |
+| `havn doctor` | Implemented |
+| `havn dolt start/stop/status/databases/drop/connect` | Implemented |
+| `havn dolt import/export` | Implemented |
 | `havn completion <shell>` | Planned |
 
 Derivative docs must not label a command as implemented when its published

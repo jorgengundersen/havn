@@ -7,8 +7,8 @@ For the normative shared-Dolt contract, see `specs/shared-dolt-server.md`.
 
 ## Status
 
-Shared-Dolt support is `Partial`: the command surface exists, but some
-infrastructure lifecycle behavior is still being tightened against the spec.
+Shared-Dolt support is `Implemented`: infrastructure lifecycle and command
+framing behavior are shipped per the normative contract.
 
 Migration correctness and policy semantics are owned by beads/Dolt workflows,
 not by `havn`.
@@ -171,21 +171,20 @@ commands.
 
 ## Caveats
 
-- this guide describes intended shared-Dolt behavior, but support is still
-  marked `Partial`
+- shared-Dolt infrastructure support is implemented; migration semantics remain
+  outside `havn` ownership
 - per-project Dolt server mode is not supported by `havn`
 - default access model is network-isolated shared-server access, not host port
   publishing
 - authentication and TLS are not part of the default flow today
 
-## Current partial-support gaps
+## Ownership and observability notes
 
 - migration ownership and policy semantics intentionally live outside `havn`;
   use beads workflows/contracts as the authority
 - `havn dolt status` does not claim runtime listening-port verification; use
   Docker-native inspection when runtime-port validation is required
-- shared-image auto-pull/failure-path behavior is contract-defined but still
-  being tightened; if startup reports image-missing/pull failures, pre-pull the
-  configured image and retry
+- startup can still fail on image pull/auth/network constraints; in constrained
+  hosts, pre-seed the configured image and retry
 
 When this guide and the spec disagree, follow `specs/shared-dolt-server.md`.
