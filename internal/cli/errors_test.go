@@ -46,7 +46,37 @@ func TestFormatError_ReturnsErrorMessage(t *testing.T) {
 func TestFormatError_StartError(t *testing.T) {
 	err := &dolt.StartError{Err: errors.New("connection refused")}
 
-	assert.Equal(t, "Failed to start Dolt server: connection refused. Run `havn doctor` to diagnose", cli.FormatError(err))
+	assert.Equal(t, "Failed to start Dolt server: connection refused. Retry `havn dolt start`; if this persists, inspect `docker logs havn-dolt`", cli.FormatError(err))
+}
+
+func TestFormatError_StartErrorPullAuthFailure(t *testing.T) {
+	err := &dolt.StartError{Err: errors.New("pull image \"dolthub/dolt-sql-server:latest\": unauthorized: authentication required")}
+
+	assert.Equal(t, "Failed to start Dolt server: unable to pull image \"dolthub/dolt-sql-server:latest\" due to registry authentication failure. Run `docker login` for the registry, then retry `havn dolt start`", cli.FormatError(err))
+}
+
+func TestFormatError_StartErrorPullNetworkFailure(t *testing.T) {
+	err := &dolt.StartError{Err: errors.New("pull image \"dolthub/dolt-sql-server:latest\": dial tcp registry-1.docker.io:443: i/o timeout")}
+
+	assert.Equal(t, "Failed to start Dolt server: unable to pull image \"dolthub/dolt-sql-server:latest\" due to a network or registry connectivity failure. Check registry connectivity or pre-seed the image with `docker pull`/`docker load`, then retry `havn dolt start`", cli.FormatError(err))
+}
+
+func TestFormatError_StartErrorPullImageReferenceFailure(t *testing.T) {
+	err := &dolt.StartError{Err: errors.New("pull image \"dolthub/dolt-sql-server:latest\": manifest unknown")}
+
+	assert.Equal(t, "Failed to start Dolt server: image \"dolthub/dolt-sql-server:latest\" could not be pulled because the reference was not found. Verify `dolt.image` and registry access, then retry `havn dolt start`", cli.FormatError(err))
+}
+
+func TestFormatError_StartErrorCreateContainerAfterPullFailure(t *testing.T) {
+	err := &dolt.StartError{Err: errors.New("create container: network havn-net not found")}
+
+	assert.Equal(t, "Failed to start Dolt server: container creation failed after image acquisition. Check Docker daemon health, shared network/volume availability, and retry `havn dolt start`", cli.FormatError(err))
+}
+
+func TestFormatError_StartErrorStartContainerAfterPullFailure(t *testing.T) {
+	err := &dolt.StartError{Err: errors.New("start container: permission denied")}
+
+	assert.Equal(t, "Failed to start Dolt server: container start failed after image acquisition. Inspect `docker logs havn-dolt`, then retry `havn dolt start`", cli.FormatError(err))
 }
 
 func TestFormatError_HealthCheckTimeoutError(t *testing.T) {

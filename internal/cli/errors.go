@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jorgengundersen/havn/internal/config"
 	"github.com/jorgengundersen/havn/internal/container"
@@ -91,7 +92,7 @@ func FormatError(err error) string {
 
 	var startErr *dolt.StartError
 	if errors.As(err, &startErr) {
-		return fmt.Sprintf("Failed to start Dolt server: %s. Run `havn doctor` to diagnose", startErr.Err)
+		return formatDoltStartError(startErr)
 	}
 
 	var healthErr *dolt.HealthCheckTimeoutError
@@ -115,6 +116,69 @@ func FormatError(err error) string {
 	}
 
 	return err.Error()
+}
+
+func formatDoltStartError(startErr *dolt.StartError) string {
+	message := startErr.Err.Error()
+
+	if image, detail, ok := parseDoltImagePullFailure(message); ok {
+		if isRegistryAuthFailure(detail) {
+			return fmt.Sprintf("Failed to start Dolt server: unable to pull image %q due to registry authentication failure. Run `docker login` for the registry, then retry `havn dolt start`", image)
+		}
+		if isNetworkPullFailure(detail) {
+			return fmt.Sprintf("Failed to start Dolt server: unable to pull image %q due to a network or registry connectivity failure. Check registry connectivity or pre-seed the image with `docker pull`/`docker load`, then retry `havn dolt start`", image)
+		}
+		if isImageReferenceFailure(detail) {
+			return fmt.Sprintf("Failed to start Dolt server: image %q could not be pulled because the reference was not found. Verify `dolt.image` and registry access, then retry `havn dolt start`", image)
+		}
+
+		return fmt.Sprintf("Failed to start Dolt server: unable to pull image %q (%s). Check registry access and retry `havn dolt start`", image, detail)
+	}
+
+	if strings.Contains(message, "create container:") {
+		return "Failed to start Dolt server: container creation failed after image acquisition. Check Docker daemon health, shared network/volume availability, and retry `havn dolt start`"
+	}
+
+	if strings.Contains(message, "start container:") {
+		return "Failed to start Dolt server: container start failed after image acquisition. Inspect `docker logs havn-dolt`, then retry `havn dolt start`"
+	}
+
+	return fmt.Sprintf("Failed to start Dolt server: %s. Retry `havn dolt start`; if this persists, inspect `docker logs havn-dolt`", message)
+}
+
+func parseDoltImagePullFailure(message string) (image, detail string, ok bool) {
+	prefix := "pull image \""
+	if !strings.HasPrefix(message, prefix) {
+		return "", "", false
+	}
+
+	rest := strings.TrimPrefix(message, prefix)
+	idx := strings.Index(rest, "\": ")
+	if idx == -1 {
+		return "", "", false
+	}
+
+	return rest[:idx], strings.TrimSpace(rest[idx+3:]), true
+}
+
+func isRegistryAuthFailure(detail string) bool {
+	lower := strings.ToLower(detail)
+	return strings.Contains(lower, "unauthorized") || strings.Contains(lower, "authentication required") || strings.Contains(lower, "denied")
+}
+
+func isNetworkPullFailure(detail string) bool {
+	lower := strings.ToLower(detail)
+	return strings.Contains(lower, "i/o timeout") ||
+		strings.Contains(lower, "connection refused") ||
+		strings.Contains(lower, "no such host") ||
+		strings.Contains(lower, "dial tcp") ||
+		strings.Contains(lower, "tls handshake timeout") ||
+		strings.Contains(lower, "temporary failure in name resolution")
+}
+
+func isImageReferenceFailure(detail string) bool {
+	lower := strings.ToLower(detail)
+	return strings.Contains(lower, "manifest unknown") || strings.Contains(lower, "not found") || strings.Contains(lower, "name unknown")
 }
 
 // Error writes an error to stderr, formatted based on the output mode.
