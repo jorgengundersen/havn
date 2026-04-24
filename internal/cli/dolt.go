@@ -215,6 +215,10 @@ func newDoltConnectCmd(manager *dolt.Manager) *cobra.Command {
 				return doltCommandError("connect", err)
 			}
 
+			if !out.IsJSON() {
+				out.Status("Shared Dolt SQL shell session ended")
+			}
+
 			return nil
 		},
 	}

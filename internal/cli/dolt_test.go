@@ -468,6 +468,18 @@ func TestDoltConnectCommand_OpensInteractiveShell(t *testing.T) {
 	assert.Contains(t, stderr, "Connecting to shared Dolt SQL shell")
 }
 
+func TestDoltConnectCommand_EmitsCompletionSignalAfterShellExits(t *testing.T) {
+	backend := &fakeDoltBackend{
+		inspectFound: true,
+		inspectInfo:  dolt.ContainerInfo{ID: "running-id", Running: true, Labels: map[string]string{"managed-by": "havn"}},
+	}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	_, stderr, err := executeDoltWithRoot(root, "dolt", "connect")
+
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "Shared Dolt SQL shell session ended")
+}
+
 func TestDoltConnectCommand_WhenServerNotRunning_ReturnsGuidance(t *testing.T) {
 	backend := &fakeDoltBackend{}
 	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
