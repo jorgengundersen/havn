@@ -51,6 +51,9 @@ Use this checklist when generating or modifying havn-compatible environments.
 - Do make `havn-session-prepare` non-interactive and idempotent.
 - Do make `havn-session-prepare` resilient to minimal env contexts (do not assume
   `USER` is set; derive identity safely when needed).
+- Do prefer refresh-on by default for inner Home Manager flake builds, with an
+  explicit env-var override to disable when needed (for example
+  `HAVN_HOME_MANAGER_REFRESH=0`).
 - Do use flake-relative inputs and portable paths.
 - Do not hardcode one user's home directory, username, or repo location.
 - Do not require prompts, manual confirmations, or one-time local state.
@@ -126,14 +129,21 @@ Use this as a starter and replace `x86_64-linux` and `default` as needed.
       let
         pkgs = import nixpkgs { system = "x86_64-linux"; };
       in
-      {
-        type = "app";
-        program = "${pkgs.writeShellScript "havn-session-prepare" ''
-          set -eu
-          # Optional environment-owned preparation logic goes here.
-          exit 0
-        ''}";
-      };
+        {
+          type = "app";
+          program = "${pkgs.writeShellScript "havn-session-prepare" ''
+            set -eu
+            refresh_flag="--refresh"
+            case "''${HAVN_HOME_MANAGER_REFRESH:-1}" in
+              0|false|FALSE|no|NO|off|OFF) refresh_flag="" ;;
+            esac
+
+            # Optional environment-owned preparation logic goes here.
+            # Example Home Manager build shape:
+            # nix build $refresh_flag --impure <flake>#homeConfigurations.<target>.activationPackage
+            exit 0
+          ''}";
+        };
   };
 }
 ```
@@ -153,6 +163,9 @@ Use this as a starter and replace `x86_64-linux` and `default` as needed.
   fail with a clear actionable message only when no safe fallback exists.
 - For optional Home Manager integration, prefer explicit opt-out behavior (for
   example `HAVN_SKIP_HOME_MANAGER=1`) over unconditional hard failure.
+- If prepare performs nested `nix build` calls, pass refresh behavior explicitly
+  (`--refresh` by default) rather than assuming outer `nix run --refresh`
+  propagates to nested commands.
 
 ## Validation guidance for contributors and agents
 

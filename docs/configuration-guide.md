@@ -340,7 +340,7 @@ If your environment flake exposes `apps.<system>.havn-session-prepare`, use it
 as the primary refresh-and-activate path from inside a plain entered shell:
 
 ```bash
-nix run --refresh devenv#havn-session-prepare && exec bash -l
+nix run --refresh devenv#havn-session-prepare && exec /bin/bash -l
 ```
 
 This is the same environment-owned preparation capability that `havn [path]`
@@ -352,9 +352,17 @@ Optional control knobs (when your prepare app supports them):
 # skip Home Manager activation for this run
 HAVN_SKIP_HOME_MANAGER=1 nix run --refresh devenv#havn-session-prepare
 
+# disable inner Home Manager flake refresh for this run
+# (default behavior should be refresh enabled)
+HAVN_HOME_MANAGER_REFRESH=0 nix run --refresh devenv#havn-session-prepare
+
 # force a specific Home Manager target name
 HAVN_HOME_MANAGER_TARGET=default nix run --refresh devenv#havn-session-prepare
 ```
+
+Recommended behavior for environment authors: treat
+`HAVN_HOME_MANAGER_REFRESH` as an override only, with refresh enabled by
+default when the variable is unset.
 
 If your environment does not expose `havn-session-prepare`, you can activate
 Home Manager manually:
@@ -362,7 +370,7 @@ Home Manager manually:
 ```bash
 nix build --refresh --impure devenv#homeConfigurations.default.activationPackage
 ./result/activate
-exec bash -l
+exec /bin/bash -l
 ```
 
 Use `nix flake show devenv` (or your explicit flake ref) to discover available
@@ -373,14 +381,14 @@ Use `nix flake show devenv` (or your explicit flake ref) to discover available
 - one-liner startup from a plain entered shell:
 
 ```bash
-nix run --refresh devenv#havn-session-prepare && exec bash -l
+nix run --refresh devenv#havn-session-prepare && exec /bin/bash -l
 ```
 
 - shell function for repeat use:
 
 ```bash
 devup() {
-  nix run --refresh devenv#havn-session-prepare && exec bash -l
+  nix run --refresh devenv#havn-session-prepare && exec /bin/bash -l
 }
 ```
 

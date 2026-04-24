@@ -90,6 +90,11 @@ The prepare hook must be safe for startup automation:
 - non-interactive (must not require prompts)
 - idempotent (safe to run repeatedly)
 - deterministic exit semantics (`0` success, non-zero failure)
+- when the hook evaluates or builds nested flake targets (for example Home
+  Manager activation packages), refresh behavior must be explicit in those
+  nested commands rather than assumed from outer invocation context
+- when environments expose a user override for nested refresh behavior, refresh
+  should remain enabled by default and opt-out via explicit override
 
 `havn` does not define environment-specific side effects beyond invoking this
 entrypoint when present.
