@@ -85,6 +85,11 @@ func newDoltStatusCmd(manager *dolt.Manager) *cobra.Command {
 				return err
 			}
 
+			cfg, err := resolveDoltConfigFromWorkingDir("status")
+			if err != nil {
+				return err
+			}
+
 			out := commandOutput(cmd)
 			status, err := manager.Status(cmd.Context())
 			if err != nil {
@@ -97,10 +102,14 @@ func newDoltStatusCmd(manager *dolt.Manager) *cobra.Command {
 
 			if !status.Running {
 				out.Data("Dolt server is not running")
+				out.Data(fmt.Sprintf("Configured SQL port: %d", cfg.Dolt.Port))
+				out.Data("Runtime port verification is external (use docker inspect/docker port when needed)")
 				return nil
 			}
 
 			out.Data(fmt.Sprintf("Dolt server is running (%s)", status.Container))
+			out.Data(fmt.Sprintf("Configured SQL port: %d", cfg.Dolt.Port))
+			out.Data("Runtime port verification is external (use docker inspect/docker port when needed)")
 			out.Data(fmt.Sprintf("Image: %s", status.Image))
 			out.Data(fmt.Sprintf("Network: %s", status.Network))
 			return nil

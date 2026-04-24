@@ -206,6 +206,58 @@ func TestDoltStatusCommand_PrintsJSONStatus(t *testing.T) {
 	assert.JSONEq(t, `{"running":true,"container":"havn-dolt","image":"dolthub/dolt-sql-server:latest","network":"havn-net","managed_by_havn":true}`+"\n", stdout)
 }
 
+func TestDoltStatusCommand_PrintsConfiguredPortAndRuntimeGuidance(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectDir := t.TempDir()
+	originalWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectDir))
+	t.Cleanup(func() {
+		require.NoError(t, os.Chdir(originalWD))
+	})
+
+	backend := &fakeDoltBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			Running: true,
+			Image:   "dolthub/dolt-sql-server:latest",
+			Network: "havn-net",
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+	}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	stdout, _, err := executeDoltWithRoot(root, "dolt", "status")
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Dolt server is running (havn-dolt)")
+	assert.Contains(t, stdout, "Configured SQL port: 3308")
+	assert.Contains(t, stdout, "Runtime port verification is external")
+}
+
+func TestDoltStatusCommand_NotRunningPrintsConfiguredPortAndRuntimeGuidance(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectDir := t.TempDir()
+	originalWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectDir))
+	t.Cleanup(func() {
+		require.NoError(t, os.Chdir(originalWD))
+	})
+
+	backend := &fakeDoltBackend{inspectFound: false}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	stdout, _, err := executeDoltWithRoot(root, "dolt", "status")
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Dolt server is not running")
+	assert.Contains(t, stdout, "Configured SQL port: 3308")
+	assert.Contains(t, stdout, "Runtime port verification is external")
+}
+
 func TestDoltDatabasesCommand_ReturnsNotImplemented(t *testing.T) {
 	_, _, err := executeCommand("dolt", "databases")
 
