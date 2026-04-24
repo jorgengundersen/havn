@@ -11,6 +11,8 @@ import (
 	"github.com/jorgengundersen/havn/internal/dolt"
 )
 
+const migrationOwnershipBoundaryMessage = "Migration semantics are owned by beads/Dolt workflows; havn manages shared Dolt infrastructure only."
+
 func newDoltCmd(manager *dolt.Manager, setup *dolt.Setup) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dolt",
@@ -307,14 +309,22 @@ func newDoltImportCmd(manager *dolt.Manager, _ *dolt.Setup) *cobra.Command {
 				out.Status("Warning: " + warning)
 			}
 
+			out.Status(migrationOwnershipBoundaryMessage)
+
+			warnings := result.Warnings
+			if warnings == nil {
+				warnings = []string{}
+			}
+
 			if out.IsJSON() {
 				return out.DataJSON(map[string]any{
-					"status":    "ok",
-					"message":   "database imported",
-					"database":  result.DatabaseName,
-					"path":      projectPath,
-					"overwrote": result.Overwrote,
-					"warnings":  result.Warnings,
+					"status":             "ok",
+					"message":            "database imported",
+					"database":           result.DatabaseName,
+					"path":               projectPath,
+					"overwrote":          result.Overwrote,
+					"warnings":           warnings,
+					"ownership_boundary": "beads_migration_workflow",
 				})
 			}
 
@@ -356,12 +366,15 @@ func newDoltExportCmd(manager *dolt.Manager) *cobra.Command {
 				return doltCommandError("export", err)
 			}
 
+			out.Status(migrationOwnershipBoundaryMessage)
+
 			if out.IsJSON() {
 				return out.DataJSON(map[string]any{
-					"status":   "ok",
-					"message":  "database exported",
-					"database": name,
-					"dest":     destPath,
+					"status":             "ok",
+					"message":            "database exported",
+					"database":           name,
+					"dest":               destPath,
+					"ownership_boundary": "beads_migration_workflow",
 				})
 			}
 

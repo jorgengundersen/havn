@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -482,6 +483,41 @@ func TestDoltImportCommand_ForceMakesOverwriteExplicit(t *testing.T) {
 	assert.Contains(t, stderr, "Overwriting existing database sample")
 }
 
+func TestDoltImportCommand_JSONIncludesOwnershipBoundary(t *testing.T) {
+	projectDir := t.TempDir()
+	dbName := "sample"
+	require.NoError(t, os.MkdirAll(projectDir+"/.havn", 0o755))
+	require.NoError(t, os.WriteFile(projectDir+"/.havn/config.toml", []byte("[dolt]\ndatabase = \"sample\"\n"), 0o644))
+	require.NoError(t, os.MkdirAll(projectDir+"/.beads/dolt/"+dbName, 0o755))
+	require.NoError(t, os.WriteFile(projectDir+"/.beads/dolt/"+dbName+"/manifest", []byte("data"), 0o644))
+
+	callCount := 0
+	backend := &fakeDoltBackend{
+		inspectFound: true,
+		inspectInfo: dolt.ContainerInfo{
+			ID:      "running-id",
+			Running: true,
+			Labels:  map[string]string{"managed-by": "havn"},
+		},
+		execFunc: func(cmd []string) (string, error) {
+			if len(cmd) == 4 && cmd[3] == "SHOW DATABASES" {
+				callCount++
+				if callCount == 1 {
+					return "+--------------------+\n| Database           |\n+--------------------+\n| information_schema |\n+--------------------+\n", nil
+				}
+				return "+--------------------+\n| Database           |\n+--------------------+\n| information_schema |\n| sample             |\n+--------------------+\n", nil
+			}
+			return "", nil
+		},
+	}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	stdout, stderr, err := executeDoltWithRoot(root, "--json", "dolt", "import", projectDir)
+
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"status":"ok","message":"database imported","database":"sample","path":"`+projectDir+`","overwrote":false,"warnings":[],"ownership_boundary":"beads_migration_workflow"}`+"\n", stdout)
+	assert.Contains(t, stderr, "Migration semantics are owned by beads/Dolt workflows")
+}
+
 func TestDoltExportCommand_RequiresName(t *testing.T) {
 	_, _, err := executeCommand("dolt", "export")
 
@@ -517,6 +553,25 @@ func TestDoltExportCommand_WhenServerNotRunning_ReturnsGuidance(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "container \"havn-dolt\" is not running")
+}
+
+func TestDoltExportCommand_JSONIncludesOwnershipBoundary(t *testing.T) {
+	destDir := t.TempDir()
+	absDestDir, err := filepath.Abs(destDir)
+	require.NoError(t, err)
+
+	backend := &fakeDoltBackend{
+		inspectFound: true,
+		inspectInfo:  dolt.ContainerInfo{ID: "running-id", Running: true, Labels: map[string]string{"managed-by": "havn"}},
+		execOutput:   "+--------------------+\n| Database           |\n+--------------------+\n| mydb               |\n+--------------------+\n",
+		copyFromData: buildTarArchive(t, "mydb", map[string]string{"manifest": "exported-data"}),
+	}
+	root := cli.NewRoot(cli.Deps{DoltManager: dolt.NewManager(backend)})
+	stdout, stderr, err := executeDoltWithRoot(root, "--json", "dolt", "export", "mydb", "--dest", destDir)
+
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"status":"ok","message":"database exported","database":"mydb","dest":"`+absDestDir+`","ownership_boundary":"beads_migration_workflow"}`+"\n", stdout)
+	assert.Contains(t, stderr, "Migration semantics are owned by beads/Dolt workflows")
 }
 
 func buildTarArchive(t *testing.T, prefix string, files map[string]string) []byte {
