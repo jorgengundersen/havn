@@ -21,7 +21,8 @@ var (
 )
 
 type doctorOpts struct {
-	All bool
+	All  bool
+	Dolt bool
 }
 
 type doctorContainerTarget struct {
@@ -61,9 +62,15 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 					cfg = config.Default()
 				}
 			}
+			if opts.Dolt {
+				cfg.Dolt.Enabled = true
+				if cfg.Dolt.Database == "" {
+					cfg.Dolt.Database = projectCtx.DefaultDoltDatabase()
+				}
+			}
 			projectConfigPath := projectCtx.ProjectConfigPath()
 
-			checks := doctor.HostChecks(backend, cfg, globalConfigPath, projectConfigPath, effectiveValidationErr, hasEffectiveConfig)
+			checks := doctor.HostChecks(backend, cfg, globalConfigPath, projectConfigPath, effectiveValidationErr, hasEffectiveConfig, opts.Dolt)
 			targetConfigResolutionFailures := make([]doctor.ReportCheck, 0)
 
 			targets := resolveContainerTargets(ctx, backend, opts.All, projectPath)
@@ -108,6 +115,7 @@ func newDoctorCmd(backend doctor.Backend) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&opts.All, "all", false, "check all running havn containers")
+	cmd.Flags().BoolVar(&opts.Dolt, "dolt", false, "run shared Dolt diagnostics regardless of project dolt.enabled")
 
 	return cmd
 }

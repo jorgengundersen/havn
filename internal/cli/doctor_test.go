@@ -25,13 +25,21 @@ type fakeDoctorBackend struct {
 	listContainers []string
 	containerInfos map[string]doctor.ContainerInfo
 	execErrs       map[string]error
+	imageFound     map[string]bool
+	imageErr       error
 }
 
 func (f *fakeDoctorBackend) Ping(_ context.Context) error { return f.pingErr }
 func (f *fakeDoctorBackend) Info(_ context.Context) (doctor.RuntimeInfo, error) {
 	return doctor.RuntimeInfo{Version: "24.0.7", APIVersion: "1.43"}, nil
 }
-func (f *fakeDoctorBackend) ImageInspect(_ context.Context, _ string) (doctor.ImageInfo, bool, error) {
+func (f *fakeDoctorBackend) ImageInspect(_ context.Context, image string) (doctor.ImageInfo, bool, error) {
+	if f.imageErr != nil {
+		return doctor.ImageInfo{}, false, f.imageErr
+	}
+	if f.imageFound != nil {
+		return doctor.ImageInfo{}, f.imageFound[image], nil
+	}
 	return doctor.ImageInfo{}, true, nil
 }
 func (f *fakeDoctorBackend) NetworkInspect(_ context.Context, _ string) (doctor.NetworkInfo, bool, error) {
@@ -104,6 +112,16 @@ func TestDoctorCommand_HasAllFlag(t *testing.T) {
 	require.NoError(t, err)
 	f := doctorCmd.Flags().Lookup("all")
 	require.NotNil(t, f, "--all flag should exist")
+	assert.Equal(t, "false", f.DefValue)
+}
+
+func TestDoctorCommand_HasDoltFlag(t *testing.T) {
+	root := cli.NewRoot(cli.Deps{})
+	doctorCmd, _, err := root.Find([]string{"doctor"})
+
+	require.NoError(t, err)
+	f := doctorCmd.Flags().Lookup("dolt")
+	require.NotNil(t, f, "--dolt flag should exist")
 	assert.Equal(t, "false", f.DefValue)
 }
 
@@ -402,6 +420,52 @@ func TestDoctorCommand_DerivesProjectDatabaseNameFromProjectPath(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, 1, cli.ExitCode(err))
 	assert.Contains(t, stdout, "Database 'projectalpha' does not exist on the shared server")
+}
+
+func TestDoctorCommand_DoltFlagRunsDoltChecksWhenConfigDisabled(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectPath := filepath.Join(homeDir, "workspace", "projectdelta")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectPath, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "config.toml"), []byte("[dolt]\nenabled = false\n"), 0o644))
+
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectPath))
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	stdout, _, err := executeDoctorCommand(&fakeDoctorBackend{}, "--dolt")
+
+	require.Error(t, err)
+	assert.Equal(t, 2, cli.ExitCode(err))
+	assert.NotContains(t, stdout, "Dolt not enabled")
+	assert.Contains(t, stdout, "Dolt server is not running")
+}
+
+func TestDoctorCommand_DoltFlagReportsMissingDoltImage(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	projectPath := filepath.Join(homeDir, "workspace", "projectecho")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectPath, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "config.toml"), []byte("[dolt]\nenabled = false\nimage = \"missing/image:latest\"\n"), 0o644))
+
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectPath))
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	backend := &fakeDoctorBackend{imageFound: map[string]bool{"missing/image:latest": false}}
+	stdout, _, err := executeDoctorCommand(backend, "--dolt")
+
+	require.Error(t, err)
+	assert.Equal(t, 2, cli.ExitCode(err))
+	assert.Contains(t, stdout, "Dolt image not found")
 }
 
 func TestDoctorCommand_JSONWarnExitCodeAndStreamSeparation(t *testing.T) {

@@ -286,14 +286,16 @@ type doltServerCheck struct {
 	checkMetadata
 	backend     Backend
 	doltEnabled bool
+	image       string
 }
 
 // NewDoltServerCheck creates check 1.7: Dolt container running and responsive.
-func NewDoltServerCheck(backend Backend, doltEnabled bool) Check {
+func NewDoltServerCheck(backend Backend, doltEnabled bool, image string) Check {
 	return &doltServerCheck{
 		checkMetadata: newHostCheckMetadata("dolt_server", []string{"docker_daemon"}, defaultTimeout),
 		backend:       backend,
 		doltEnabled:   doltEnabled,
+		image:         image,
 	}
 }
 
@@ -314,6 +316,25 @@ func (c *doltServerCheck) Run(ctx context.Context) CheckResult {
 		}
 	}
 	if !found || !info.Running {
+		if c.image != "" {
+			_, imageFound, imageErr := c.backend.ImageInspect(ctx, c.image)
+			if imageErr != nil {
+				return CheckResult{
+					Status:  StatusError,
+					Message: "Dolt image check failed",
+					Detail:  imageErr.Error(),
+				}
+			}
+			if !imageFound {
+				return CheckResult{
+					Status:         StatusError,
+					Message:        "Dolt image not found",
+					Detail:         c.image,
+					Recommendation: "Pull the configured Dolt image or run 'havn dolt start' to acquire it automatically",
+				}
+			}
+		}
+
 		return CheckResult{
 			Status:         StatusError,
 			Message:        "Dolt server is not running",

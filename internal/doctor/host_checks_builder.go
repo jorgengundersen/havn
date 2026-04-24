@@ -8,7 +8,7 @@ import (
 )
 
 // HostChecks builds the tier-1 check list from configuration.
-func HostChecks(backend Backend, cfg config.Config, globalConfigPath, projectConfigPath string, effectiveValidationErr error, hasEffectiveConfig bool) []Check {
+func HostChecks(backend Backend, cfg config.Config, globalConfigPath, projectConfigPath string, effectiveValidationErr error, hasEffectiveConfig bool, explicitDolt bool) []Check {
 	if globalConfigPath == "" {
 		homeDir, _ := os.UserHomeDir()
 		globalConfigPath = filepath.Join(homeDir, ".config", "havn", "config.toml")
@@ -25,16 +25,22 @@ func HostChecks(backend Backend, cfg config.Config, globalConfigPath, projectCon
 	}
 
 	volumeNames := []string{cfg.Volumes.Nix, cfg.Volumes.Data, cfg.Volumes.Cache, cfg.Volumes.State}
-	if cfg.Dolt.Enabled {
+	doltChecksEnabled := cfg.Dolt.Enabled || explicitDolt
+	if doltChecksEnabled {
 		volumeNames = append(volumeNames, "havn-dolt-data", "havn-dolt-config")
+	}
+
+	doltImage := ""
+	if explicitDolt {
+		doltImage = cfg.Dolt.Image
 	}
 
 	checks = append(checks,
 		NewBaseImageCheck(backend, cfg.Image),
 		NewNetworkCheck(backend, cfg.Network),
 		NewVolumesCheck(backend, volumeNames),
-		NewDoltServerCheck(backend, cfg.Dolt.Enabled),
-		NewDoltDatabaseCheck(backend, cfg.Dolt.Enabled, cfg.Dolt.Database),
+		NewDoltServerCheck(backend, doltChecksEnabled, doltImage),
+		NewDoltDatabaseCheck(backend, doltChecksEnabled, cfg.Dolt.Database),
 	)
 
 	return checks

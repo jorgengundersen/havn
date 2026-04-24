@@ -297,7 +297,7 @@ func TestProjectConfigCheck_ValidationError(t *testing.T) {
 // --- dolt_server check ---
 
 func TestDoltServerCheck_NotEnabled(t *testing.T) {
-	check := doctor.NewDoltServerCheck(newFakeBackend(), false)
+	check := doctor.NewDoltServerCheck(newFakeBackend(), false, "")
 
 	result := check.Run(context.Background())
 
@@ -312,7 +312,7 @@ func TestDoltServerCheck_Running(t *testing.T) {
 		Labels:  map[string]string{"managed-by": "havn"},
 	}
 	backend.execResults["SELECT 1"] = "1"
-	check := doctor.NewDoltServerCheck(backend, true)
+	check := doctor.NewDoltServerCheck(backend, true, "")
 
 	result := check.Run(context.Background())
 
@@ -321,7 +321,7 @@ func TestDoltServerCheck_Running(t *testing.T) {
 
 func TestDoltServerCheck_NotRunning(t *testing.T) {
 	backend := newFakeBackend()
-	check := doctor.NewDoltServerCheck(backend, true)
+	check := doctor.NewDoltServerCheck(backend, true, "")
 
 	result := check.Run(context.Background())
 
@@ -335,7 +335,7 @@ func TestDoltServerCheck_MissingLabel(t *testing.T) {
 		Running: true,
 		Labels:  map[string]string{},
 	}
-	check := doctor.NewDoltServerCheck(backend, true)
+	check := doctor.NewDoltServerCheck(backend, true, "")
 
 	result := check.Run(context.Background())
 
@@ -350,7 +350,7 @@ func TestDoltServerCheck_Unresponsive(t *testing.T) {
 		Labels:  map[string]string{"managed-by": "havn"},
 	}
 	backend.execErr = errors.New("connection refused")
-	check := doctor.NewDoltServerCheck(backend, true)
+	check := doctor.NewDoltServerCheck(backend, true, "")
 
 	result := check.Run(context.Background())
 
