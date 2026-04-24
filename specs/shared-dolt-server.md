@@ -17,6 +17,36 @@ Configuration discovery and override precedence come from
 `specs/configuration.md`. CLI naming and general output rules come from
 `specs/cli-framework.md`.
 
+## Implemented Graduation Checklist
+
+This checklist is the single acceptance gate for keeping or declaring
+`Status: Implemented` for shared-Dolt infrastructure support.
+
+All items must pass; any failing item requires the status to be treated as
+`Partial` until the gap is fixed and re-validated.
+
+- **Lifecycle command coverage:** `havn dolt start|stop|status|databases|drop|connect`
+  all execute with documented success/failure framing, and startup integration
+  still enforces shared-server bring-up for Dolt-enabled project startup.
+- **Readiness semantics:** shared-server startup paths block on a successful
+  readiness probe (`SELECT 1` equivalent) before database provisioning or
+  downstream startup continuation; readiness failure is a command failure.
+- **Ownership conflict safety:** a pre-existing `havn-dolt` container without
+  `managed-by=havn` is reported as conflict and is never silently adopted.
+- **Project provisioning contract:** Dolt-enabled startup ensures the resolved
+  database exists and injects the documented shared-server `BEADS_DOLT_*` env
+  variables, including `BEADS_DOLT_AUTO_START=0`.
+- **Diagnostics parity:** explicit `havn dolt start` and Dolt-enabled project
+  startup expose equivalent phase-level diagnostics for image acquisition,
+  container create/start, readiness, and database ensure steps.
+- **Output contract consistency:** text and `--json` output for `status`,
+  `databases`, `import`, and `export` stays aligned with this spec and
+  `specs/cli-framework.md`, including stable ownership-boundary fields.
+- **Observability requirements:** `havn dolt status --json` continues to report
+  shared-server state fields (`running`, `configured_sql_port`, container/image/
+  network identity, `managed_by_havn`) with the documented meaning that
+  `configured_sql_port` is config-derived, not runtime-port proof.
+
 ## Supported Model
 
 `havn` supports one shared Dolt SQL server container, `havn-dolt`, for all
