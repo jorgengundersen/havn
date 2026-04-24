@@ -36,7 +36,7 @@ environment comes from the selected Nix flake and shell.
   `specs/environment-interface.md`
 - Doctor checks, tiering, selection rules, and doctor output:
   `specs/havn-doctor.md`
-- Shared Dolt lifecycle, readiness, ownership, migration, and safety semantics:
+- Shared Dolt lifecycle, readiness, ownership, and safety semantics:
   `specs/shared-dolt-server.md`
 - Base image and runtime assumptions: `specs/base-image.md`
 

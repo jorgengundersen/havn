@@ -7,8 +7,11 @@ For the normative shared-Dolt contract, see `specs/shared-dolt-server.md`.
 
 ## Status
 
-Shared-Dolt support is `Partial`: the command surface exists, but the full
-lifecycle and migration contract is still being tightened against the spec.
+Shared-Dolt support is `Partial`: the command surface exists, but some
+infrastructure lifecycle behavior is still being tightened against the spec.
+
+Migration correctness and policy semantics are owned by beads/Dolt workflows,
+not by `havn`.
 
 ## What this setup is
 
@@ -101,8 +104,10 @@ havn dolt import <project-path> [--force]
 havn dolt export <database> [--dest <path>]
 ```
 
-- `import` migrates a local project database into the shared server
-- `export` copies a shared-server database out to project-local layout
+- `import` and `export` are compatibility command surfaces in `havn`
+- migration correctness, identity policy, rollback, and reconciliation semantics
+  are owned by beads/Dolt workflows
+- use beads docs and workflows as the migration policy source of truth
 - `--force` allows overwrite on import when the destination database already
   exists
 
@@ -121,11 +126,9 @@ havn dolt import .
 3. start the project normally with `havn .`
 4. use `bd` as usual inside the container
 
-The intended import contract verifies:
-
-- the source database directory exists
-- the destination database becomes visible on the shared server
-- project identity is checked and surfaced when it can be compared
+`havn` infrastructure responsibility here is limited to shared-server
+availability and command execution framing. Migration policy and correctness are
+outside `havn` ownership.
 
 ## Export workflow
 
@@ -135,7 +138,7 @@ Use this when you need a project-local copy of a shared database:
 havn dolt export myproject --dest .
 ```
 
-Expected result path:
+Common result path:
 
 ```text
 ./.beads/dolt/myproject/
@@ -162,7 +165,8 @@ commands.
 
 ## Current partial-support gaps
 
-- project-identity verification during import currently reports mismatch as warnings (not a hard failure), and only when both metadata sources are available
+- migration ownership and policy semantics intentionally live outside `havn`;
+  use beads workflows/contracts as the authority
 - `havn dolt status` does not claim runtime listening-port verification; use
   Docker-native inspection when runtime-port validation is required
 

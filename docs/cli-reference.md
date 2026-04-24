@@ -140,6 +140,13 @@ havn enter .
 - `havn dolt import <path> [--force]`
 - `havn dolt export <name> [--dest <path>]`
 
+Ownership boundary for migration surfaces:
+
+- `havn` owns shared-Dolt infrastructure lifecycle and command framing
+- migration correctness, project-identity migration policy, rollback, and
+  reconciliation semantics are owned by beads/Dolt workflows
+- for migration-policy expectations, follow beads tooling/contracts
+
 ### Planned utility commands
 
 - `havn completion <bash|zsh|fish|powershell>`: planned, not part of the
