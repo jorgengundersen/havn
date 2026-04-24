@@ -260,13 +260,52 @@ domain values; the CLI layer formats them into the stable command JSON shape.
 
 - data JSON is written to `stdout`
 - errors in JSON mode are written to `stderr`
-- action-only commands return a JSON result object when `--json` is active
+- action-only commands that are non-interactive return a JSON result object when
+  `--json` is active
 
-Typical action result shape:
+### Cross-command success/result semantics
 
-```json
-{"status":"ok","message":"..."}
-```
+Output behavior is contract-driven by command type.
+
+| Command type | Human mode | JSON mode |
+|------|------|------|
+| action command | status/completion on `stderr`; no data payload on `stdout` | result object on `stdout`; status/progress may still appear on `stderr` |
+| query command | data result on `stdout`; no completion wrapper | structured result on `stdout`; no success wrapper |
+| interactive command | interactive stream owned by subprocess/TTY | same interactive behavior; no synthetic success payload |
+
+### Command-type mapping (ratified)
+
+| Command surface | Type | JSON success/result shape contract |
+|------|------|------|
+| `havn [path]` | interactive | no success payload contract; shell/session stream is interactive |
+| `havn up [path]` | action | object with `status`, `message`, `container`, `project_path`, `startup_checks`, `startup_check_phases` |
+| `havn enter [path]` | interactive | no success payload contract; shell/session stream is interactive |
+| `havn stop [name|path]` | action | object with `status`, `message`; single-target also includes `container` |
+| `havn stop --all` | action (best-effort) | object with `status`, `message`; `status` is `"error"` when any stop fails |
+| `havn list` | query | array of container records |
+| `havn build` | action | object with `status`, `message` |
+| `havn doctor` | query | doctor report object |
+| `havn config show` | query | effective-config object |
+| `havn volume list` | query | array of volume-entry records |
+| `havn dolt start/stop/drop/import/export` | action | object with `status`, `message`, plus command-specific fields |
+| `havn dolt status` | query | status object |
+| `havn dolt databases` | query | array of database names |
+| `havn dolt connect` | interactive | no success payload contract; SQL shell session is interactive |
+
+### JSON field naming and presence rules
+
+- key names are `snake_case`
+- action result objects require `status` and `message`
+- `status` values are stable and command-scoped:
+  - `"ok"` for successful completion
+  - `"error"` only for best-effort mixed outcomes where a summary payload is
+    still returned (for example `havn stop --all` with failures)
+- command identity fields (`container`, `project_path`, `database`, `dest`,
+  `startup_checks`, `ownership_boundary`, and similar command-local identity
+  keys) must be stable once published
+- fields are omitted when not applicable; commands must not emit placeholder
+  keys with empty semantic value solely for shape parity
+- list fields emit arrays (`[]`) rather than `null` when no items are present
 
 Field additions are non-breaking. Field removals or renames are breaking.
 
@@ -283,6 +322,10 @@ In normal mode, CLI errors are printed to `stderr` as actionable messages.
 ### JSON errors
 
 In JSON mode, errors are written to `stderr` as JSON.
+
+Error framing is command-scoped. Command handlers return errors wrapped with the
+command surface (`havn up`, `havn stop`, `havn dolt start`, and so on) so users
+and automation can attribute failure to the invoked command.
 
 When a typed error is available, the JSON includes:
 
@@ -343,6 +386,8 @@ Command-specific exit codes may extend this. `havn doctor` is the main example:
   - `container` (resolved container name)
   - `project_path` (resolved project path)
   - `startup_checks` (`"default"`, `"validate"`, or `"prepare"`)
+  - `startup_check_phases` (array of completed startup-check phase summaries,
+    each with `phase`, `outcome`, and `duration_ms`)
 - startup-check failures (`--validate` / `--prepare`) are command-scoped in
   error framing and exit non-zero
 - in JSON mode, startup-check errors are emitted on `stderr` via the shared
