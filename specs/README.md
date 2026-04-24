@@ -47,6 +47,7 @@ When a new major contract is added:
 - `specs/havn-overview.md` is never the hidden authority for config, doctor, CLI, or shared-Dolt detail; it points to the owning spec.
 - Shared Dolt lifecycle, readiness, ownership, startup provisioning, and shared-server status/databases semantics are owned by `specs/shared-dolt-server.md`.
 - Beads data migration and project-identity migration policy are owned by beads tooling/contracts.
+- `havn dolt import/export` migration correctness semantics are explicit non-goals for havn-owned shared-Dolt behavior.
 - Environment flake integration entrypoints and optional startup capabilities are owned by `specs/environment-interface.md`.
 
 ## Spec Index

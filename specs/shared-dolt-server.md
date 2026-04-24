@@ -32,9 +32,12 @@ Overview-level consequences:
 - `bd` remains the primary interface for issue data inside the project
   container
 
-## Out Of Scope (Owned By beads)
+## Explicit Non-Goals (Owned By beads)
 
 `havn` does not define or guarantee beads data-migration semantics.
+
+`havn dolt import/export` migration correctness semantics are explicit non-goals
+for shared-Dolt ownership in this spec.
 
 Out of scope for this spec:
 

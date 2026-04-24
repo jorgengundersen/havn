@@ -415,6 +415,9 @@ Command-specific exit codes may extend this. `havn doctor` is the main example:
 - for `havn dolt import/export`, CLI ownership is limited to command execution
   framing (status/error/result shape), not migration correctness policy
 
+`havn dolt import/export` migration correctness semantics are an explicit
+non-goal for CLI ownership and remain owned by beads/Dolt workflows.
+
 ### `havn completion`
 
 `havn completion <bash|zsh|fish|powershell>` is a planned command surface. When
