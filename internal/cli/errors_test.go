@@ -46,7 +46,7 @@ func TestFormatError_ReturnsErrorMessage(t *testing.T) {
 func TestFormatError_StartError(t *testing.T) {
 	err := &dolt.StartError{Err: errors.New("connection refused")}
 
-	assert.Equal(t, "Failed to start Dolt server: connection refused. Retry `havn dolt start`; if this persists, run `havn doctor --dolt` and inspect `docker logs havn-dolt`", cli.FormatError(err))
+	assert.Equal(t, "Failed to start Dolt server: Docker connectivity failed (connection refused). Ensure Docker is running and reachable, then retry `havn dolt start`", cli.FormatError(err))
 }
 
 func TestFormatError_StartErrorPullAuthFailure(t *testing.T) {
@@ -79,28 +79,40 @@ func TestFormatError_StartErrorStartContainerAfterPullFailure(t *testing.T) {
 	assert.Equal(t, "Failed to start Dolt server: container start failed after image acquisition. Inspect `docker logs havn-dolt`, then retry `havn dolt start`", cli.FormatError(err))
 }
 
+func TestFormatError_StartErrorFallbackUsesSpecificRetryGuidance(t *testing.T) {
+	err := &dolt.StartError{Err: errors.New("copy config: write /etc/dolt/servercfg.d: read-only file system")}
+
+	assert.Equal(t, "Failed to start Dolt server: copy config: write /etc/dolt/servercfg.d: read-only file system. Retry `havn dolt start` after addressing the reported failure", cli.FormatError(err))
+}
+
 func TestFormatError_HealthCheckTimeoutError(t *testing.T) {
 	err := &dolt.HealthCheckTimeoutError{Timeout: 30 * time.Second}
 
-	assert.Equal(t, "Dolt server started but not responding. Check `docker logs havn-dolt`", cli.FormatError(err))
+	assert.Equal(t, "Dolt server started but did not become ready within 30s. Check `docker logs havn-dolt`, verify shared-network connectivity, then retry `havn dolt start`", cli.FormatError(err))
 }
 
 func TestFormatError_NotManagedError(t *testing.T) {
 	err := &dolt.NotManagedError{Name: "havn-dolt"}
 
-	assert.Equal(t, `container "havn-dolt" exists but was not created by havn`, cli.FormatError(err))
+	assert.Equal(t, `Dolt container "havn-dolt" exists but is not managed by havn. Resolve the name conflict (stop/remove or rename the existing container), then retry the command`, cli.FormatError(err))
 }
 
 func TestFormatError_ServerNotRunningError(t *testing.T) {
 	err := &dolt.ServerNotRunningError{Name: "havn-dolt"}
 
-	assert.Equal(t, "Dolt server is not running. Run `havn dolt start`", cli.FormatError(err))
+	assert.Equal(t, "Dolt server is not running. Start it with `havn dolt start`, then retry the command", cli.FormatError(err))
 }
 
 func TestFormatError_DatabaseCreateError(t *testing.T) {
 	err := &dolt.DatabaseCreateError{Name: "myproject", Err: errors.New("access denied")}
 
 	assert.Equal(t, "Failed to create database 'myproject': access denied", cli.FormatError(err))
+}
+
+func TestFormatError_DatabaseCreateErrorConnectivityFailure(t *testing.T) {
+	err := &dolt.DatabaseCreateError{Name: "myproject", Err: errors.New("connection refused")}
+
+	assert.Equal(t, "Failed to create database 'myproject': shared Dolt connectivity failed (connection refused). Ensure `havn dolt status` reports running, then retry the command", cli.FormatError(err))
 }
 
 func TestTypedError_ParseErrorSatisfiesInterface(t *testing.T) {

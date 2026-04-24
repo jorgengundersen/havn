@@ -97,21 +97,24 @@ func FormatError(err error) string {
 
 	var healthErr *dolt.HealthCheckTimeoutError
 	if errors.As(err, &healthErr) {
-		return "Dolt server started but not responding. Check `docker logs havn-dolt`"
+		return fmt.Sprintf("Dolt server started but did not become ready within %s. Check `docker logs havn-dolt`, verify shared-network connectivity, then retry `havn dolt start`", healthErr.Timeout)
 	}
 
 	var notManaged *dolt.NotManagedError
 	if errors.As(err, &notManaged) {
-		return notManaged.Error()
+		return fmt.Sprintf("Dolt container %q exists but is not managed by havn. Resolve the name conflict (stop/remove or rename the existing container), then retry the command", notManaged.Name)
 	}
 
 	var notRunning *dolt.ServerNotRunningError
 	if errors.As(err, &notRunning) {
-		return "Dolt server is not running. Run `havn dolt start`"
+		return "Dolt server is not running. Start it with `havn dolt start`, then retry the command"
 	}
 
 	var dbCreateErr *dolt.DatabaseCreateError
 	if errors.As(err, &dbCreateErr) {
+		if isConnectivityFailure(dbCreateErr.Err.Error()) {
+			return fmt.Sprintf("Failed to create database '%s': shared Dolt connectivity failed (%s). Ensure `havn dolt status` reports running, then retry the command", dbCreateErr.Name, dbCreateErr.Err)
+		}
 		return fmt.Sprintf("Failed to create database '%s': %s", dbCreateErr.Name, dbCreateErr.Err)
 	}
 
@@ -143,7 +146,11 @@ func formatDoltStartError(startErr *dolt.StartError) string {
 		return "Failed to start Dolt server: container start failed after image acquisition. Inspect `docker logs havn-dolt`, then retry `havn dolt start`"
 	}
 
-	return fmt.Sprintf("Failed to start Dolt server: %s. Retry `havn dolt start`; if this persists, run `havn doctor --dolt` and inspect `docker logs havn-dolt`", message)
+	if isConnectivityFailure(message) {
+		return fmt.Sprintf("Failed to start Dolt server: Docker connectivity failed (%s). Ensure Docker is running and reachable, then retry `havn dolt start`", message)
+	}
+
+	return fmt.Sprintf("Failed to start Dolt server: %s. Retry `havn dolt start` after addressing the reported failure", message)
 }
 
 func parseDoltImagePullFailure(message string) (image, detail string, ok bool) {
@@ -174,6 +181,17 @@ func isNetworkPullFailure(detail string) bool {
 		strings.Contains(lower, "dial tcp") ||
 		strings.Contains(lower, "tls handshake timeout") ||
 		strings.Contains(lower, "temporary failure in name resolution")
+}
+
+func isConnectivityFailure(detail string) bool {
+	lower := strings.ToLower(detail)
+	return strings.Contains(lower, "connection refused") ||
+		strings.Contains(lower, "i/o timeout") ||
+		strings.Contains(lower, "no such host") ||
+		strings.Contains(lower, "dial tcp") ||
+		strings.Contains(lower, "tls handshake timeout") ||
+		strings.Contains(lower, "temporary failure in name resolution") ||
+		strings.Contains(lower, "cannot connect to the docker daemon")
 }
 
 func isImageReferenceFailure(detail string) bool {
