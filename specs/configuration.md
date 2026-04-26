@@ -19,9 +19,18 @@ This spec owns:
 - merge behavior for scalar, list, map, and nested settings
 - effective-config output for `havn config show`
 - provenance metadata for the stable JSON contract
+- startup project-path boundary for `havn [path]` and `havn up [path]`
 
 `specs/havn-overview.md` may summarize configuration at a high level, but it is
 not authoritative for detailed config behavior.
+
+## Startup Project-Path Boundary (Authoritative)
+
+For startup commands (`havn [path]` and `havn up [path]`), the resolved project
+path must be under the user's home directory.
+
+This section is the single authoritative owner for that boundary contract.
+Other specs may reference this rule, but they do not redefine it.
 
 ## Config Sources
 

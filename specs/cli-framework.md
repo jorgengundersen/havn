@@ -144,6 +144,10 @@ havn [flags] [path]
 - successful interactive attach exits with the shell session's exit code
 - startup failure exits through normal CLI error handling
 
+Startup project-path boundary ownership is delegated to
+`specs/configuration.md`: for `havn [path]` and `havn up [path]`, whether the
+resolved project path is valid under the user's home directory is defined there.
+
 For startup runtime resource flags (`--cpus`, `--memory`):
 
 - values apply when creating a new project container for the resolved path

@@ -42,6 +42,7 @@ When a new major contract is added:
 ## Cross-Spec Invariants
 
 - Configuration discovery, precedence, and provenance are owned by `specs/configuration.md`.
+- Startup project-path boundary for `havn [path]` and `havn up [path]` (resolved path must be under the user's home directory) is owned by `specs/configuration.md`.
 - `havn doctor` uses the same project context, effective-config rules, and shared-Dolt startup semantics as startup unless `specs/havn-doctor.md` explicitly narrows the behavior.
 - CLI stream separation is consistent across commands: status, logs, and errors go to `stderr`; command data and stable JSON go to `stdout`.
 - `specs/havn-overview.md` is never the hidden authority for config, doctor, CLI, or shared-Dolt detail; it points to the owning spec.
