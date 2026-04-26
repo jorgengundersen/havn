@@ -26,7 +26,15 @@ func (m *Manager) List(ctx context.Context, cfg config.Config) ([]Entry, error) 
 		err := m.backend.VolumeInspect(ctx, entries[i].Name)
 		if err == nil {
 			entries[i].Exists = true
+			continue
 		}
+
+		var notFound *NotFoundError
+		if errors.As(err, &notFound) {
+			continue
+		}
+
+		return nil, fmt.Errorf("inspect volume %q: %w", entries[i].Name, err)
 	}
 	return entries, nil
 }

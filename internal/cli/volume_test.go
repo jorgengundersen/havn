@@ -16,14 +16,18 @@ import (
 )
 
 type fakeVolumeBackend struct {
-	existing map[string]bool
+	existing  map[string]bool
+	inspectFn func(name string) error
 }
 
 func (f fakeVolumeBackend) VolumeInspect(_ context.Context, name string) error {
+	if f.inspectFn != nil {
+		return f.inspectFn(name)
+	}
 	if f.existing[name] {
 		return nil
 	}
-	return fmt.Errorf("not found")
+	return &volume.NotFoundError{Name: name}
 }
 
 func (f fakeVolumeBackend) VolumeCreate(_ context.Context, _ string) error {
@@ -71,4 +75,23 @@ func TestVolumeCommand_PrintsHelp(t *testing.T) {
 	_, _, err := executeCommand("volume")
 
 	require.NoError(t, err)
+}
+
+func TestVolumeListCommand_InspectBackendError(t *testing.T) {
+	mgr := volume.NewManager(fakeVolumeBackend{
+		inspectFn: func(name string) error {
+			if name == "havn-cache" {
+				return fmt.Errorf("daemon unavailable")
+			}
+			return nil
+		},
+	})
+
+	stdout, _, err := executeCommandWithDeps(cli.Deps{VolumeManager: mgr}, "volume", "list")
+
+	require.Error(t, err)
+	assert.Empty(t, stdout)
+	assert.ErrorContains(t, err, "havn volume list")
+	assert.ErrorContains(t, err, "inspect volume \"havn-cache\"")
+	assert.ErrorContains(t, err, "daemon unavailable")
 }

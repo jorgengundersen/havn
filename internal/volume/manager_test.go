@@ -120,6 +120,29 @@ func TestList_SomeMissing(t *testing.T) {
 	assert.False(t, got[3].Exists, "havn-state should not exist")
 }
 
+func TestList_InspectError(t *testing.T) {
+	backend := &fakeBackend{
+		inspectFn: func(name string) error {
+			if name == "havn-cache" {
+				return fmt.Errorf("daemon unavailable")
+			}
+			return nil
+		},
+	}
+	mgr := volume.NewManager(backend)
+	cfg := config.Config{
+		Volumes: config.VolumeConfig{
+			Nix: "havn-nix", Data: "havn-data",
+			Cache: "havn-cache", State: "havn-state",
+		},
+	}
+
+	_, err := mgr.List(context.Background(), cfg)
+
+	assert.ErrorContains(t, err, "inspect volume \"havn-cache\"")
+	assert.ErrorContains(t, err, "daemon unavailable")
+}
+
 func TestEnsureExists_AlreadyExists(t *testing.T) {
 	backend := &fakeBackend{
 		existing: map[string]bool{"havn-nix": true},
