@@ -72,7 +72,7 @@ havn
 | `havn doctor` | Implemented |
 | `havn dolt start/stop/status/databases/drop/connect` | Implemented |
 | `havn dolt import/export` | Implemented (command execution framing only; migration semantics are a non-goal) |
-| `havn completion <shell>` | Planned |
+| `havn completion <shell>` | Implemented |
 
 Derivative docs must not label a command as implemented when its published
 contract is still marked partial or planned here.
@@ -432,9 +432,8 @@ non-goal for CLI ownership and remain owned by beads/Dolt workflows.
 
 ### `havn completion`
 
-`havn completion <bash|zsh|fish|powershell>` is a planned command surface. When
-it lands, it should expose Cobra-generated completions unless a later spec
-revision defines custom completion behavior.
+`havn completion <bash|zsh|fish|powershell>` is implemented and exposes
+Cobra-generated completion scripts.
 
 ## Testing Expectations For The CLI Layer
 

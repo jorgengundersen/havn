@@ -189,10 +189,10 @@ Ownership boundary for migration surfaces:
   reconciliation semantics are owned by beads/Dolt workflows
 - for migration-policy expectations, follow beads tooling/contracts
 
-### Planned utility commands
+### Utility commands
 
-- `havn completion <bash|zsh|fish|powershell>`: planned, not part of the
-  shipped command tree today
+- `havn completion <bash|zsh|fish|powershell>`: generate shell completion
+  scripts
 
 ## Support matrix
 
@@ -209,7 +209,7 @@ Ownership boundary for migration surfaces:
 | `havn doctor` | Implemented | Normative doctor contract lives in `specs/havn-doctor.md` |
 | `havn dolt start/stop/status/databases/drop/connect` | Implemented | Shared-Dolt infrastructure lifecycle and observability; normative contract lives in `specs/shared-dolt-server.md` |
 | `havn dolt import/export` | Implemented | Command execution framing only; migration correctness semantics are an explicit non-goal for `havn` and are owned by beads/Dolt workflows |
-| `havn completion` | Planned | Planned CLI surface owned by `specs/cli-framework.md` |
+| `havn completion` | Implemented | Shell-completion script generation owned by `specs/cli-framework.md` |
 
 ## Current partial-support gaps
 
