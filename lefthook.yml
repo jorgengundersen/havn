@@ -12,6 +12,9 @@ pre-commit:
     - name: test
       glob: "*.go"
       run: go test ./...
+    - name: test-contract-matrix
+      glob: "*.go"
+      run: make test-contract-matrix
     - name: build
       glob: "*.go"
       run: go build -o /dev/null ./cmd/havn
