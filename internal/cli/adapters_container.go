@@ -36,5 +36,6 @@ func (b dockerContainerBackend) ContainerStop(ctx context.Context, name string, 
 	if seconds <= 0 {
 		seconds = 1
 	}
-	return b.docker.ContainerStop(ctx, name, docker.StopOpts{Timeout: seconds})
+	err := b.docker.ContainerStop(ctx, name, docker.StopOpts{Timeout: seconds})
+	return normalizeContainerBoundaryError(err)
 }

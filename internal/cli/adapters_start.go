@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -52,11 +51,7 @@ type dockerStartBackend struct {
 func (b dockerStartBackend) ContainerInspect(ctx context.Context, name string) (container.State, error) {
 	info, err := b.docker.ContainerInspect(ctx, name)
 	if err != nil {
-		var notFound *docker.ContainerNotFoundError
-		if errors.As(err, &notFound) {
-			return container.State{}, &container.NotFoundError{Name: notFound.Name}
-		}
-		return container.State{}, err
+		return container.State{}, normalizeContainerBoundaryError(err)
 	}
 
 	return container.State{
@@ -76,7 +71,7 @@ func (b dockerStartBackend) ContainerCreate(ctx context.Context, opts container.
 		bindMounts = append(bindMounts, docker.BindMount{Source: m.Source, Target: m.Target, ReadOnly: m.ReadOnly})
 	}
 
-	return b.docker.ContainerCreate(ctx, docker.CreateOpts{
+	id, err := b.docker.ContainerCreate(ctx, docker.CreateOpts{
 		Image:        opts.Image,
 		Name:         opts.Name,
 		Network:      opts.Network,
@@ -92,21 +87,21 @@ func (b dockerStartBackend) ContainerCreate(ctx context.Context, opts container.
 		MemorySwap:   opts.MemorySwap,
 		AutoRemove:   opts.AutoRemove,
 	})
+	if err != nil {
+		return "", normalizeContainerBoundaryError(err)
+	}
+
+	return id, nil
 }
 
 func (b dockerStartBackend) ContainerStart(ctx context.Context, id string) error {
-	return b.docker.ContainerStart(ctx, id)
+	err := b.docker.ContainerStart(ctx, id)
+	return normalizeContainerBoundaryError(err)
 }
 
 func (b dockerStartBackend) NetworkInspect(ctx context.Context, name string) error {
 	_, err := b.docker.NetworkInspect(ctx, name)
-	if err != nil {
-		var notFound *docker.NetworkNotFoundError
-		if errors.As(err, &notFound) {
-			return &container.NetworkNotFoundError{Name: notFound.Name}
-		}
-	}
-	return err
+	return normalizeContainerBoundaryError(err)
 }
 
 func (b dockerStartBackend) NetworkCreate(ctx context.Context, name string) error {
@@ -116,7 +111,7 @@ func (b dockerStartBackend) NetworkCreate(ctx context.Context, name string) erro
 func (b dockerStartBackend) ContainerExec(ctx context.Context, name string, cmd []string) error {
 	result, err := b.docker.ContainerExec(ctx, name, docker.ExecOpts{Cmd: cmd})
 	if err != nil {
-		return err
+		return normalizeContainerBoundaryError(err)
 	}
 	if result.ExitCode != 0 {
 		return execResultError(result)
