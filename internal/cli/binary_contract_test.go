@@ -254,6 +254,27 @@ func TestHAVNBinary_CLIContractAtProcessBoundary(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, "havn-user-api", details["name"])
 	})
+
+	t.Run("root json reports typed payload for network-not-found errors", func(t *testing.T) {
+		fixtureBinary := buildCLIProcessFixtureBinary(t, "./internal/cli/testdata/network_not_found")
+		homeProjectDir := filepath.Join(homeDir, "work", "network-project")
+		require.NoError(t, os.MkdirAll(homeProjectDir, 0o755))
+
+		stdout, stderr, exitCode := runHAVNBinary(t, fixtureBinary, homeProjectDir, homeDir, "--json")
+
+		assert.Equal(t, 1, exitCode)
+		assert.Empty(t, stdout)
+
+		var payload map[string]any
+		require.NoError(t, json.Unmarshal([]byte(stderr), &payload))
+		errMsg, ok := payload["error"].(string)
+		require.True(t, ok)
+		assert.Equal(t, `Network "havn-net" not found`, errMsg)
+		assert.Equal(t, "network_not_found", payload["type"])
+		details, ok := payload["details"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "havn-net", details["name"])
+	})
 }
 
 func buildHAVNBinary(t *testing.T) string {
