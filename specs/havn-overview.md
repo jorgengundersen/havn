@@ -17,7 +17,7 @@ workflows.
 
 At a high level, `havn` owns:
 
-- project path resolution under the user's home directory
+- project-scoped startup and attach workflows
 - deterministic project-container naming
 - shared infrastructure setup such as the network, volumes, and base image
 - start-or-attach behavior for project containers
@@ -50,36 +50,10 @@ At overview level, the user-facing workflow split is:
 - `havn up [path]` (implemented): lifecycle startup only (no interactive attach)
 - `havn enter [path]` (implemented): plain interactive shell entry (`bash`) without automatic `nix develop`
 
-Environment startup-preparation contract for this split:
-
-- startup preparation is environment-owned via optional capability entrypoint
-  defined in `specs/environment-interface.md`
-- the environment-interface contract is ratified at `Status: Partial`; any
-  remaining gaps are runtime-alignment follow-up
-- primary interactive startup (`havn [path]`) runs preparation when available
-  and is fail-closed if that prepare step runs and fails
-- `havn up [path]` remains non-interactive and lifecycle-focused by default; it
-  does not run optional startup preparation unless explicitly requested
-- `havn up [path] --prepare` runs optional startup preparation when available
-  and returns a command error on prepare failure
-- `havn enter [path]` remains plain-shell entry and does not run startup
-  preparation
-- ad-hoc `nix develop` from inside entered sessions remains supported
-
-`havn up [path]` uses the same startup override surface as
-`havn [path]` for `--env`, `--cpus`, `--memory`, `--port`, `--no-dolt`, and
-`--image`. `havn up [path]` also supports startup-check modifiers
-`--validate` and `--prepare`. `--shell` remains exclusive to `havn [path]`
-because `up` does not start an interactive shell session.
-
-`havn enter [path]` requires the project container to already be running. If the
-container is missing or stopped, the command returns actionable guidance to run
-`havn up <path>`.
-
-When entering an existing running container, `havn enter [path]` also performs
-Nix registry persistence preparation before shell entry, so users do not need a
-prior startup run just to make in-container `nix registry` alias changes
-persist.
+Detailed startup-preparation behavior, startup-check flags, and interactive
+entry semantics for these command surfaces are owned by
+`specs/environment-interface.md`, `specs/cli-framework.md`, and
+`specs/configuration.md`.
 
 ### Start or attach
 
@@ -109,11 +83,8 @@ On successful attach, the root command exits with the shell session's exit code.
 Detailed config resolution lives in `specs/configuration.md`. Detailed CLI and
 error behavior lives in `specs/cli-framework.md`.
 
-Startup observability at overview level:
-
-- baseline startup diagnostics are retained by default for investigation
-- default terminal output remains concise
-- `--verbose` is the opt-in mode for detailed startup diagnostics in terminal
+Startup observability details (including stream routing and verbose behavior)
+are owned by `specs/cli-framework.md`.
 
 ### Shared infrastructure
 
@@ -175,13 +146,8 @@ Runtime-level Nix registry alias persistence is backed by the mounted state
 volume, so aliases survive container recreation and are shared by projects that
 mount the same state volume.
 
-Startup resource behavior at overview level:
-
-- resource limits are sticky per project container instance
-- reusing an existing running or stopped container keeps its existing limits
-- recreating a missing project container applies the startup-effective resource
-  config (defaulting to 4 CPUs, `8g` memory, and `12g` memory+swap when no
-  overrides are provided)
+Startup resource application semantics are owned by `specs/configuration.md`
+and CLI flag-scope semantics are owned by `specs/cli-framework.md`.
 
 ### Shared Dolt mode
 
