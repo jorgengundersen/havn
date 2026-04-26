@@ -275,6 +275,20 @@ func TestHAVNBinary_CLIContractAtProcessBoundary(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, "havn-net", details["name"])
 	})
+
+	t.Run("doctor all-pass fixture exits with code 0", func(t *testing.T) {
+		fixtureBinary := buildCLIProcessFixtureBinary(t, "./internal/cli/testdata/doctor_all_pass")
+		homeProjectDir := filepath.Join(homeDir, "work", "doctor-project")
+		require.NoError(t, os.MkdirAll(homeProjectDir, 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Join(homeDir, ".config", "havn"), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(homeDir, ".config", "havn", "config.toml"), []byte("env = \"path:.\"\n"), 0o644))
+
+		stdout, stderr, exitCode := runHAVNBinary(t, fixtureBinary, homeProjectDir, homeDir, "doctor")
+
+		assert.Equal(t, 0, exitCode)
+		assert.Contains(t, stdout, "0 warnings, 0 errors")
+		assert.Empty(t, stderr)
+	})
 }
 
 func buildHAVNBinary(t *testing.T) string {
