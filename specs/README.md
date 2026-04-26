@@ -44,7 +44,8 @@ When a new major contract is added:
 - Configuration discovery, precedence, and provenance are owned by `specs/configuration.md`.
 - Startup project-path boundary for `havn [path]` and `havn up [path]` (resolved path must be under the user's home directory) is owned by `specs/configuration.md`.
 - `havn doctor` uses the same project context and effective-config rules as startup, and reuses shared-Dolt naming/config expectations for diagnostics only; it never performs provisioning or other mutation.
-- CLI stream separation is consistent across commands: status, logs, and errors go to `stderr`; command data and stable JSON go to `stdout`.
+- CLI stream separation is a cross-command invariant for non-interactive command output: status, logs, and errors go to `stderr`; command data and stable JSON go to `stdout`.
+- Interactive attach commands are the explicit exception while the attached subprocess owns the TTY stream (`havn [path]`, `havn enter [path]`, and `havn dolt connect`): separate stderr capture is not guaranteed during that interactive session.
 - `specs/havn-overview.md` is never the hidden authority for config, doctor, CLI, or shared-Dolt detail; it points to the owning spec.
 - Shared Dolt lifecycle, readiness, ownership, startup provisioning, and shared-server status/databases semantics are owned by `specs/shared-dolt-server.md`.
 - Beads data migration and project-identity migration policy are owned by beads tooling/contracts.

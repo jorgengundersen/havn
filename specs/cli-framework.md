@@ -233,14 +233,19 @@ variable changes startup diagnostic verbosity.
 
 ### Stream separation
 
-This is an invariant across CLI commands:
+This is an invariant for non-interactive command output across CLI commands:
 
 - `stderr`: status messages, progress, logs, and errors
 - `stdout`: command data and machine-readable JSON payloads
 
-Interactive shell attach is the one special case: Docker TTY mode is an
-interactive stream, so `havn` does not promise separate stderr capture during
-the attached shell session.
+Interactive attach is the explicit exception boundary. While an attached
+subprocess owns the TTY stream (`havn [path]`, `havn enter [path]`, `havn dolt
+connect`), `havn` does not promise separate stderr capture for that interactive
+session.
+
+Outside that attached session window (startup/status output before attach and
+error reporting after attach exits), normal stream-separation rules still
+apply.
 
 ### Output modes
 
