@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,6 +55,46 @@ func TestBaseImageRuntimeContract_BASE002_Integration(t *testing.T) {
 			runBaseImageProbeScript(t, tag, probe.script)
 		})
 	}
+}
+
+func TestBaseImageRuntimeContract_BASE004_Integration(t *testing.T) {
+	requireDockerForBaseImageProbe(t)
+
+	tag := buildBaseImageForProbe(t)
+
+	probes := []struct {
+		name   string
+		script string
+	}{
+		{
+			name:   "sshd is configured to listen on container port 22",
+			script: "/usr/sbin/sshd -T | grep -Fxq 'port 22'",
+		},
+		{
+			name:   "password authentication is disabled",
+			script: "/usr/sbin/sshd -T | grep -Fxq 'passwordauthentication no'",
+		},
+		{
+			name:   "public key authentication is enabled",
+			script: "/usr/sbin/sshd -T | grep -Fxq 'pubkeyauthentication yes'",
+		},
+		{
+			name:   "authorized_keys path is honored",
+			script: "/usr/sbin/sshd -T | grep -E '^authorizedkeysfile ' | grep -Eq '(^| )\\.ssh/authorized_keys( |$)'",
+		},
+	}
+
+	for _, probe := range probes {
+		probe := probe
+		t.Run(probe.name, func(t *testing.T) {
+			runBaseImageProbeScript(t, tag, probe.script)
+		})
+	}
+
+	t.Run("image metadata does not pre-publish ssh host ports", func(t *testing.T) {
+		output := inspectBaseImageProbeMetadata(t, tag, "{{json .Config.ExposedPorts}}")
+		require.Contains(t, []string{"null", "{}"}, output)
+	})
 }
 
 func requireDockerForBaseImageProbe(t *testing.T) {
@@ -107,4 +148,17 @@ func runBaseImageProbeScript(t *testing.T, tag string, script string) {
 	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "--entrypoint", "sh", tag, "-lc", script)
 	output, err := cmd.CombinedOutput()
 	require.NoErrorf(t, err, "probe failed: %s", string(output))
+}
+
+func inspectBaseImageProbeMetadata(t *testing.T, tag string, format string) string {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "docker", "image", "inspect", "--format", format, tag)
+	output, err := cmd.CombinedOutput()
+	require.NoErrorf(t, err, "inspect failed: %s", string(output))
+
+	return strings.TrimSpace(string(output))
 }
