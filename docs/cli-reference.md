@@ -21,17 +21,22 @@ These persistent flags apply to all commands:
 - `--verbose`: detailed status output and diagnostics
 - `--config <path>`: alternate global config file for this invocation
 
-## Root-only runtime flags
+## Startup runtime flags
 
-These are accepted by `havn [path]` and are not global:
+These are startup-oriented flags (not global).
 
-- `--shell <name>` (`HAVN_SHELL`)
+Shared startup runtime flags accepted by `havn [path]` and `havn up [path]`:
+
 - `--env <flake-ref>` (`HAVN_ENV`)
 - `--cpus <n>` (`HAVN_CPUS`)
 - `--memory <size>` (`HAVN_MEMORY`)
 - `--port <port>` (`HAVN_SSH_PORT`)
 - `--no-dolt`
 - `--image <name>` (`HAVN_IMAGE`)
+
+Root-only startup runtime flag (accepted by `havn [path]` only):
+
+- `--shell <name>` (`HAVN_SHELL`)
 
 `havn build` may also honor `--image`, but that does not make it a persistent
 flag.
