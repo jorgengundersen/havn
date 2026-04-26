@@ -864,6 +864,34 @@ func TestStartWithOptions_RunningContainer_PrepareModeRunsValidationAndPrepare(t
 	assert.Empty(t, exec.interactiveName)
 }
 
+func TestStartWithOptions_RunningContainer_PrepareModeIsRepeatSafeAndNonInteractive(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:   exec,
+		Status: func(string) {},
+	}
+	cfg := config.Config{
+		Env:   "./testdata/fixture_flakes/optional_prepare_success",
+		Shell: "default",
+	}
+
+	err := container.StartWithOptions(ctx, deps, cfg, testProjectPath, container.StartOptions{StartupChecks: container.StartupCheckPrepare})
+	require.NoError(t, err)
+	err = container.StartWithOptions(ctx, deps, cfg, testProjectPath, container.StartOptions{StartupChecks: container.StartupCheckPrepare})
+	require.NoError(t, err)
+
+	require.Len(t, exec.execCalls, 4)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "./testdata/fixture_flakes/optional_prepare_success#default", "--command", "true"}, exec.execCalls[0].cmd)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "run", "./testdata/fixture_flakes/optional_prepare_success#havn-session-prepare"}, exec.execCalls[1].cmd)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "./testdata/fixture_flakes/optional_prepare_success#default", "--command", "true"}, exec.execCalls[2].cmd)
+	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "run", "./testdata/fixture_flakes/optional_prepare_success#havn-session-prepare"}, exec.execCalls[3].cmd)
+	assert.Empty(t, exec.interactiveName)
+}
+
 func TestStartOrAttachWithOptions_InvalidStartupMode_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	exec := &fakeExecBackend{interactiveExitCode: 0}

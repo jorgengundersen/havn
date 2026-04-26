@@ -3,6 +3,7 @@ package cli_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -118,6 +119,21 @@ func TestUpCommand_ValidateAndPrepareFailureUsesPrepareScopedCommandPrefix(t *te
 	require.Error(t, err)
 	assert.ErrorIs(t, err, assert.AnError)
 	assert.Contains(t, err.Error(), "havn up --prepare:")
+}
+
+func TestUpCommand_PrepareFailurePreservesActionableGuidance(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := &fakeStartService{err: assert.AnError}
+	svc.err = fmt.Errorf("run optional startup capability havn-session-prepare in container %q: prepare failed (run 'havn enter %s' to debug startup preparation manually)", "havn-work-sample-project", projectPath)
+	_, _, err := executeCommandWithDeps(cli.Deps{StartService: svc}, "up", "--prepare", projectPath)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "havn up --prepare:")
+	assert.Contains(t, err.Error(), "havn enter "+projectPath)
 }
 
 func TestUpCommand_PrepareFlagHelpMentionsValidateImplication(t *testing.T) {
