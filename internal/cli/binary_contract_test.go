@@ -212,6 +212,27 @@ func TestHAVNBinary_CLIContractAtProcessBoundary(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, float64(2), details["line"])
 	})
+
+	t.Run("root json reports typed payload for volume-not-found errors", func(t *testing.T) {
+		fixtureBinary := buildCLIProcessFixtureBinary(t, "./internal/cli/testdata/volume_not_found")
+		homeProjectDir := filepath.Join(homeDir, "work", "volume-project")
+		require.NoError(t, os.MkdirAll(homeProjectDir, 0o755))
+
+		stdout, stderr, exitCode := runHAVNBinary(t, fixtureBinary, homeProjectDir, homeDir, "--json")
+
+		assert.Equal(t, 1, exitCode)
+		assert.Empty(t, stdout)
+
+		var payload map[string]any
+		require.NoError(t, json.Unmarshal([]byte(stderr), &payload))
+		errMsg, ok := payload["error"].(string)
+		require.True(t, ok)
+		assert.Equal(t, `Volume "havn-dolt-data" not found`, errMsg)
+		assert.Equal(t, "volume_not_found", payload["type"])
+		details, ok := payload["details"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "havn-dolt-data", details["name"])
+	})
 }
 
 func buildHAVNBinary(t *testing.T) string {
@@ -230,6 +251,26 @@ func buildHAVNBinary(t *testing.T) string {
 	buildCmd.Dir = repoRoot
 	buildOutput, err := buildCmd.CombinedOutput()
 	require.NoErrorf(t, err, "build havn binary: %s", string(buildOutput))
+
+	return binaryPath
+}
+
+func buildCLIProcessFixtureBinary(t *testing.T, fixturePath string) string {
+	t.Helper()
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+
+	repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
+	binaryPath := filepath.Join(t.TempDir(), "havn-fixture")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	buildCmd := exec.CommandContext(ctx, "go", "build", "-o", binaryPath, fixturePath)
+	buildCmd.Dir = repoRoot
+	buildOutput, err := buildCmd.CombinedOutput()
+	require.NoErrorf(t, err, "build cli fixture binary: %s", string(buildOutput))
 
 	return binaryPath
 }
