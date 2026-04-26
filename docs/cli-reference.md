@@ -4,11 +4,14 @@ This is a derivative guide to the current CLI surface.
 
 For the normative CLI contract, see `specs/cli-framework.md`.
 
-## Status labels
+## Support-status labels
 
-- `Implemented`: supported and intended to work today
-- `Partial`: user-facing surface exists, but the full spec contract is still being tightened
-- `Planned`: documented direction, not shipped command behavior yet
+- `Implemented`: intended contract is shipped and is the current supported behavior
+- `Partial`: contract is authoritative, but current implementation does not yet satisfy all of it
+- `Planned`: intended surface or behavior is accepted into the spec corpus but is not yet shipped
+- `Derivative`: explanatory guidance only; not a support claim on its own
+
+Label governance lives in `specs/README.md`.
 
 ## Global flags
 
@@ -97,7 +100,7 @@ For retained startup-log investigation and cleanup workflow, see `docs/doctor-tr
 ### Root command
 
 - `havn [path]`: start or attach to the project container
-- `havn --version`: print CLI version
+- `havn --version`: print CLI version (contract owned by `specs/cli-framework.md`)
 
 Environment startup-check and preparation behavior:
 

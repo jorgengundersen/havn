@@ -12,6 +12,7 @@ or support claims may not yet be fully implemented.
 This spec owns:
 
 - the command tree
+- root utility flag behavior including `havn --version`
 - flag scope terminology
 - stream separation and output modes
 - startup logging mode boundaries for root startup
@@ -140,6 +141,8 @@ Usage:
 havn [flags] [path]
 ```
 
+- `havn --version` prints the CLI version string and exits `0` without
+  running startup or attach behavior
 - `path` is optional and defaults to `.`
 - successful interactive attach exits with the shell session's exit code
 - startup failure exits through normal CLI error handling
