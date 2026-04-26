@@ -186,6 +186,10 @@ When effective config enables Dolt for a project startup:
 
 Stopping a project container does not stop the shared Dolt server.
 
+These startup-integration provisioning semantics apply to startup and explicit
+shared-Dolt lifecycle commands, not to `havn doctor`. Doctor remains
+diagnostic-only and non-mutating per `specs/havn-doctor.md`.
+
 ## Ownership And Readiness
 
 ### Ownership

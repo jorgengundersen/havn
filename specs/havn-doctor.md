@@ -58,6 +58,10 @@ That means doctor:
 - uses the same project-identity expectations that startup and shared-Dolt
   wiring use for project-specific checks
 
+When doctor evaluates shared-Dolt checks, it reuses startup-derived naming and
+effective-config expectations to decide what to verify. It does not execute
+shared-Dolt lifecycle or startup provisioning steps.
+
 Doctor is diagnostic-only. It never creates, modifies, or deletes resources.
 Read-only runtime probes such as `SELECT 1` are allowed.
 
