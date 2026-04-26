@@ -18,8 +18,7 @@ test-integration:
 	go test -tags integration ./...
 
 test-boundary-confidence:
-	go test ./internal/cli -run 'TestHAVNBinary_CLIContractAtProcessBoundary|TestDoctorCommand_'
-	go test -tags integration ./internal/dolt -run TestSharedDoltLifecycleAndReadiness_Integration
+	go run ./internal/ci/cmd/boundaryconfidence
 
 lint:
 	go vet ./...
