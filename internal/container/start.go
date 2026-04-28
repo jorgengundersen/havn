@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jorgengundersen/havn/internal/config"
@@ -282,8 +283,8 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 		return nil
 	}
 
-	if err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, deps.Status, deps.StartupCheckHeartbeatInterval, deps.StartupCheckHeartbeatTicker, StartupCheckPhaseValidation, func() error {
-		return execStartupCheckCommand(ctx, deps.Exec, deps.Status, StartupCheckPhaseValidation, containerName, requiredDevShellValidationCmd(cfg, opts))
+	if err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, deps.Status, deps.StartupCheckHeartbeatInterval, deps.StartupCheckHeartbeatTicker, StartupCheckPhaseValidation, func(reportProgress func(string)) error {
+		return execStartupCheckCommand(ctx, deps.Exec, deps.Status, StartupCheckPhaseValidation, containerName, requiredDevShellValidationCmd(cfg, opts), reportProgress)
 	}); err != nil {
 		return fmt.Errorf("validate required devShell %q in container %q: %w (run 'havn enter %s' to debug startup validation manually)", cfg.Shell, containerName, err, projectPath)
 	}
@@ -292,8 +293,8 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 		return nil
 	}
 
-	err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, deps.Status, deps.StartupCheckHeartbeatInterval, deps.StartupCheckHeartbeatTicker, StartupCheckPhasePrepare, func() error {
-		return execStartupCheckCommand(ctx, deps.Exec, deps.Status, StartupCheckPhasePrepare, containerName, sessionPrepareCmd(cfg, opts))
+	err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, deps.Status, deps.StartupCheckHeartbeatInterval, deps.StartupCheckHeartbeatTicker, StartupCheckPhasePrepare, func(reportProgress func(string)) error {
+		return execStartupCheckCommand(ctx, deps.Exec, deps.Status, StartupCheckPhasePrepare, containerName, sessionPrepareCmd(cfg, opts), reportProgress)
 	})
 	if err == nil {
 		return nil
@@ -308,7 +309,7 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 	return fmt.Errorf("run optional startup capability havn-session-prepare in container %q: %w (run 'havn enter %s' to debug startup preparation manually)", containerName, err, projectPath)
 }
 
-func execStartupCheckCommand(ctx context.Context, exec ExecBackend, status func(msg string), phase StartupCheckPhase, containerName string, cmd []string) error {
+func execStartupCheckCommand(ctx context.Context, exec ExecBackend, status func(msg string), phase StartupCheckPhase, containerName string, cmd []string, reportProgress func(string)) error {
 	streamingExec, ok := exec.(startupCheckStreamingExecBackend)
 	if !ok {
 		return exec.ContainerExec(ctx, containerName, cmd)
@@ -321,6 +322,9 @@ func execStartupCheckCommand(ctx context.Context, exec ExecBackend, status func(
 		progress := renderStartupProgress(classified)
 		if progress == "" {
 			return
+		}
+		if reportProgress != nil {
+			reportProgress(progress)
 		}
 		status(fmt.Sprintf("Startup check phase %s progress: %s", phase, progress))
 	})
@@ -368,21 +372,25 @@ func normalizeStartOptions(opts StartOptions) (StartOptions, error) {
 	return opts, nil
 }
 
-func runStartupCheckPhase(ctx context.Context, telemetry *StartupCheckTelemetry, status func(msg string), heartbeatInterval time.Duration, tickerFactory StartupCheckHeartbeatTickerFactory, phase StartupCheckPhase, run func() error) error {
+func runStartupCheckPhase(ctx context.Context, telemetry *StartupCheckTelemetry, status func(msg string), heartbeatInterval time.Duration, tickerFactory StartupCheckHeartbeatTickerFactory, phase StartupCheckPhase, run func(reportProgress func(string)) error) error {
 	startedAt := time.Now()
+	progressState := startupPhaseProgressState{}
+	reportProgress := func(progress string) {
+		progressState.setLastProgress(progress)
+	}
 	if status != nil {
 		status(fmt.Sprintf("Startup check phase %s started", phase))
 	}
 	heartbeatDone := make(chan struct{})
 	heartbeatStop := make(chan struct{})
 	if status != nil {
-		go emitStartupCheckHeartbeats(phase, status, startedAt, heartbeatInterval, tickerFactory, heartbeatStop, heartbeatDone)
+		go emitStartupCheckHeartbeats(phase, status, startedAt, heartbeatInterval, tickerFactory, heartbeatStop, heartbeatDone, progressState.lastProgress)
 	}
 	if telemetry != nil {
 		telemetry.StartPhase(phase)
 	}
 
-	err := run()
+	err := run(reportProgress)
 	if status != nil {
 		close(heartbeatStop)
 		<-heartbeatDone
@@ -418,7 +426,7 @@ func runStartupCheckPhase(ctx context.Context, telemetry *StartupCheckTelemetry,
 
 const defaultStartupCheckHeartbeatInterval = 10 * time.Second
 
-func emitStartupCheckHeartbeats(phase StartupCheckPhase, status func(msg string), startedAt time.Time, interval time.Duration, tickerFactory StartupCheckHeartbeatTickerFactory, stop <-chan struct{}, done chan<- struct{}) {
+func emitStartupCheckHeartbeats(phase StartupCheckPhase, status func(msg string), startedAt time.Time, interval time.Duration, tickerFactory StartupCheckHeartbeatTickerFactory, stop <-chan struct{}, done chan<- struct{}, lastProgress func() string) {
 	defer close(done)
 	if interval <= 0 {
 		interval = defaultStartupCheckHeartbeatInterval
@@ -433,9 +441,35 @@ func emitStartupCheckHeartbeats(phase StartupCheckPhase, status func(msg string)
 		case <-stop:
 			return
 		case <-ticks:
-			status(fmt.Sprintf("Startup check phase %s still running (%s elapsed)", phase, time.Since(startedAt).Round(time.Second)))
+			msg := fmt.Sprintf("Startup check phase %s still running (%s elapsed)", phase, time.Since(startedAt).Round(time.Second))
+			if lastProgress != nil {
+				if progress := lastProgress(); progress != "" {
+					msg += fmt.Sprintf("; last activity: %s", progress)
+				}
+			}
+			status(msg)
 		}
 	}
+}
+
+type startupPhaseProgressState struct {
+	mu           sync.Mutex
+	latestReport string
+}
+
+func (s *startupPhaseProgressState) setLastProgress(progress string) {
+	if progress == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.latestReport = progress
+}
+
+func (s *startupPhaseProgressState) lastProgress() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.latestReport
 }
 
 func defaultStartupCheckHeartbeatTicker(interval time.Duration) (<-chan time.Time, func()) {

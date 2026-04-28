@@ -630,6 +630,74 @@ func TestStartOrAttach_RunningContainer_EmitsHeartbeatForLongRunningStartupCheck
 	assert.True(t, heartbeatFound)
 }
 
+func TestStartOrAttach_RunningContainer_HeartbeatIncludesLastProgressContext(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	heartbeatTicks := make(chan time.Time, 1)
+	validationStarted := make(chan struct{})
+	releaseValidation := make(chan struct{})
+	heartbeatObserved := make(chan struct{}, 1)
+	exec.execStreamFn = func(_ string, cmd []string, onStderrLine func(string)) error {
+		if cmdHasToken(cmd, "develop") {
+			onStderrLine("fetching store paths")
+			close(validationStarted)
+			<-releaseValidation
+		}
+		return nil
+	}
+	var statusMessages []string
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec: exec,
+		Status: func(msg string) {
+			statusMessages = append(statusMessages, msg)
+			if strings.Contains(msg, "last activity: fetch: fetching store paths") {
+				select {
+				case heartbeatObserved <- struct{}{}:
+				default:
+				}
+			}
+		},
+		StartupCheckHeartbeatInterval: time.Minute,
+		StartupCheckHeartbeatTicker: func(time.Duration) (<-chan time.Time, func()) {
+			return heartbeatTicks, func() {}
+		},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	result := make(chan error, 1)
+	go func() {
+		_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+		result <- err
+	}()
+
+	<-validationStarted
+	heartbeatTicks <- time.Now()
+	select {
+	case <-heartbeatObserved:
+	case <-time.After(time.Second):
+		close(releaseValidation)
+		require.FailNow(t, "expected heartbeat status message with last activity context")
+	}
+	close(releaseValidation)
+	err := <-result
+
+	require.NoError(t, err)
+	assert.Condition(t, func() bool {
+		for _, msg := range statusMessages {
+			if strings.Contains(msg, "last activity: fetch: fetching store paths") {
+				return true
+			}
+		}
+		return false
+	})
+}
+
 func TestStartOrAttach_RunningContainer_UsesDefaultHeartbeatCadenceForStartupCheckPhases(t *testing.T) {
 	ctx := context.Background()
 	exec := &fakeExecBackend{interactiveExitCode: 0}
