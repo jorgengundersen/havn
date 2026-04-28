@@ -212,9 +212,16 @@ gaps for this behavior are runtime-alignment work, not contract-planning work.
 For startup checks and preparation phases:
 
 - phase start and completion events are emitted on `stderr`
-- completion events include elapsed duration
+- completion events include elapsed duration and remain concise in default mode
+- streaming stderr lines from startup-check commands are classified into compact
+  activity updates (`evaluate`, `fetch`, `build`, or `other`) and emitted as
+  phase progress status lines
+- when progress lines include counters/rates, compact parsed metrics are
+  appended to the status line (for example item counts, byte totals, transfer
+  rate)
 - long-running phases emit progress heartbeat messages on `stderr` at least
   every 10 seconds while the phase is active
+- heartbeat updates include the last classified progress activity when available
 - `--verbose` includes concrete command details for active startup phases
 - interrupting startup reports the interrupted phase before exiting
 - phase-scoped failures report the phase name, exit semantics, and actionable
