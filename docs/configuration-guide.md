@@ -186,6 +186,66 @@ ports = ["3000:3000", "8080:8080"]
 
 `--port` is separate and SSH-only.
 
+## Browser access for apps running in havn
+
+Use `ports` in config when you want to reach a web app from your host browser.
+
+- `ports` publishes service ports from container to host (for example `8080:8080`)
+- `--port` is SSH-only and maps `<host>:22`; it does not publish arbitrary app ports
+
+### Quick path (copy/paste)
+
+1. add service-port mappings to `<project>/.havn/config.toml`:
+
+```toml
+ports = ["8080:8080"]
+```
+
+2. start or restart startup for that project:
+
+```bash
+havn up .
+```
+
+3. open the app from your host browser:
+
+```text
+http://localhost:8080
+```
+
+If startup reports a host-port conflict, change the host side of the mapping
+(for example `18080:8080`) and retry.
+
+### Shared live-session example (marimo + marimo-pair)
+
+Project config:
+
+```toml
+ports = ["2718:2718"]
+```
+
+Inside the havn shell, run marimo with a fixed host/port:
+
+```bash
+marimo edit notebook.py --host 0.0.0.0 --port 2718
+```
+
+From your host browser, open:
+
+```text
+http://localhost:2718
+```
+
+For pair sessions, keep the same published port and share only the app URL
+plus whatever marimo-pair token/session handshake your workflow requires.
+
+### Local security hygiene for published ports
+
+- publish only the ports you need for active work
+- prefer high, project-scoped host ports (for example `12718:2718`) to avoid collisions
+- avoid exposing sensitive admin/debug services unless required
+- stop the environment (`havn stop`) when you are done with browser-facing tools
+
 ### Pass host environment values through
 
 ```toml
