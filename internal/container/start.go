@@ -509,7 +509,44 @@ func (s *startupPhaseProgressState) completionSummary() string {
 	if activitySummary != "" {
 		metrics = append(metrics, activitySummary)
 	}
+	if reason := classifyDominantActivityReason(s.activityCounts); reason != "" {
+		metrics = append(metrics, reason)
+	}
 	return strings.Join(metrics, ", ")
+}
+
+func classifyDominantActivityReason(counts map[startupProgressActivity]int) string {
+	if len(counts) == 0 {
+		return ""
+	}
+	topActivity := startupProgressActivityOther
+	topCount := 0
+	ordered := []startupProgressActivity{
+		startupProgressActivityEvaluate,
+		startupProgressActivityFetch,
+		startupProgressActivityBuild,
+		startupProgressActivityOther,
+	}
+	for _, activity := range ordered {
+		count := counts[activity]
+		if count > topCount {
+			topActivity = activity
+			topCount = count
+		}
+	}
+	if topCount == 0 {
+		return ""
+	}
+	switch topActivity {
+	case startupProgressActivityEvaluate:
+		return "likely evaluation-heavy"
+	case startupProgressActivityFetch:
+		return "likely network-bound fetch"
+	case startupProgressActivityBuild:
+		return "likely CPU-bound build"
+	default:
+		return ""
+	}
 }
 
 func renderActivityCounts(counts map[startupProgressActivity]int) string {
