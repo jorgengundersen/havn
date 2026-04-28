@@ -56,6 +56,10 @@ type ExecBackend interface {
 	ContainerExecInteractive(ctx context.Context, name string, cmd []string, workdir string) (int, error)
 }
 
+type startupCheckStreamingExecBackend interface {
+	ContainerExecStreaming(ctx context.Context, name string, cmd []string, onStderrLine func(string)) error
+}
+
 // NixRegistryPreparer prepares persistent in-container registry aliases.
 type NixRegistryPreparer interface {
 	Prepare(ctx context.Context, containerName string) error
@@ -279,7 +283,7 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 	}
 
 	if err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, deps.Status, deps.StartupCheckHeartbeatInterval, deps.StartupCheckHeartbeatTicker, StartupCheckPhaseValidation, func() error {
-		return deps.Exec.ContainerExec(ctx, containerName, requiredDevShellValidationCmd(cfg, opts))
+		return execStartupCheckCommand(ctx, deps.Exec, deps.Status, StartupCheckPhaseValidation, containerName, requiredDevShellValidationCmd(cfg, opts))
 	}); err != nil {
 		return fmt.Errorf("validate required devShell %q in container %q: %w (run 'havn enter %s' to debug startup validation manually)", cfg.Shell, containerName, err, projectPath)
 	}
@@ -289,7 +293,7 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 	}
 
 	err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, deps.Status, deps.StartupCheckHeartbeatInterval, deps.StartupCheckHeartbeatTicker, StartupCheckPhasePrepare, func() error {
-		return deps.Exec.ContainerExec(ctx, containerName, sessionPrepareCmd(cfg, opts))
+		return execStartupCheckCommand(ctx, deps.Exec, deps.Status, StartupCheckPhasePrepare, containerName, sessionPrepareCmd(cfg, opts))
 	})
 	if err == nil {
 		return nil
@@ -302,6 +306,23 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 	}
 
 	return fmt.Errorf("run optional startup capability havn-session-prepare in container %q: %w (run 'havn enter %s' to debug startup preparation manually)", containerName, err, projectPath)
+}
+
+func execStartupCheckCommand(ctx context.Context, exec ExecBackend, status func(msg string), phase StartupCheckPhase, containerName string, cmd []string) error {
+	streamingExec, ok := exec.(startupCheckStreamingExecBackend)
+	if !ok {
+		return exec.ContainerExec(ctx, containerName, cmd)
+	}
+	return streamingExec.ContainerExecStreaming(ctx, containerName, cmd, func(line string) {
+		if status == nil {
+			return
+		}
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			return
+		}
+		status(fmt.Sprintf("Startup check phase %s progress: %s", phase, trimmed))
+	})
 }
 
 func shouldRunValidation(opts StartOptions) bool {

@@ -17,10 +17,11 @@ import (
 
 // ExecOpts holds parameters for a non-interactive one-shot exec.
 type ExecOpts struct {
-	Cmd     []string // Command and arguments to execute
-	Env     []string // Environment variables (KEY=VALUE)
-	Workdir string   // Working directory inside the container
-	User    string   // User to run the command as
+	Cmd          []string     // Command and arguments to execute
+	Env          []string     // Environment variables (KEY=VALUE)
+	Workdir      string       // Working directory inside the container
+	User         string       // User to run the command as
+	OnStderrLine func(string) // Optional callback for incremental stderr lines
 }
 
 // ExecResult holds the outcome of a non-interactive exec.
@@ -59,8 +60,19 @@ func (c *Client) ContainerExec(ctx context.Context, nameOrID string, opts ExecOp
 	defer hijacked.Close()
 
 	var stdout, stderr bytes.Buffer
-	if _, err := stdcopy.StdCopy(&stdout, &stderr, hijacked.Reader); err != nil {
+	stderrWriter := io.Writer(&stderr)
+	if opts.OnStderrLine != nil {
+		stderrWriter = &streamingLineWriter{
+			buffer:  &stderr,
+			onLine:  opts.OnStderrLine,
+			lineBuf: bytes.Buffer{},
+		}
+	}
+	if _, err := stdcopy.StdCopy(&stdout, stderrWriter, hijacked.Reader); err != nil {
 		return ExecResult{}, fmt.Errorf("docker exec read: %w", err)
+	}
+	if sw, ok := stderrWriter.(*streamingLineWriter); ok {
+		sw.flushRemainder()
 	}
 
 	inspect, err := c.docker.ContainerExecInspect(ctx, execResp.ID)
@@ -73,6 +85,39 @@ func (c *Client) ContainerExec(ctx context.Context, nameOrID string, opts ExecOp
 		Stdout:   stdout.Bytes(),
 		Stderr:   stderr.Bytes(),
 	}, nil
+}
+
+type streamingLineWriter struct {
+	buffer  *bytes.Buffer
+	onLine  func(string)
+	lineBuf bytes.Buffer
+}
+
+func (w *streamingLineWriter) Write(p []byte) (int, error) {
+	originalLen := len(p)
+	if _, err := w.buffer.Write(p); err != nil {
+		return 0, err
+	}
+	for len(p) > 0 {
+		n := bytes.IndexByte(p, '\n')
+		if n < 0 {
+			_, _ = w.lineBuf.Write(p)
+			break
+		}
+		_, _ = w.lineBuf.Write(p[:n])
+		w.onLine(w.lineBuf.String())
+		w.lineBuf.Reset()
+		p = p[n+1:]
+	}
+	return originalLen, nil
+}
+
+func (w *streamingLineWriter) flushRemainder() {
+	if w.lineBuf.Len() == 0 {
+		return
+	}
+	w.onLine(w.lineBuf.String())
+	w.lineBuf.Reset()
 }
 
 // AttachOpts holds parameters for an interactive tty exec session.

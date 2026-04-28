@@ -95,9 +95,10 @@ func (f *fakeDoltSetup) MigrationNotice(_ context.Context, _ config.Config, _ st
 }
 
 type fakeExecBackend struct {
-	execCalls []execCall
-	execErr   error
-	execFn    func(name string, cmd []string) error
+	execCalls    []execCall
+	execErr      error
+	execFn       func(name string, cmd []string) error
+	execStreamFn func(name string, cmd []string, onStderrLine func(string)) error
 
 	interactiveExitCode int
 	interactiveErr      error
@@ -143,6 +144,20 @@ func cmdHasToken(cmd []string, token string) bool {
 func (f *fakeExecBackend) ContainerExec(_ context.Context, name string, cmd []string) error {
 	f.execCalls = append(f.execCalls, execCall{name: name, cmd: cmd})
 	if f.execFn != nil {
+		if err := f.execFn(name, cmd); err != nil {
+			return err
+		}
+	}
+	return f.execErr
+}
+
+func (f *fakeExecBackend) ContainerExecStreaming(_ context.Context, name string, cmd []string, onStderrLine func(string)) error {
+	f.execCalls = append(f.execCalls, execCall{name: name, cmd: cmd})
+	if f.execStreamFn != nil {
+		if err := f.execStreamFn(name, cmd, onStderrLine); err != nil {
+			return err
+		}
+	} else if f.execFn != nil {
 		if err := f.execFn(name, cmd); err != nil {
 			return err
 		}
@@ -225,6 +240,34 @@ func TestStartOrAttach_RunningContainer_VerboseStartupEnablesDetailedNixLogs(t *
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
 	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "-v", "-L", "develop", "github:user/env#default"}, exec.interactiveCmd)
+}
+
+func TestStartOrAttachWithOptions_StartupChecksConsumeStreamingStderrEvents(t *testing.T) {
+	ctx := context.Background()
+	statusMessages := make([]string, 0, 8)
+	exec := &fakeExecBackend{
+		interactiveExitCode: 0,
+		execStreamFn: func(_ string, cmd []string, onStderrLine func(string)) error {
+			if cmdHasToken(cmd, "develop") {
+				onStderrLine("fetching store paths")
+			}
+			return nil
+		},
+	}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{inspectState: container.State{ID: "abc123", Running: true}},
+		Exec:      exec,
+		Status: func(msg string) {
+			statusMessages = append(statusMessages, msg)
+		},
+	}
+
+	_, err := container.StartOrAttachWithOptions(ctx, deps, defaultTestConfig(), testProjectPath, container.StartOptions{
+		StartupChecks: container.StartupCheckValidate,
+	})
+
+	require.NoError(t, err)
+	assert.Contains(t, statusMessages, "Startup check phase validation progress: fetching store paths")
 }
 
 func TestStartOrAttach_RunningContainer_DotProjectPathDerivesContainerName(t *testing.T) {

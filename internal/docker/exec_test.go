@@ -49,17 +49,24 @@ func TestTerminalFd_ReturnsFdForFile(t *testing.T) {
 }
 
 func TestExecOpts_FieldsExist(t *testing.T) {
+	called := false
 	opts := docker.ExecOpts{
 		Cmd:     []string{"test", "-d", "/nix/store"},
 		Env:     []string{"PATH=/usr/bin"},
 		Workdir: "/workspace",
 		User:    "devuser",
+		OnStderrLine: func(string) {
+			called = true
+		},
 	}
 
 	assert.Equal(t, []string{"test", "-d", "/nix/store"}, opts.Cmd)
 	assert.Equal(t, []string{"PATH=/usr/bin"}, opts.Env)
 	assert.Equal(t, "/workspace", opts.Workdir)
 	assert.Equal(t, "devuser", opts.User)
+	assert.NotNil(t, opts.OnStderrLine)
+	opts.OnStderrLine("streaming event")
+	assert.True(t, called)
 }
 
 func TestExecResult_FieldsExist(t *testing.T) {

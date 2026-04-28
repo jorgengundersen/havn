@@ -119,6 +119,17 @@ func (b dockerStartBackend) ContainerExec(ctx context.Context, name string, cmd 
 	return nil
 }
 
+func (b dockerStartBackend) ContainerExecStreaming(ctx context.Context, name string, cmd []string, onStderrLine func(string)) error {
+	result, err := b.docker.ContainerExec(ctx, name, docker.ExecOpts{Cmd: cmd, OnStderrLine: onStderrLine})
+	if err != nil {
+		return normalizeContainerBoundaryError(err)
+	}
+	if result.ExitCode != 0 {
+		return execResultError(result)
+	}
+	return nil
+}
+
 func (b dockerStartBackend) ContainerExecInteractive(ctx context.Context, name string, cmd []string, workdir string) (int, error) {
 	return b.docker.ContainerAttach(ctx, name, docker.AttachOpts{
 		Cmd:     cmd,
