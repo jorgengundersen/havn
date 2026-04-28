@@ -283,7 +283,7 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 		return nil
 	}
 
-	if err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, deps.Status, deps.StartupCheckHeartbeatInterval, deps.StartupCheckHeartbeatTicker, StartupCheckPhaseValidation, func(reportProgress func(string)) error {
+	if err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, deps.Status, deps.StartupCheckHeartbeatInterval, deps.StartupCheckHeartbeatTicker, StartupCheckPhaseValidation, func(reportProgress func(startupProgressClassification, string)) error {
 		return execStartupCheckCommand(ctx, deps.Exec, deps.Status, StartupCheckPhaseValidation, containerName, requiredDevShellValidationCmd(cfg, opts), reportProgress)
 	}); err != nil {
 		return fmt.Errorf("validate required devShell %q in container %q: %w (run 'havn enter %s' to debug startup validation manually)", cfg.Shell, containerName, err, projectPath)
@@ -293,7 +293,7 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 		return nil
 	}
 
-	err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, deps.Status, deps.StartupCheckHeartbeatInterval, deps.StartupCheckHeartbeatTicker, StartupCheckPhasePrepare, func(reportProgress func(string)) error {
+	err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, deps.Status, deps.StartupCheckHeartbeatInterval, deps.StartupCheckHeartbeatTicker, StartupCheckPhasePrepare, func(reportProgress func(startupProgressClassification, string)) error {
 		return execStartupCheckCommand(ctx, deps.Exec, deps.Status, StartupCheckPhasePrepare, containerName, sessionPrepareCmd(cfg, opts), reportProgress)
 	})
 	if err == nil {
@@ -309,7 +309,7 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 	return fmt.Errorf("run optional startup capability havn-session-prepare in container %q: %w (run 'havn enter %s' to debug startup preparation manually)", containerName, err, projectPath)
 }
 
-func execStartupCheckCommand(ctx context.Context, exec ExecBackend, status func(msg string), phase StartupCheckPhase, containerName string, cmd []string, reportProgress func(string)) error {
+func execStartupCheckCommand(ctx context.Context, exec ExecBackend, status func(msg string), phase StartupCheckPhase, containerName string, cmd []string, reportProgress func(startupProgressClassification, string)) error {
 	streamingExec, ok := exec.(startupCheckStreamingExecBackend)
 	if !ok {
 		return exec.ContainerExec(ctx, containerName, cmd)
@@ -324,7 +324,7 @@ func execStartupCheckCommand(ctx context.Context, exec ExecBackend, status func(
 			return
 		}
 		if reportProgress != nil {
-			reportProgress(progress)
+			reportProgress(classified, progress)
 		}
 		status(fmt.Sprintf("Startup check phase %s progress: %s", phase, progress))
 	})
@@ -372,11 +372,11 @@ func normalizeStartOptions(opts StartOptions) (StartOptions, error) {
 	return opts, nil
 }
 
-func runStartupCheckPhase(ctx context.Context, telemetry *StartupCheckTelemetry, status func(msg string), heartbeatInterval time.Duration, tickerFactory StartupCheckHeartbeatTickerFactory, phase StartupCheckPhase, run func(reportProgress func(string)) error) error {
+func runStartupCheckPhase(ctx context.Context, telemetry *StartupCheckTelemetry, status func(msg string), heartbeatInterval time.Duration, tickerFactory StartupCheckHeartbeatTickerFactory, phase StartupCheckPhase, run func(reportProgress func(startupProgressClassification, string)) error) error {
 	startedAt := time.Now()
 	progressState := startupPhaseProgressState{}
-	reportProgress := func(progress string) {
-		progressState.setLastProgress(progress)
+	reportProgress := func(classified startupProgressClassification, progress string) {
+		progressState.recordProgress(classified, progress)
 	}
 	if status != nil {
 		status(fmt.Sprintf("Startup check phase %s started", phase))
@@ -400,7 +400,11 @@ func runStartupCheckPhase(ctx context.Context, telemetry *StartupCheckTelemetry,
 			telemetry.FinishPhase(phase)
 		}
 		if status != nil {
-			status(fmt.Sprintf("Startup check phase %s completed in %s", phase, time.Since(startedAt).Round(time.Second)))
+			msg := fmt.Sprintf("Startup check phase %s completed in %s", phase, time.Since(startedAt).Round(time.Second))
+			if summary := progressState.completionSummary(); summary != "" {
+				msg += fmt.Sprintf("; summary: %s", summary)
+			}
+			status(msg)
 		}
 		return nil
 	}
@@ -453,23 +457,83 @@ func emitStartupCheckHeartbeats(phase StartupCheckPhase, status func(msg string)
 }
 
 type startupPhaseProgressState struct {
-	mu           sync.Mutex
-	latestReport string
+	mu             sync.Mutex
+	latestReport   string
+	latestFraction map[startupProgressActivity]string
+	latestBytes    string
+	activityCounts map[startupProgressActivity]int
 }
 
-func (s *startupPhaseProgressState) setLastProgress(progress string) {
+func (s *startupPhaseProgressState) recordProgress(classified startupProgressClassification, progress string) {
 	if progress == "" {
 		return
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.latestReport = progress
+	if s.activityCounts == nil {
+		s.activityCounts = map[startupProgressActivity]int{}
+	}
+	s.activityCounts[classified.Activity]++
+	if classified.Current != nil && classified.Total != nil {
+		if s.latestFraction == nil {
+			s.latestFraction = map[startupProgressActivity]string{}
+		}
+		s.latestFraction[classified.Activity] = fmt.Sprintf("%d/%d", *classified.Current, *classified.Total)
+	}
+	if classified.DoneBytes != "" && classified.TotalBytes != "" {
+		s.latestBytes = fmt.Sprintf("%s/%s", classified.DoneBytes, classified.TotalBytes)
+	}
 }
 
 func (s *startupPhaseProgressState) lastProgress() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.latestReport
+}
+
+func (s *startupPhaseProgressState) completionSummary() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	metrics := make([]string, 0, 4)
+	if fraction := s.latestFraction[startupProgressActivityBuild]; fraction != "" {
+		metrics = append(metrics, "derivations "+fraction)
+	}
+	if fraction := s.latestFraction[startupProgressActivityFetch]; fraction != "" {
+		metrics = append(metrics, "store paths "+fraction)
+	}
+	if s.latestBytes != "" {
+		metrics = append(metrics, "bytes "+s.latestBytes)
+	}
+	activitySummary := renderActivityCounts(s.activityCounts)
+	if activitySummary != "" {
+		metrics = append(metrics, activitySummary)
+	}
+	return strings.Join(metrics, ", ")
+}
+
+func renderActivityCounts(counts map[startupProgressActivity]int) string {
+	if len(counts) == 0 {
+		return ""
+	}
+	ordered := []startupProgressActivity{
+		startupProgressActivityEvaluate,
+		startupProgressActivityFetch,
+		startupProgressActivityBuild,
+		startupProgressActivityOther,
+	}
+	parts := make([]string, 0, len(ordered))
+	for _, activity := range ordered {
+		count := counts[activity]
+		if count == 0 {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s=%d", activity, count))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "activity " + strings.Join(parts, ",")
 }
 
 func defaultStartupCheckHeartbeatTicker(interval time.Duration) (<-chan time.Time, func()) {

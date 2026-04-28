@@ -498,6 +498,45 @@ func TestStartOrAttach_RunningContainer_EmitsStartupCheckPhaseStatusMessages(t *
 	})
 }
 
+func TestStartOrAttach_RunningContainer_CompletionIncludesProgressSummary(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	exec.execStreamFn = func(_ string, cmd []string, onStderrLine func(string)) error {
+		if cmdHasToken(cmd, "develop") {
+			onStderrLine("fetching store paths 23/118 (1.2GiB/4.8GiB @ 18MiB/s)")
+			onStderrLine("building derivations 7/42")
+		}
+		return nil
+	}
+	var statusMessages []string
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec: exec,
+		Status: func(msg string) {
+			statusMessages = append(statusMessages, msg)
+		},
+	}
+	cfg := config.Config{
+		Env:   "github:user/env",
+		Shell: "default",
+	}
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	assert.Condition(t, func() bool {
+		for _, msg := range statusMessages {
+			if strings.Contains(msg, "Startup check phase validation completed in ") && strings.Contains(msg, "store paths 23/118") {
+				return true
+			}
+		}
+		return false
+	})
+}
+
 func TestStartOrAttach_RunningContainer_RecordsStartupCheckPhaseCancellation(t *testing.T) {
 	ctx := context.Background()
 	exec := &fakeExecBackend{}
