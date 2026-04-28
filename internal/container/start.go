@@ -317,11 +317,12 @@ func execStartupCheckCommand(ctx context.Context, exec ExecBackend, status func(
 		if status == nil {
 			return
 		}
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
+		classified := classifyStartupProgress(line)
+		progress := renderStartupProgress(classified)
+		if progress == "" {
 			return
 		}
-		status(fmt.Sprintf("Startup check phase %s progress: %s", phase, trimmed))
+		status(fmt.Sprintf("Startup check phase %s progress: %s", phase, progress))
 	})
 }
 

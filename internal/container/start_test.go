@@ -267,7 +267,35 @@ func TestStartOrAttachWithOptions_StartupChecksConsumeStreamingStderrEvents(t *t
 	})
 
 	require.NoError(t, err)
-	assert.Contains(t, statusMessages, "Startup check phase validation progress: fetching store paths")
+	assert.Contains(t, statusMessages, "Startup check phase validation progress: fetch: fetching store paths")
+}
+
+func TestStartOrAttachWithOptions_StartupChecksClassifyStreamingProgressMetrics(t *testing.T) {
+	ctx := context.Background()
+	statusMessages := make([]string, 0, 8)
+	exec := &fakeExecBackend{
+		interactiveExitCode: 0,
+		execStreamFn: func(_ string, cmd []string, onStderrLine func(string)) error {
+			if cmdHasToken(cmd, "develop") {
+				onStderrLine("fetching store paths 23/118 (1.2GiB/4.8GiB @ 18MiB/s)")
+			}
+			return nil
+		},
+	}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{inspectState: container.State{ID: "abc123", Running: true}},
+		Exec:      exec,
+		Status: func(msg string) {
+			statusMessages = append(statusMessages, msg)
+		},
+	}
+
+	_, err := container.StartOrAttachWithOptions(ctx, deps, defaultTestConfig(), testProjectPath, container.StartOptions{
+		StartupChecks: container.StartupCheckValidate,
+	})
+
+	require.NoError(t, err)
+	assert.Contains(t, statusMessages, "Startup check phase validation progress: fetch: fetching store paths 23/118 (1.2GiB/4.8GiB @ 18MiB/s) (23/118, 1.2GiB/4.8GiB, @ 18MiB/s)")
 }
 
 func TestStartOrAttach_RunningContainer_DotProjectPathDerivesContainerName(t *testing.T) {
