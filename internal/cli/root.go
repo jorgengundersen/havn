@@ -199,7 +199,7 @@ func NewRoot(deps Deps) *cobra.Command {
 	root.Flags().StringVar(&opts.Env, "env", "", "Nix flake ref for dev environment")
 	root.Flags().IntVar(&opts.CPUs, "cpus", 0, "CPU limit")
 	root.Flags().StringVar(&opts.Memory, "memory", "", "memory limit")
-	root.Flags().StringVar(&opts.Port, "port", "", "SSH port mapping")
+	root.Flags().StringVar(&opts.Port, "port", "", "SSH-only host port mapping (<host>:22); use config ports for app services")
 	root.Flags().BoolVar(&opts.NoDolt, "no-dolt", false, "skip Dolt server")
 	root.Flags().StringVar(&opts.Image, "image", "", "override base image")
 

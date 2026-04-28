@@ -146,6 +146,17 @@ func TestUpCommand_PrepareFlagHelpMentionsValidateImplication(t *testing.T) {
 	assert.Contains(t, prepareFlag.Usage, "implies --validate")
 }
 
+func TestUpCommand_PortFlagHelpClarifiesSSHOnlyBehavior(t *testing.T) {
+	root := cli.NewRoot(cli.Deps{})
+	upCmd, _, err := root.Find([]string{"up"})
+
+	require.NoError(t, err)
+	portFlag := upCmd.Flags().Lookup("port")
+	require.NotNil(t, portFlag)
+	assert.Contains(t, portFlag.Usage, "SSH-only")
+	assert.Contains(t, portFlag.Usage, "ports")
+}
+
 func TestUpCommand_HelpDescribesLifecycleDefaultAndStartupCheckModes(t *testing.T) {
 	root := cli.NewRoot(cli.Deps{})
 	upCmd, _, err := root.Find([]string{"up"})

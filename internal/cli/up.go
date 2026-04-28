@@ -82,7 +82,7 @@ func newUpCmd(startService StartService) *cobra.Command {
 	cmd.Flags().StringVar(&opts.Env, "env", "", "Nix flake ref for dev environment")
 	cmd.Flags().IntVar(&opts.CPUs, "cpus", 0, "CPU limit")
 	cmd.Flags().StringVar(&opts.Memory, "memory", "", "memory limit")
-	cmd.Flags().StringVar(&opts.Port, "port", "", "SSH port mapping")
+	cmd.Flags().StringVar(&opts.Port, "port", "", "SSH-only host port mapping (<host>:22); use config ports for app services")
 	cmd.Flags().BoolVar(&opts.NoDolt, "no-dolt", false, "skip Dolt server")
 	cmd.Flags().StringVar(&opts.Image, "image", "", "override base image")
 	cmd.Flags().BoolVar(&validate, "validate", false, "run required startup validation")

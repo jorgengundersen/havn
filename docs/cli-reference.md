@@ -34,6 +34,9 @@ Shared startup runtime flags accepted by `havn [path]` and `havn up [path]`:
 - `--no-dolt`
 - `--image <name>` (`HAVN_IMAGE`)
 
+`--port` is SSH-only and maps `<host>:22`; it does not publish arbitrary app
+service ports. Use `ports` in config for web/app services.
+
 Root-only startup runtime flag (accepted by `havn [path]` only):
 
 - `--shell <name>` (`HAVN_SHELL`)

@@ -271,6 +271,15 @@ func TestNewRoot_HelpIncludesAllFlags(t *testing.T) {
 	}
 }
 
+func TestNewRoot_PortFlagHelpClarifiesSSHOnlyBehavior(t *testing.T) {
+	root := cli.NewRoot(cli.Deps{})
+
+	portFlag := root.Flags().Lookup("port")
+	require.NotNil(t, portFlag)
+	assert.Contains(t, portFlag.Usage, "SSH-only")
+	assert.Contains(t, portFlag.Usage, "ports")
+}
+
 func TestNewRoot_HelpDescribesWorkflowSplit(t *testing.T) {
 	root := cli.NewRoot(cli.Deps{})
 
