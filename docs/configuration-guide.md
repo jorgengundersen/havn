@@ -192,6 +192,9 @@ Use `ports` in config when you want to reach a web app from your host browser.
 
 - `ports` publishes service ports from container to host (for example `8080:8080`)
 - `--port` is SSH-only and maps `<host>:22`; it does not publish arbitrary app ports
+- `ports` publish settings are applied when startup creates the project container
+- if startup reuses an existing container, changed `ports` values do not apply until you recreate that container
+- published ports can still be unreachable from your local browser when the Docker daemon is remote or VM-scoped
 
 ### Quick path (copy/paste)
 
@@ -206,6 +209,10 @@ ports = ["8080:8080"]
 ```bash
 havn up .
 ```
+
+If the project container already exists and you changed `ports`, remove the
+existing project container first so startup can recreate it with the new
+publish settings.
 
 3. open the app from your host browser:
 
