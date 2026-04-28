@@ -164,6 +164,23 @@ Applied create-time resource limits must be observable immediately in container
 metadata at creation time (for example via Docker inspect metadata and
 havn-managed labels), not only after later lifecycle operations.
 
+Published service `ports` follow the same create-time lifecycle contract:
+
+- Effective `ports` entries (plus any SSH publish derived from `--port`) are
+  applied as Docker publish settings when startup creates the project
+  container.
+- If startup reuses an existing project container (running or stopped), it
+  keeps that container's existing publish settings.
+- Changing configured `ports` (or `--port`) does not mutate publish settings on
+  a reused container; startup must recreate the project container for those
+  changes to take effect.
+- Published service ports are Docker publish settings, not SSH forwarding.
+  `--port` remains SSH-only and maps `<host>:22`; additional service ports come
+  only from the `ports` list.
+- Browser reachability follows where the Docker daemon host network is exposed.
+  A published service port can be unreachable from the local host browser when
+  the daemon is remote or VM-scoped even though in-container access works.
+
 ## Merge Semantics
 
 ### Scalars
