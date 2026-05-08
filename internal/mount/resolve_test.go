@@ -219,12 +219,12 @@ func TestResolve_SetsNixRegistryRuntimeEnv(t *testing.T) {
 
 func TestResolve_ProjectDirectoryAlwaysPresent(t *testing.T) {
 	cfg := config.Default()
-	result, err := mount.Resolve(cfg, "/home/user/projects/api", "/home/user", noopOpts())
+	result, err := mount.Resolve(cfg, "/home/alice/work/api", "/home/alice", noopOpts())
 	require.NoError(t, err)
 
 	want := mount.Spec{
-		Source:   "/home/user/projects/api",
-		Target:   "/home/user/projects/api",
+		Source:   "/home/alice/work/api",
+		Target:   "/home/devuser/work/api",
 		ReadOnly: false,
 		Type:     "bind",
 	}

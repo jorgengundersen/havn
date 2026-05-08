@@ -18,7 +18,7 @@ func Resolve(cfg config.Config, projectPath, homeDir string, opts ResolveOpts) (
 	// 1. Project directory — always present, rw.
 	mounts = append(mounts, Spec{
 		Source:   projectPath,
-		Target:   projectPath,
+		Target:   containerProjectTarget(projectPath, homeDir),
 		ReadOnly: false,
 		Type:     "bind",
 	})
@@ -59,6 +59,17 @@ const (
 	containerHome   = "/home/devuser"
 	nixRegistryPath = "/home/devuser/.local/state/nix/registry.json"
 )
+
+func containerProjectTarget(projectPath, homeDir string) string {
+	rel, err := filepath.Rel(homeDir, projectPath)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return projectPath
+	}
+	if rel == "." {
+		return containerHome
+	}
+	return filepath.Join(containerHome, rel)
+}
 
 // parseConfigEntry splits a "path:mode" entry and validates the mode.
 func parseConfigEntry(entry string) (path, mode string, err error) {
