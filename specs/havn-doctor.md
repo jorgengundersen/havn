@@ -2,7 +2,12 @@
 
 This is the authoritative doctor contract for `havn`.
 
-Status: Implemented
+Status: Partial
+
+`Partial` means this document is the intended contract, but the current
+implementation may not yet satisfy every detail. In particular, doctor runtime
+path checks depend on the project container host/container path split defined by
+`specs/project-container-runtime.md`.
 
 ## Ownership
 
@@ -14,8 +19,10 @@ This spec owns:
 - doctor-specific exit semantics and output shapes
 
 Configuration discovery, precedence, and effective-config rules come from
-`specs/configuration.md`. General CLI stream separation and error behavior come
-from `specs/cli-framework.md`.
+`specs/configuration.md`. Project container host/container path mapping,
+project mount layout, labels, and layout-drift behavior come from
+`specs/project-container-runtime.md`. General CLI stream separation and error
+behavior come from `specs/cli-framework.md`.
 
 ## Command Surface
 
@@ -57,6 +64,15 @@ That means doctor:
   environment overrides using `specs/configuration.md`
 - uses the same project-identity expectations that startup and shared-Dolt
   wiring use for project-specific checks
+- treats `havn.path` labels as host project paths and `havn.path.container`
+  labels as container project paths when selecting and diagnosing containers
+
+Doctor keeps host and container path concerns separate:
+
+- host-tier config parsing, project config discovery, flake discovery, and
+  `.beads/` existence decisions use the host project path;
+- container-tier runtime probes use the container project path defined by
+  `specs/project-container-runtime.md`.
 
 When doctor evaluates shared-Dolt checks, it reuses startup-derived naming and
 effective-config expectations to decide what to verify. It does not execute
@@ -97,10 +113,11 @@ Container checks validate runtime wiring such as:
 
 - Nix store accessibility
 - dev-shell evaluation
-- project mount and config mounts
+- project mount and config mounts at their expected in-container targets
 - SSH agent forwarding
 - shared-Dolt connectivity when enabled
-- beads health when `.beads/` exists for the project
+- beads health from the container project path when `.beads/` exists for the
+  host project
 
 ## Check Catalog
 
@@ -118,8 +135,8 @@ Stable check identifiers:
 | host | `dolt_database` | expected project database exists on shared Dolt |
 | container | `nix_store` | `/nix/store` mounted and readable |
 | container | `nix_devshell` | configured dev shell evaluates |
-| container | `project_mount` | project directory mounted and writable |
-| container | `config_mounts` | configured bind mounts present with expected access mode |
+| container | `project_mount` | project directory mounted and writable at the expected container project path |
+| container | `config_mounts` | configured bind mounts present at expected in-container targets with expected access mode |
 | container | `ssh_agent` | SSH agent forwarding is functional |
 | container | `dolt_connectivity` | container can reach shared Dolt network path |
 | container | `beads_health` | `bd doctor` succeeds or reports its own warnings/errors |
@@ -152,6 +169,11 @@ Doctor verifies directly:
 Doctor may report derived state when that state is part of the published runtime
 contract, such as which database name or network doctor expects after effective
 config resolution.
+
+Doctor verifies project container layout drift diagnostically. When a selected
+container's project bind mount target does not match the expected container
+project path, doctor reports the mismatch with remediation guidance rather than
+treating the old layout as healthy.
 
 Doctor does not redefine separate config semantics of its own.
 
@@ -205,7 +227,9 @@ Per-check fields:
 - `name`: stable check identifier
 - `status`: `pass`, `warn`, `error`, or `skip`
 - `message`: human-readable summary
-- `detail`: optional extra context
+- `detail`: optional extra context, which may include path-layout fields such as
+  `host_project_path`, `expected_container_project_path`, and
+  `actual_mount_target`
 - `recommendation`: optional remediation guidance
 
 #### Dolt-mode skip and recommendation contract

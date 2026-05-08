@@ -60,6 +60,9 @@ Shared startup/doctor/config orchestration lives in dedicated helpers inside
 
 - `projectContext` and `effectiveConfigOrchestrator` are the canonical CLI
   boundary primitives for project identity and effective config resolution.
+- Project identity plumbing must distinguish host project path from container
+  project path. Avoid passing a bare `projectPath string` through layers that
+  need both meanings; use a path struct or distinct named types instead.
 - `internal/cli` command handlers stay thin and call these primitives rather
   than reimplementing path/config derivation.
 - command-specific wiring may apply local overrides after resolution, but
@@ -222,6 +225,19 @@ type VolumeName string
 
 This prevents accidental misuse at compile time — a function expecting
 `ContainerName` won't accept an `ImageName`.
+
+Use a compound type when the contract requires related values with distinct
+meanings:
+
+```go
+type ProjectPaths struct {
+    HostPath      string
+    ContainerPath string
+}
+```
+
+`HostPath` and `ContainerPath` must not be collapsed into one ambiguous project
+path in code that crosses host/container runtime boundaries.
 
 ### Config structs
 

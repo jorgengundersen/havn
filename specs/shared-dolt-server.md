@@ -220,7 +220,7 @@ database exists on the shared server.
 Default database name:
 
 - `dolt.database` from effective config when set
-- otherwise the project directory name
+- otherwise the basename of the resolved host project path
 
 Project containers receive the beads shared-server env vars expected for the
 resolved database:

@@ -19,18 +19,35 @@ This spec owns:
 - merge behavior for scalar, list, map, and nested settings
 - effective-config output for `havn config show`
 - provenance metadata for the stable JSON contract
-- startup project-path boundary for `havn [path]` and `havn up [path]`
+- startup host project-path boundary for `havn [path]` and `havn up [path]`
+- derivation inputs for the container project path used by `specs/project-container-runtime.md`
 
 `specs/havn-overview.md` may summarize configuration at a high level, but it is
 not authoritative for detailed config behavior.
 
 ## Startup Project-Path Boundary (Authoritative)
 
-For startup commands (`havn [path]` and `havn up [path]`), the resolved project
-path must be under the user's home directory.
+For startup commands (`havn [path]` and `havn up [path]`), the resolved host
+project path must be under the host user's home directory.
 
-This section is the single authoritative owner for that boundary contract.
-Other specs may reference this rule, but they do not redefine it.
+This section is the single authoritative owner for that host-side boundary
+contract. Other specs may reference this rule, but they do not redefine it.
+
+The resolved path is the **host project path**. It is used for host-side config
+discovery, project flake discovery, deterministic project-container identity,
+and other host-side lifecycle operations.
+
+The in-container project path is derived from this valid host project path by
+`specs/project-container-runtime.md`:
+
+```text
+relativeProjectPath = filepath.Rel(hostHome, hostProjectPath)
+containerProjectPath = filepath.Join("/home/devuser", relativeProjectPath)
+```
+
+If the relative path escapes the host home, startup fails before project
+container creation. Host and container project paths may differ and must not be
+modeled as one ambiguous value in runtime code that needs both meanings.
 
 ## Config Sources
 
@@ -112,8 +129,8 @@ project config, environment, or flags.
   `--shell`.
 - `havn up [path]` also accepts startup-check modifiers `--validate` and
   `--prepare` (`--prepare` implies `--validate`).
-- For `havn [path]` startup and `havn up [path]` startup, the resolved
-  project path must be under the user's home directory.
+- For `havn [path]` startup and `havn up [path]` startup, the resolved host
+  project path must be under the host user's home directory.
 - `havn build` may honor `--image` and `--config` because they affect build-time
   image selection.
 - `havn config show` reports the effective config for the command invocation.
@@ -151,7 +168,9 @@ For startup commands (`havn [path]` and `havn up [path]`), resource
 limits are container-scoped at creation time:
 
 - If the resolved project container already exists (running or stopped), startup
-  reuses that container and keeps its existing resource limits.
+  reuses that container only when its immutable create-time runtime layout
+  matches the current project-container runtime contract, including the project
+  bind-mount target defined by `specs/project-container-runtime.md`.
 - New resource values from current config/env/flags do not mutate an existing
   project container during reuse.
 - If the project container does not exist and startup creates it, resource
@@ -228,7 +247,10 @@ Lower-precedence entries appear first, then higher-precedence entries.
 effective publish entry that maps `<host>:22`. That derived SSH publish entry is
 merged with any configured `ports` entries into the final Docker publish set.
 
-`mounts.config` entries must resolve to paths under the user's home directory.
+`mounts.config` entries must resolve to host paths under the user's home
+directory. Their in-container targets live under the runtime user's home,
+`/home/devuser`, following the same host-home-relative placement model as the
+project container runtime contract.
 
 Startup fails if any requested host port in the final Docker publish set is not
 available on the host.
@@ -283,8 +305,8 @@ port = 3308
 image = "dolthub/dolt-sql-server:latest"
 ```
 
-`dolt.database` defaults to the project directory name when the effective config
-enables Dolt and no explicit database name is supplied.
+`dolt.database` defaults to the basename of the resolved host project path when
+the effective config enables Dolt and no explicit database name is supplied.
 
 `memory_swap` is intentionally config-only. It has no environment-variable or
 flag override surface unless a later spec revision adds one.

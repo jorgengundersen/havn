@@ -37,12 +37,16 @@ When a new major contract is added:
 - **effective config**: the fully resolved configuration after applying defaults, discovered config files, environment overrides, and any command-specific runtime overrides that the current command accepts.
 - **machine-readable JSON contract**: the stable JSON written to `stdout` for command data, with errors written to `stderr`.
 - **best-effort**: continue independent work after one unit fails, then report the full mixed outcome.
+- **host project path**: the resolved absolute project path on the host running `havn`.
+- **container project path**: the absolute in-container path where the host project is mounted.
+- **project path mapping**: the runtime rule that preserves the project path relative to the host home and mounts it under `/home/devuser` inside the project container.
 - **derivative doc**: user guidance that explains behavior but defers normative detail to an authoritative spec.
 
 ## Cross-Spec Invariants
 
 - Configuration discovery, precedence, and provenance are owned by `specs/configuration.md`.
-- Startup project-path boundary for `havn [path]` and `havn up [path]` (resolved path must be under the user's home directory) is owned by `specs/configuration.md`.
+- Startup project-path boundary for `havn [path]` and `havn up [path]` (resolved host path must be under the user's home directory) is owned by `specs/configuration.md`.
+- Project container runtime path layout, including host/container project path mapping, bind-mount targets, path labels, and mount-layout drift detection, is owned by `specs/project-container-runtime.md`.
 - `havn doctor` uses the same project context and effective-config rules as startup, and reuses shared-Dolt naming/config expectations for diagnostics only; it never performs provisioning or other mutation.
 - CLI stream separation is a cross-command invariant for non-interactive command output: status, logs, and errors go to `stderr`; command data and stable JSON go to `stdout`.
 - Interactive attach commands are the explicit exception while the attached subprocess owns the TTY stream (`havn [path]`, `havn enter [path]`, and `havn dolt connect`): separate stderr capture is not guaranteed during that interactive session.
@@ -64,6 +68,7 @@ When a new major contract is added:
 | [cli-framework.md](cli-framework.md) | Authoritative CLI contract: command tree, flag scope, output handling, and CLI error behavior |
 | [environment-interface.md](environment-interface.md) | Authoritative environment integration contract: required entrypoints, optional startup capability, and portability boundaries |
 | [havn-overview.md](havn-overview.md) | Product overview, core workflows, and pointers to authoritative subsystem specs |
+| [project-container-runtime.md](project-container-runtime.md) | Authoritative project container runtime contract: host/container project paths, mount layout, labels, and drift detection |
 | [base-image.md](base-image.md) | Base image and runtime-init contract |
 | [havn-doctor.md](havn-doctor.md) | Authoritative doctor contract: checks, tiers, selection rules, and output |
 | [shared-dolt-server.md](shared-dolt-server.md) | Authoritative shared-Dolt contract: lifecycle, readiness, ownership, startup provisioning, and shared-server status/databases |

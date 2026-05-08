@@ -194,6 +194,22 @@ This package is only imported by test files.
 
 ## 4. Test Patterns
 
+### Project path fixtures
+
+Tests for project container runtime behavior should use different host and
+container home prefixes so host/container path confusion is visible. Prefer
+fixtures such as:
+
+```text
+host home:      /home/alice
+host project:   /home/alice/work/api
+container home: /home/devuser
+container path: /home/devuser/work/api
+```
+
+Do not use `/home/devuser` as a fake host home unless that specific edge case is
+what the test is exercising.
+
 ### Table-driven tests
 
 The standard Go pattern. Use for any function with multiple input/output

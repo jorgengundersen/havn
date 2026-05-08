@@ -17,6 +17,7 @@ This spec owns:
 - stream separation and output modes
 - startup logging mode boundaries for root startup
 - session-entry lifecycle boundaries for optional environment startup preparation
+- CLI-facing host/container project path field semantics
 - JSON contract ownership at the CLI boundary
 - CLI error formatting and exit-code rules
 
@@ -61,15 +62,15 @@ havn
 
 | Surface | Status |
 |------|------|
-| `havn [path]` | Implemented |
-| `havn up [path]` | Implemented |
-| `havn enter [path]` | Implemented |
+| `havn [path]` | Partial |
+| `havn up [path]` | Partial |
+| `havn enter [path]` | Partial |
 | `havn list` | Implemented |
 | `havn stop` | Implemented |
 | `havn build` | Implemented |
 | `havn config show` | Partial |
 | `havn volume list` | Implemented |
-| `havn doctor` | Implemented |
+| `havn doctor` | Partial |
 | `havn dolt start/stop/status/databases/drop/connect` | Implemented |
 | `havn dolt import/export` | Implemented (command execution framing only; migration semantics are a non-goal) |
 | `havn completion <shell>` | Implemented |
@@ -149,7 +150,9 @@ havn [flags] [path]
 
 Startup project-path boundary ownership is delegated to
 `specs/configuration.md`: for `havn [path]` and `havn up [path]`, whether the
-resolved project path is valid under the user's home directory is defined there.
+resolved host project path is valid under the user's home directory is defined
+there. In-container project path mapping and layout-drift detection are owned by
+`specs/project-container-runtime.md`.
 
 For startup runtime resource flags (`--cpus`, `--memory`):
 
@@ -167,14 +170,23 @@ For startup runtime resource flags (`--cpus`, `--memory`):
 `havn` has three workflow surfaces with distinct intent:
 
 - `havn [path]`: start-or-attach, then enter interactive `nix develop <ref>#<shell>`
+  from the container project path
 - `havn up [path]`: lifecycle startup without interactive attach; default run is
   container lifecycle only
-- `havn enter [path]`: interactive plain `bash` entry without `nix develop`
+- `havn enter [path]`: interactive plain `bash` entry from the container project
+  path without `nix develop`
 
-`havn [path]`, `havn up [path]`, and `havn enter [path]` are implemented.
+`havn [path]`, `havn up [path]`, and `havn enter [path]` exist today, but
+full compliance with the host/container project path layout is partial until
+`specs/project-container-runtime.md` is fully implemented.
 
 `havn enter [path]` returns an actionable CLI error for missing or stopped
 project containers that includes `havn up <path>` guidance.
+
+Existing project containers with incompatible project mount layout fail before
+startup or entry attaches to them. The error must be actionable and should
+include the host project path, expected container project path, actual mount
+target when known, affected container name, and supported recreation guidance.
 
 Before plain-shell attach, `havn enter [path]` performs in-container
 Nix registry persistence preparation, so users do not need startup checks to
@@ -322,6 +334,9 @@ Output behavior is contract-driven by command type.
 - command identity fields (`container`, `project_path`, `database`, `dest`,
   `startup_checks`, `ownership_boundary`, and similar command-local identity
   keys) must be stable once published
+- `project_path` means the resolved host project path unless a command-specific
+  contract explicitly says otherwise; in-container paths must use a distinct key
+  such as `container_project_path`
 - fields are omitted when not applicable; commands must not emit placeholder
   keys with empty semantic value solely for shape parity
 - list fields emit arrays (`[]`) rather than `null` when no items are present
@@ -373,6 +388,13 @@ Command-specific exit codes may extend this. `havn doctor` is the main example:
 
 ## Command Notes
 
+### `havn list`
+
+`havn list` reports host project paths by default. JSON records may include an
+additional `container_project_path` field when the in-container project path is
+known. Human-readable output must not reinterpret `havn.path` as an
+in-container path.
+
 ### `havn stop [name|path]`
 
 - accepts exactly one positional target unless `--all` is set
@@ -403,7 +425,7 @@ Command-specific exit codes may extend this. `havn doctor` is the main example:
   - `status` (`"ok"`)
   - `message` (`"container running"`)
   - `container` (resolved container name)
-  - `project_path` (resolved project path)
+  - `project_path` (resolved host project path)
   - `startup_checks` (`"default"`, `"validate"`, or `"prepare"`)
   - `startup_check_phases` (array of completed startup-check phase summaries,
     each with `phase`, `outcome`, and `duration_ms`)
@@ -421,6 +443,8 @@ Command-specific exit codes may extend this. `havn doctor` is the main example:
 ### `havn doctor`
 
 - check definitions and selection semantics are owned by `specs/havn-doctor.md`
+- host/container project path layout used by doctor probes is owned by
+  `specs/project-container-runtime.md`
 - this spec still owns shared CLI rules such as `--json`, `--verbose`, stream
   separation, and exit-code handling
 

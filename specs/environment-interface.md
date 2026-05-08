@@ -18,6 +18,7 @@ This spec owns:
 - required environment entrypoints that `havn` depends on
 - optional environment capability entrypoints for startup preparation
 - command-surface behavior when optional capabilities are missing or failing
+- execution-context assumptions for environment entrypoints inside project containers
 - portability and boundary rules between orchestration and environment content
 
 `havn` orchestration behavior at the CLI boundary remains owned by
@@ -83,6 +84,25 @@ Capability behavior is command-scoped:
   - plain-shell entry only
   - does not run startup preparation capability
 
+## In-Container Execution Context
+
+When `havn` validates required dev shell entrypoints, executes the optional
+prepare capability, or hands off to an interactive environment shell, it runs
+inside the project container with:
+
+```text
+USER/HOME user: devuser
+HOME:           /home/devuser
+PWD:            <containerProjectPath>
+```
+
+`<containerProjectPath>` is defined by `specs/project-container-runtime.md`.
+This ensures relative flake refs such as `path:.` and `path:./.havn` are
+resolved from the mounted project directory inside the runtime user's home.
+
+`havn enter [path]` does not run startup preparation, but its plain shell entry
+uses the same container project path as the working directory.
+
 ## Execution constraints for `havn-session-prepare`
 
 The prepare hook must be safe for startup automation:
@@ -124,5 +144,7 @@ entrypoint when present.
   output, and command error framing.
 - `specs/configuration.md` owns `env` and `shell` discovery and precedence that
   determine which entrypoints are resolved.
+- `specs/project-container-runtime.md` owns host/container project path mapping
+  and the container project path used as the working directory.
 - `specs/havn-overview.md` summarizes this contract at product level and links
   here for normative detail.

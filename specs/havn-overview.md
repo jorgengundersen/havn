@@ -34,6 +34,8 @@ environment comes from the selected Nix flake and shell.
   handling: `specs/cli-framework.md`
 - Environment flake entrypoints and optional startup preparation capability:
   `specs/environment-interface.md`
+- Project container host/container path mapping, bind-mount layout, labels, and
+  drift detection: `specs/project-container-runtime.md`
 - Doctor checks, tiering, selection rules, and doctor output:
   `specs/havn-doctor.md`
 - Shared Dolt lifecycle, readiness, ownership, and safety semantics:
@@ -46,14 +48,15 @@ environment comes from the selected Nix flake and shell.
 
 At overview level, the user-facing workflow split is:
 
-- `havn [path]` (implemented): start or attach, then enter the configured Nix dev shell
-- `havn up [path]` (implemented): lifecycle startup only (no interactive attach)
-- `havn enter [path]` (implemented): plain interactive shell entry (`bash`) without automatic `nix develop`
+- `havn [path]` (Partial): start or attach, then enter the configured Nix dev shell
+- `havn up [path]` (Partial): lifecycle startup only (no interactive attach)
+- `havn enter [path]` (Partial): plain interactive shell entry (`bash`) without automatic `nix develop`
 
 Detailed startup-preparation behavior, startup-check flags, and interactive
 entry semantics for these command surfaces are owned by
 `specs/environment-interface.md`, `specs/cli-framework.md`, and
-`specs/configuration.md`.
+`specs/configuration.md`. Their host/container runtime path layout is owned by
+`specs/project-container-runtime.md` and remains partial until implemented.
 
 ### Start or attach
 
@@ -67,14 +70,15 @@ Default path is `.`.
 
 At overview level, startup works like this:
 
-1. resolve the target project path
-2. resolve effective configuration for that project
-3. derive the deterministic container name
-4. attach if the project container is already running
-5. otherwise ensure shared prerequisites exist and start the project container
-6. exec into the configured dev shell
+1. resolve the target host project path
+2. derive the container project path for in-container runtime use
+3. resolve effective configuration for that project
+4. derive the deterministic container name
+5. reuse or start the project container if it already exists and its immutable layout matches the current runtime contract
+6. otherwise ensure shared prerequisites exist and create/start the project container
+7. for interactive startup, exec into the configured dev shell from the container project path
 
-`havn up [path]` runs the same startup orchestration through step 5 and
+`havn up [path]` runs the same startup orchestration through step 6 and
 then exits without entering a shell. Optional startup-check flags may add
 non-interactive validation/preparation phases before command completion.
 
@@ -125,11 +129,13 @@ Use this order when moving from product framing to detailed contracts:
    orientation
 2. `specs/cli-framework.md` for command tree, flags, output, and CLI errors
 3. `specs/configuration.md` for discovery, precedence, and effective config
-4. `specs/havn-doctor.md` for diagnostic checks and output behavior
-5. `specs/shared-dolt-server.md` for shared-Dolt infrastructure semantics
-6. `specs/environment-interface.md` for environment integration entrypoints and
+4. `specs/project-container-runtime.md` for host/container project path mapping,
+   mount layout, labels, and drift detection
+5. `specs/havn-doctor.md` for diagnostic checks and output behavior
+6. `specs/shared-dolt-server.md` for shared-Dolt infrastructure semantics
+7. `specs/environment-interface.md` for environment integration entrypoints and
    startup preparation capability boundaries
-7. `specs/base-image.md` for base-image and runtime assumptions
+8. `specs/base-image.md` for base-image and runtime assumptions
 
 ## Runtime Model
 
@@ -137,10 +143,17 @@ Use this order when moving from product framing to detailed contracts:
 
 Each project gets its own container. Project containers:
 
-- bind-mount the project directory
+- bind-mount the host project directory under the runtime user's home inside
+  the container, preserving the path relative to the host user's home
 - use the selected base image
 - share the configured Nix and XDG volumes
 - optionally receive shared-Dolt connectivity env vars
+
+For example, `/home/alice/work/api` on the host is mounted at
+`/home/devuser/work/api` inside the project container. Host project paths remain
+host-side identity; container project paths are used for in-container working
+directories and runtime probes. The exact mapping and drift handling contract is
+owned by `specs/project-container-runtime.md`.
 
 Runtime-level Nix registry alias persistence is backed by the mounted state
 volume, so aliases survive container recreation and are shared by projects that

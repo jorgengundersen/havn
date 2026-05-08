@@ -10,6 +10,8 @@ This spec defines:
 - the repository build context used for the havn base image
 - the image contract consumed by `havn build` and startup auto-build
 - UID/GID handling for the `devuser` account
+- filesystem prerequisites for `/home/devuser`, the canonical runtime home used
+  by project container path mapping
 - the runtime assumptions behind `tini`, `sleep infinity`, and sshd startup
 
 This spec does not define CLI wiring or Docker wrapper internals.
@@ -80,6 +82,11 @@ The image must provide these paths before runtime:
 - `/run/sshd`
 - `/nix`
 
+`/home/devuser` is the canonical container home for havn-managed project
+containers. Project directories are mounted under this home by the runtime path
+mapping contract in `specs/project-container-runtime.md`, preserving their path
+relative to the host user's home.
+
 `devuser` owns its home directory and `.ssh` directory. The image should also
 provide the XDG base directories used by havn volumes:
 
@@ -103,7 +110,10 @@ Rules:
 - runtime startup must not perform ad hoc UID/GID mutation inside the container
 
 This keeps ownership stable for bind-mounted project files and host config
-mounts.
+mounts. The container username does not need to match the host username; the
+supported identity model is fixed username `devuser` plus numeric UID/GID
+matching the host user. Runtime must not set `HOME` to the host user's home as a
+workaround for project path placement.
 
 ## 7. Entrypoint and Init Contract
 

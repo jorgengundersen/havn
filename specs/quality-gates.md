@@ -20,7 +20,7 @@ Go is required. Static analysis uses `staticcheck`, pinned in `go.mod` via the
 | `make test` | `go test ./...` | Unit tests |
 | `make test-contract-matrix` | Contract scenarios in `internal/container` and `internal/cli` | Authoritative environment-interface matrix gate |
 | `make test-integration` | `go test -tags integration ./...` | Integration tests (may need Docker) |
-| `make test-boundary-confidence` | CLI binary contract + doctor CLI behavior + shared Dolt integration subset | Boundary-confidence suites for shipped behavior |
+| `make test-boundary-confidence` | CLI binary contract + project container path layout + doctor CLI behavior + shared Dolt integration subset | Boundary-confidence suites for shipped behavior |
 | `make build` | `go build -o bin/havn ./cmd/havn` | Compile binary to `bin/` |
 | `make install` | `go install ./cmd/havn/` | Install to `$GOBIN` / `$GOPATH/bin` |
 | `make check` | fmt-check + lint + test-contract-matrix + test + build | Full quality gate on the committed tree |
@@ -100,9 +100,9 @@ Integration failures should be visible as a separate CI result rather than
 folded into the core quality-gate job.
 
 Boundary-confidence suites should run in a dedicated CI job via
-`make test-boundary-confidence` so shipped CLI boundary contracts, doctor
-effective-state behavior, and shared-Dolt readiness paths are continuously
-validated as an explicit merge signal.
+`make test-boundary-confidence` so shipped CLI boundary contracts, project
+container path layout, doctor effective-state behavior, and shared-Dolt
+readiness paths are continuously validated as an explicit merge signal.
 
 `quality-gates`, `integration-tests`, and `boundary-confidence` are required merge checks for `main`, matching `.github/settings.yml` branch protection.
 At minimum, `integration-tests` and `boundary-confidence` are required merge checks.
