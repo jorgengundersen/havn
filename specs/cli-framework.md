@@ -162,8 +162,10 @@ For startup runtime resource flags (`--cpus`, `--memory`):
 - applied limits for a newly created container must be visible at create time in
   container metadata/inspection surfaces
 
-`havn [path]` and `havn up [path]` are implemented startup entry points.
-`havn up [path]` shares startup runtime flags except `--shell`.
+`havn [path]` and `havn up [path]` are startup entry points that exist today,
+with full path-layout compliance tracked as partial until
+`specs/project-container-runtime.md` is implemented. `havn up [path]` shares
+startup runtime flags except `--shell`.
 
 ### Startup and entry workflow split
 
