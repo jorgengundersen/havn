@@ -218,6 +218,12 @@ func TestNewRoot_ContainerFlags_NotPersistent(t *testing.T) {
 }
 
 func TestNewRoot_PathArgDefaultsToDot(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(projectPath)
+
 	svc := &fakeStartService{}
 	root := cli.NewRoot(cli.Deps{StartService: svc})
 	root.SetArgs([]string{})
@@ -305,6 +311,12 @@ func TestNewRoot_HasVersion(t *testing.T) {
 }
 
 func TestNewRoot_RunE_InvokesStartService(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(projectPath)
+
 	svc := &fakeStartService{}
 	root := cli.NewRoot(cli.Deps{StartService: svc})
 	root.SetArgs([]string{"."})
@@ -316,6 +328,12 @@ func TestNewRoot_RunE_InvokesStartService(t *testing.T) {
 }
 
 func TestNewRoot_RunE_VerboseFlagEnablesVerboseStartupMode(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(projectPath)
+
 	svc := &fakeStartService{}
 	root := cli.NewRoot(cli.Deps{StartService: svc})
 	root.SetArgs([]string{"--verbose", "."})
@@ -328,6 +346,12 @@ func TestNewRoot_RunE_VerboseFlagEnablesVerboseStartupMode(t *testing.T) {
 }
 
 func TestNewRoot_RunE_UsesAttachStartupMode(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(projectPath)
+
 	svc := &fakeStartService{}
 	root := cli.NewRoot(cli.Deps{StartService: svc})
 	root.SetArgs([]string{"."})
@@ -532,6 +556,12 @@ func TestNewRoot_RunE_ReturnsNotImplementedWithoutStartService(t *testing.T) {
 }
 
 func TestNewRoot_RunE_PropagatesShellExitCode(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(projectPath)
+
 	svc := &fakeStartService{exitCode: 42}
 	root := cli.NewRoot(cli.Deps{StartService: svc})
 	root.SetArgs([]string{"."})
@@ -564,9 +594,14 @@ func TestNewRoot_RunE_HomeManagerActivationFailureAbortsBeforeShellHandoff(t *te
 }
 
 func TestNewRoot_RejectsPathOutsideHome(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	outsidePath := filepath.Join(t.TempDir(), "outside-project")
+	require.NoError(t, os.MkdirAll(outsidePath, 0o755))
+
 	svc := &fakeStartService{}
 	root := cli.NewRoot(cli.Deps{StartService: svc})
-	root.SetArgs([]string{"/tmp"})
+	root.SetArgs([]string{outsidePath})
 
 	err := root.Execute()
 
@@ -576,6 +611,12 @@ func TestNewRoot_RejectsPathOutsideHome(t *testing.T) {
 }
 
 func TestNewRoot_PersistentPreRun_PropagatesLoggerToDockerClient(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(projectPath)
+
 	var logBuf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&logBuf, &slog.HandlerOptions{Level: slog.LevelDebug}))
 

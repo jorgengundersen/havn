@@ -82,7 +82,19 @@ func executeDoctorCommand(backend doctor.Backend, args ...string) (stdout, stder
 	return stdoutBuf.String(), stderrBuf.String(), err
 }
 
+func setHomeAndProjectCwd(t *testing.T) string {
+	t.Helper()
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "workspace", "myproject")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+	t.Chdir(projectPath)
+	return projectPath
+}
+
 func TestDoctorCommand_AllPassExitZero(t *testing.T) {
+	setHomeAndProjectCwd(t)
+
 	backend := &fakeDoctorBackend{}
 	stdout, _, err := executeDoctorCommand(backend)
 
@@ -94,6 +106,8 @@ func TestDoctorCommand_AllPassExitZero(t *testing.T) {
 }
 
 func TestDoctorCommand_JSONOutput(t *testing.T) {
+	setHomeAndProjectCwd(t)
+
 	backend := &fakeDoctorBackend{}
 	stdout, _, _ := executeDoctorCommand(backend, "--json")
 
@@ -136,6 +150,8 @@ func TestDoctorCommand_DoltFlagHelpTextExplainsAllScopeInteraction(t *testing.T)
 }
 
 func TestDoctorCommand_ExitCode2OnError(t *testing.T) {
+	setHomeAndProjectCwd(t)
+
 	backend := &fakeDoctorBackend{
 		pingErr: assert.AnError,
 	}
@@ -197,6 +213,8 @@ func TestDoctorCommand_DoesNotRunDefaultDerivedChecksWhenEffectiveConfigResoluti
 }
 
 func TestDoctorCommand_AllFlagRunsContainerChecks(t *testing.T) {
+	setHomeAndProjectCwd(t)
+
 	backend := &fakeDoctorBackend{
 		listContainers: []string{"havn-user-myproject"},
 		containerInfos: map[string]doctor.ContainerInfo{
@@ -213,6 +231,8 @@ func TestDoctorCommand_AllFlagRunsContainerChecks(t *testing.T) {
 }
 
 func TestDoctorCommand_AllFlagSkipsNonProjectContainers(t *testing.T) {
+	setHomeAndProjectCwd(t)
+
 	backend := &fakeDoctorBackend{
 		listContainers: []string{"havn-dolt", "havn-user-myproject", "havn-user-missing-path"},
 		containerInfos: map[string]doctor.ContainerInfo{
@@ -239,6 +259,8 @@ func TestDoctorCommand_AllFlagSkipsNonProjectContainers(t *testing.T) {
 }
 
 func TestDoctorCommand_AllFlagUsesPerContainerProjectPath(t *testing.T) {
+	setHomeAndProjectCwd(t)
+
 	backend := &fakeDoctorBackend{
 		listContainers: []string{"havn-user-myproject"},
 		containerInfos: map[string]doctor.ContainerInfo{
@@ -302,6 +324,8 @@ func TestDoctorCommand_NoContainersSkipsTier2(t *testing.T) {
 }
 
 func TestDoctorCommand_NoContainersReportsInformationalSkipInJSON(t *testing.T) {
+	setHomeAndProjectCwd(t)
+
 	backend := &fakeDoctorBackend{}
 	stdout, _, _ := executeDoctorCommand(backend, "--all", "--json")
 
@@ -536,6 +560,8 @@ func TestDoctorCommand_DoltFlagReportsMissingDoltImage(t *testing.T) {
 }
 
 func TestDoctorCommand_DoltFlagReportsActionableSkipRecommendationsInJSON(t *testing.T) {
+	setHomeAndProjectCwd(t)
+
 	backend := &fakeDoctorBackend{pingErr: errors.New("docker unavailable")}
 
 	stdout, _, err := executeDoctorCommand(backend, "--dolt", "--json")
