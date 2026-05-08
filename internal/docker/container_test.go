@@ -152,7 +152,7 @@ func TestContainerInfo_FieldsExist(t *testing.T) {
 		Status: "running",
 		Labels: map[string]string{"managed-by": "havn"},
 		Mounts: []docker.MountInfo{
-			{Source: "/host/path", Target: "/container/path", Mode: "rw"},
+			{Source: "/host/path", Target: "/container/path", Type: "bind", Mode: "rw"},
 		},
 		Networks: []string{"havn-net"},
 		Env:      []string{"FOO=bar"},
@@ -164,6 +164,7 @@ func TestContainerInfo_FieldsExist(t *testing.T) {
 	assert.Equal(t, "running", info.Status)
 	assert.Equal(t, map[string]string{"managed-by": "havn"}, info.Labels)
 	assert.Len(t, info.Mounts, 1)
+	assert.Equal(t, "bind", info.Mounts[0].Type)
 	assert.Equal(t, "rw", info.Mounts[0].Mode)
 	assert.Equal(t, []string{"havn-net"}, info.Networks)
 	assert.Equal(t, []string{"FOO=bar"}, info.Env)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/jorgengundersen/havn/internal/container"
 	"github.com/jorgengundersen/havn/internal/docker"
+	"github.com/jorgengundersen/havn/internal/doctor"
 	"github.com/jorgengundersen/havn/internal/dolt"
 )
 
@@ -32,6 +33,54 @@ func TestToDoltContainerInfo_UsesFirstNetworkAndRunningStatus(t *testing.T) {
 		Image:   "dolthub/dolt-sql-server:latest",
 		Labels:  map[string]string{"managed-by": "havn"},
 		Network: "havn-net",
+	}, got)
+}
+
+func TestToStartContainerState_IncludesLabelsAndMountType(t *testing.T) {
+	got := toStartContainerState(docker.ContainerInfo{
+		ID:     "ctr-id",
+		Status: "RUNNING",
+		Labels: map[string]string{"managed-by": "havn", "havn.path": "/home/alice/work/api"},
+		Mounts: []docker.MountInfo{{
+			Source: "/home/alice/work/api",
+			Target: "/home/devuser/work/api",
+			Type:   "bind",
+		}},
+	})
+
+	assert.Equal(t, container.State{
+		ID:      "ctr-id",
+		Running: true,
+		Labels:  map[string]string{"managed-by": "havn", "havn.path": "/home/alice/work/api"},
+		Mounts: []container.MountState{{
+			Source: "/home/alice/work/api",
+			Target: "/home/devuser/work/api",
+			Type:   "bind",
+		}},
+	}, got)
+}
+
+func TestToDoctorContainerInfo_IncludesLabelsAndMountType(t *testing.T) {
+	got := toDoctorContainerInfo(docker.ContainerInfo{
+		Status: "running",
+		Image:  "havn-base:latest",
+		Labels: map[string]string{"managed-by": "havn", "havn.path": "/home/alice/work/api"},
+		Mounts: []docker.MountInfo{{
+			Source: "/home/alice/work/api",
+			Target: "/home/devuser/work/api",
+			Type:   "bind",
+		}},
+	})
+
+	assert.Equal(t, doctor.ContainerInfo{
+		Running: true,
+		Image:   "havn-base:latest",
+		Labels:  map[string]string{"managed-by": "havn", "havn.path": "/home/alice/work/api"},
+		Mounts: []doctor.ContainerMount{{
+			Source: "/home/alice/work/api",
+			Target: "/home/devuser/work/api",
+			Type:   "bind",
+		}},
 	}, got)
 }
 

@@ -54,10 +54,25 @@ func (b dockerStartBackend) ContainerInspect(ctx context.Context, name string) (
 		return container.State{}, normalizeContainerBoundaryError(err)
 	}
 
+	return toStartContainerState(info), nil
+}
+
+func toStartContainerState(info docker.ContainerInfo) container.State {
+	mounts := make([]container.MountState, 0, len(info.Mounts))
+	for _, m := range info.Mounts {
+		mounts = append(mounts, container.MountState{
+			Source: m.Source,
+			Target: m.Target,
+			Type:   m.Type,
+		})
+	}
+
 	return container.State{
 		ID:      info.ID,
 		Running: strings.EqualFold(info.Status, "running"),
-	}, nil
+		Labels:  info.Labels,
+		Mounts:  mounts,
+	}
 }
 
 func (b dockerStartBackend) ContainerCreate(ctx context.Context, opts container.CreateOpts) (string, error) {

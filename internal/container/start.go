@@ -23,10 +23,19 @@ type StartBackend interface {
 	ContainerStart(ctx context.Context, id string) error
 }
 
+// MountState describes an inspected container mount.
+type MountState struct {
+	Source string
+	Target string
+	Type   string
+}
+
 // State holds the result of inspecting a container.
 type State struct {
 	ID      string
 	Running bool
+	Labels  map[string]string
+	Mounts  []MountState
 }
 
 // NetworkBackend abstracts network operations for StartOrAttach.

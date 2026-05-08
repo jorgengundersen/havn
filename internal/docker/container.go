@@ -31,6 +31,7 @@ type VolumeMount struct {
 type MountInfo struct {
 	Source string
 	Target string
+	Type   string // e.g. "bind", "volume"
 	Mode   string // e.g. "rw", "ro"
 }
 
@@ -229,6 +230,7 @@ func (c *Client) ContainerList(ctx context.Context, filters ContainerListFilters
 			mounts = append(mounts, MountInfo{
 				Source: source,
 				Target: m.Destination,
+				Type:   string(m.Type),
 				Mode:   m.Mode,
 			})
 		}
@@ -293,6 +295,7 @@ func (c *Client) ContainerInspect(ctx context.Context, nameOrID string) (Contain
 		info.Mounts = append(info.Mounts, MountInfo{
 			Source: source,
 			Target: m.Destination,
+			Type:   string(m.Type),
 			Mode:   m.Mode,
 		})
 	}

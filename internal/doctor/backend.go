@@ -41,9 +41,17 @@ type NetworkInfo struct {
 	Containers     []string
 }
 
+// ContainerMount holds mount metadata about a container.
+type ContainerMount struct {
+	Source string
+	Target string
+	Type   string
+}
+
 // ContainerInfo holds metadata about a container.
 type ContainerInfo struct {
 	Running bool
 	Image   string
 	Labels  map[string]string
+	Mounts  []ContainerMount
 }

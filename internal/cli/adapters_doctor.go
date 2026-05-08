@@ -79,11 +79,25 @@ func (b dockerDoctorBackend) ContainerInspect(ctx context.Context, name string) 
 		return doctor.ContainerInfo{}, false, err
 	}
 
+	return toDoctorContainerInfo(info), true, nil
+}
+
+func toDoctorContainerInfo(info docker.ContainerInfo) doctor.ContainerInfo {
+	mounts := make([]doctor.ContainerMount, 0, len(info.Mounts))
+	for _, m := range info.Mounts {
+		mounts = append(mounts, doctor.ContainerMount{
+			Source: m.Source,
+			Target: m.Target,
+			Type:   m.Type,
+		})
+	}
+
 	return doctor.ContainerInfo{
 		Running: strings.EqualFold(info.Status, "running"),
 		Image:   info.Image,
 		Labels:  info.Labels,
-	}, true, nil
+		Mounts:  mounts,
+	}
 }
 
 func (b dockerDoctorBackend) ContainerExec(ctx context.Context, containerName string, cmd []string) (string, error) {
