@@ -12,5 +12,5 @@ while :; do
     continue
   fi
 
-  pi -p --provider openai-codex --model gpt-5.3-codex @PROMPT.md "follow PROMPT.md"
+  pi --mode json --provider openai-codex --model gpt-5.3-codex @PROMPT.md "follow PROMPT.md"
 done
