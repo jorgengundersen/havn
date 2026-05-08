@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/jorgengundersen/havn/internal/name"
+	"github.com/jorgengundersen/havn/internal/projectpath"
 )
 
 type projectContext struct {
-	Path string
+	HostPath      string
+	ContainerPath string
 }
 
 func projectContextFromWorkingDir() (projectContext, error) {
@@ -44,7 +45,23 @@ func projectContextFromTarget(target string) (projectContext, error) {
 		return projectContext{}, fmt.Errorf("directory not found: %s", absPath)
 	}
 
-	return projectContext{Path: absPath}, nil
+	ctx := projectContext{HostPath: absPath}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return ctx, nil
+	}
+
+	paths, err := projectpath.Resolve(absPath, homeDir)
+	if err != nil {
+		var outsideHomeErr *projectpath.OutsideHomeError
+		if errors.As(err, &outsideHomeErr) {
+			return ctx, nil
+		}
+		return projectContext{}, err
+	}
+	ctx.ContainerPath = paths.ContainerPath
+
+	return ctx, nil
 }
 
 func projectContextFromStartupTarget(target string) (projectContext, error) {
@@ -52,17 +69,7 @@ func projectContextFromStartupTarget(target string) (projectContext, error) {
 	if err != nil {
 		return projectContext{}, err
 	}
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return projectContext{}, err
-	}
-
-	rel, err := filepath.Rel(homeDir, projectCtx.Path)
-	if err != nil {
-		return projectContext{}, err
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	if projectCtx.ContainerPath == "" {
 		return projectContext{}, errors.New("project path must be under your home directory")
 	}
 
@@ -70,23 +77,23 @@ func projectContextFromStartupTarget(target string) (projectContext, error) {
 }
 
 func (p projectContext) ProjectConfigPath() string {
-	return filepath.Join(p.Path, ".havn", "config.toml")
+	return filepath.Join(p.HostPath, ".havn", "config.toml")
 }
 
 func (p projectContext) ProjectFlakePath() string {
-	return filepath.Join(p.Path, ".havn", "flake.nix")
+	return filepath.Join(p.HostPath, ".havn", "flake.nix")
 }
 
 func (p projectContext) ProjectDefaultEnvironmentFlakePath() string {
-	return filepath.Join(p.Path, ".havn", "environments", "default", "flake.nix")
+	return filepath.Join(p.HostPath, ".havn", "environments", "default", "flake.nix")
 }
 
 func (p projectContext) DefaultDoltDatabase() string {
-	return filepath.Base(p.Path)
+	return filepath.Base(p.HostPath)
 }
 
 func (p projectContext) ContainerName() (string, error) {
-	parent, project, err := name.SplitProjectPath(p.Path)
+	parent, project, err := name.SplitProjectPath(p.HostPath)
 	if err != nil {
 		return "", err
 	}

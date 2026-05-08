@@ -26,7 +26,7 @@ func TestEffectiveConfigOrchestrator_Resolve_UsesSharedPrecedence(t *testing.T) 
 	flagShell := "fish"
 
 	orchestrator := newEffectiveConfigOrchestrator(globalPath)
-	cfg, src, err := orchestrator.ResolveWithSource(projectContext{Path: projectPath}, config.Overrides{Shell: &flagShell})
+	cfg, src, err := orchestrator.ResolveWithSource(projectContext{HostPath: projectPath}, config.Overrides{Shell: &flagShell})
 
 	require.NoError(t, err)
 	assert.Equal(t, "fish", cfg.Shell)
@@ -46,7 +46,7 @@ func TestEffectiveConfigOrchestrator_ResolveWithSource_ErrorsOnMalformedEnvOverr
 	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "config.toml"), []byte(""), 0o644))
 
 	orchestrator := newEffectiveConfigOrchestrator(globalPath)
-	_, _, err := orchestrator.ResolveWithSource(projectContext{Path: projectPath}, config.Overrides{})
+	_, _, err := orchestrator.ResolveWithSource(projectContext{HostPath: projectPath}, config.Overrides{})
 
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "HAVN_CPUS")
@@ -64,7 +64,7 @@ func TestEffectiveConfigOrchestrator_ResolveWithSource_UsesDefaultEnvironmentSub
 	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "environments", "default", "flake.nix"), []byte("{}"), 0o644))
 
 	orchestrator := newEffectiveConfigOrchestrator(globalPath)
-	cfg, src, err := orchestrator.ResolveWithSource(projectContext{Path: projectPath}, config.Overrides{})
+	cfg, src, err := orchestrator.ResolveWithSource(projectContext{HostPath: projectPath}, config.Overrides{})
 
 	require.NoError(t, err)
 	assert.Equal(t, "path:./.havn/environments/default", cfg.Env)
@@ -84,7 +84,7 @@ func TestEffectiveConfigOrchestrator_ResolveWithSource_PrefersLegacyProjectFlake
 	require.NoError(t, os.WriteFile(filepath.Join(projectPath, ".havn", "flake.nix"), []byte("{}"), 0o644))
 
 	orchestrator := newEffectiveConfigOrchestrator(globalPath)
-	cfg, _, err := orchestrator.ResolveWithSource(projectContext{Path: projectPath}, config.Overrides{})
+	cfg, _, err := orchestrator.ResolveWithSource(projectContext{HostPath: projectPath}, config.Overrides{})
 
 	require.NoError(t, err)
 	assert.Equal(t, "path:./.havn", cfg.Env)

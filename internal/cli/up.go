@@ -48,7 +48,7 @@ func newUpCmd(startService StartService) *cobra.Command {
 			out := commandOutput(cmd)
 			checkMode := startupCheckModeForUp(validate, prepare)
 			startupTelemetry := container.NewStartupCheckTelemetry()
-			_, err = startService.StartOrAttach(cmd.Context(), cfg, projectCtx.Path, out.Status, container.StartOptions{
+			_, err = startService.StartOrAttach(cmd.Context(), cfg, projectCtx.HostPath, out.Status, container.StartOptions{
 				VerboseStartup:        verbose,
 				Mode:                  container.StartupModeNoAttach,
 				StartupChecks:         checkMode,
@@ -62,14 +62,14 @@ func newUpCmd(startService StartService) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("havn up: %w", err)
 			}
-			out.Status(fmt.Sprintf("Container %s is running for project %s", containerName, projectCtx.Path))
+			out.Status(fmt.Sprintf("Container %s is running for project %s", containerName, projectCtx.HostPath))
 			if out.IsJSON() {
 				phaseSummary := startupCheckJSONPhaseSummary(startupTelemetry.Events())
 				return out.DataJSON(map[string]any{
 					"status":               "ok",
 					"message":              "container running",
 					"container":            string(containerName),
-					"project_path":         projectCtx.Path,
+					"project_path":         projectCtx.HostPath,
 					"startup_checks":       startupCheckModeLabel(checkMode),
 					"startup_check_phases": phaseSummary,
 				})

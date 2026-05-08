@@ -269,7 +269,7 @@ func resolveDoltConfigFromTarget(command, target string) (string, config.Config,
 		return "", config.Config{}, doltCommandError(command, err)
 	}
 
-	return projectCtx.Path, cfg, nil
+	return projectCtx.HostPath, cfg, nil
 }
 
 func doltOKResponse(out *Output, humanMessage, jsonMessage string, fields map[string]any) error {

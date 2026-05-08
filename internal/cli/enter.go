@@ -53,7 +53,7 @@ func newEnterCmd(service EnterService) *cobra.Command {
 				return err
 			}
 
-			exitCode, err := service.Enter(cmd.Context(), projectCtx.Path)
+			exitCode, err := service.Enter(cmd.Context(), projectCtx.HostPath)
 			if err != nil {
 				return fmt.Errorf("havn enter: %w", err)
 			}

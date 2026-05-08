@@ -176,7 +176,7 @@ func NewRoot(deps Deps) *cobra.Command {
 			}
 
 			out := commandOutput(cmd)
-			exitCode, err := deps.StartService.StartOrAttach(cmd.Context(), cfg, projectCtx.Path, out.Status, container.StartOptions{
+			exitCode, err := deps.StartService.StartOrAttach(cmd.Context(), cfg, projectCtx.HostPath, out.Status, container.StartOptions{
 				VerboseStartup: opts.Verbose,
 				StartupChecks:  container.StartupCheckPrepare,
 			})

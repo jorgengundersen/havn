@@ -26,7 +26,8 @@ func TestProjectContextFromWorkingDir_ResolvesPathsAndIdentity(t *testing.T) {
 	ctx, err := projectContextFromWorkingDirForStartup()
 	require.NoError(t, err)
 
-	assert.Equal(t, projectPath, ctx.Path)
+	assert.Equal(t, projectPath, ctx.HostPath)
+	assert.Equal(t, filepath.Join("/home/devuser", "workspace", "myproject"), ctx.ContainerPath)
 	assert.Equal(t, filepath.Join(projectPath, ".havn", "config.toml"), ctx.ProjectConfigPath())
 	assert.Equal(t, filepath.Join(projectPath, ".havn", "flake.nix"), ctx.ProjectFlakePath())
 	assert.Equal(t, filepath.Join(projectPath, ".havn", "environments", "default", "flake.nix"), ctx.ProjectDefaultEnvironmentFlakePath())
@@ -45,7 +46,8 @@ func TestProjectContextFromTarget_AllowsPathOutsideHomeForNonStartupCommands(t *
 
 	ctx, err := projectContextFromTarget(projectPath)
 	require.NoError(t, err)
-	assert.Equal(t, projectPath, ctx.Path)
+	assert.Equal(t, projectPath, ctx.HostPath)
+	assert.Empty(t, ctx.ContainerPath)
 }
 
 func TestProjectContextFromStartupTarget_RejectsPathOutsideHome(t *testing.T) {

@@ -38,7 +38,7 @@ func newVolumeListCmd(manager *volume.Manager) *cobra.Command {
 			}
 
 			orchestrator := newEffectiveConfigOrchestrator("")
-			cfg, err := orchestrator.Resolve(projectContext{Path: filepath.Clean(cwd)}, config.Overrides{})
+			cfg, err := orchestrator.Resolve(projectContext{HostPath: filepath.Clean(cwd)}, config.Overrides{})
 			if err != nil {
 				return fmt.Errorf("havn volume list: %w", err)
 			}
