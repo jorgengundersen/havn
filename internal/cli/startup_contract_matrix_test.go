@@ -55,7 +55,7 @@ type matrixEnterService struct {
 	called bool
 }
 
-func (s *matrixEnterService) Enter(_ context.Context, _ string) (int, error) {
+func (s *matrixEnterService) Enter(_ context.Context, _ container.ProjectPaths) (int, error) {
 	s.called = true
 	return 0, nil
 }

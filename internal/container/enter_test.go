@@ -16,9 +16,11 @@ import (
 type fakeEnterBackend struct {
 	inspectState container.State
 	inspectErr   error
+	inspectName  string
 }
 
-func (f *fakeEnterBackend) ContainerInspect(_ context.Context, _ string) (container.State, error) {
+func (f *fakeEnterBackend) ContainerInspect(_ context.Context, name string) (container.State, error) {
+	f.inspectName = name
 	return f.inspectState, f.inspectErr
 }
 
@@ -51,24 +53,29 @@ func (f *fakeEnterExecBackend) ContainerExecInteractive(_ context.Context, name 
 	return f.interactiveExitCode, f.interactiveErr
 }
 
-func TestEnter_RunningContainer_AttachesPlainBash(t *testing.T) {
+func TestEnter_RunningContainer_UsesHostPathForLookupAndContainerPathForPlainBashWorkdir(t *testing.T) {
 	ctx := context.Background()
 	exec := &fakeEnterExecBackend{interactiveExitCode: 0}
 	registry := &fakeEnterNixRegistryPreparer{}
+	backend := &fakeEnterBackend{inspectState: container.State{ID: "abc123", Running: true}}
 	deps := container.EnterDeps{
-		Container:   &fakeEnterBackend{inspectState: container.State{ID: "abc123", Running: true}},
+		Container:   backend,
 		Exec:        exec,
 		NixRegistry: registry,
 	}
 
-	exitCode, err := container.Enter(ctx, deps, "/home/devuser/Repos/github.com/user/project")
+	exitCode, err := container.Enter(ctx, deps, container.ProjectPaths{
+		HostPath:      "/home/alice/src/api",
+		ContainerPath: "/home/devuser/work/api",
+	})
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
-	assert.Equal(t, "havn-user-project", exec.interactiveName)
+	assert.Equal(t, "havn-src-api", backend.inspectName)
+	assert.Equal(t, "havn-src-api", exec.interactiveName)
 	assert.Equal(t, []string{"bash"}, exec.interactiveCmd)
-	assert.Equal(t, "/home/devuser/Repos/github.com/user/project", exec.interactiveWorkdir)
-	assert.Equal(t, []string{"havn-user-project"}, registry.calls)
+	assert.Equal(t, "/home/devuser/work/api", exec.interactiveWorkdir)
+	assert.Equal(t, []string{"havn-src-api"}, registry.calls)
 }
 
 func TestEnter_RunningContainer_RelativeProjectPathDerivesContainerName(t *testing.T) {
@@ -84,12 +91,12 @@ func TestEnter_RunningContainer_RelativeProjectPathDerivesContainerName(t *testi
 		Exec:      exec,
 	}
 
-	exitCode, err := container.Enter(ctx, deps, ".")
+	exitCode, err := container.Enter(ctx, deps, container.ProjectPaths{HostPath: ".", ContainerPath: "/home/devuser/work/project"})
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
-	assert.Equal(t, ".", exec.interactiveWorkdir)
+	assert.Equal(t, "/home/devuser/work/project", exec.interactiveWorkdir)
 }
 
 func TestEnter_RunningContainer_DotSlashProjectPathDerivesContainerName(t *testing.T) {
@@ -106,12 +113,12 @@ func TestEnter_RunningContainer_DotSlashProjectPathDerivesContainerName(t *testi
 		Exec:      exec,
 	}
 
-	exitCode, err := container.Enter(ctx, deps, "./project")
+	exitCode, err := container.Enter(ctx, deps, container.ProjectPaths{HostPath: "./project", ContainerPath: "/home/devuser/work/project"})
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
-	assert.Equal(t, "./project", exec.interactiveWorkdir)
+	assert.Equal(t, "/home/devuser/work/project", exec.interactiveWorkdir)
 }
 
 func TestEnter_RunningContainer_DotDotProjectPathDerivesContainerName(t *testing.T) {
@@ -130,12 +137,12 @@ func TestEnter_RunningContainer_DotDotProjectPathDerivesContainerName(t *testing
 		Exec:      exec,
 	}
 
-	exitCode, err := container.Enter(ctx, deps, "../project")
+	exitCode, err := container.Enter(ctx, deps, container.ProjectPaths{HostPath: "../project", ContainerPath: "/home/devuser/work/project"})
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
-	assert.Equal(t, "../project", exec.interactiveWorkdir)
+	assert.Equal(t, "/home/devuser/work/project", exec.interactiveWorkdir)
 }
 
 func TestEnter_MissingContainer_ReturnsActionableNotRunningError(t *testing.T) {
@@ -147,12 +154,18 @@ func TestEnter_MissingContainer_ReturnsActionableNotRunningError(t *testing.T) {
 		NixRegistry: registry,
 	}
 
-	_, err := container.Enter(ctx, deps, "/home/devuser/Repos/github.com/user/project")
+	_, err := container.Enter(ctx, deps, container.ProjectPaths{
+		HostPath:      "/home/alice/work/api",
+		ContainerPath: "/home/devuser/work/api",
+	})
 
 	var notRunning *container.EnterContainerNotRunningError
 	require.True(t, errors.As(err, &notRunning))
 	assert.Equal(t, "missing", notRunning.State)
-	assert.ErrorContains(t, err, "havn up /home/devuser/Repos/github.com/user/project")
+	assert.Equal(t, "havn-work-api", notRunning.Name)
+	assert.Equal(t, "/home/alice/work/api", notRunning.ProjectPath)
+	assert.ErrorContains(t, err, "havn up /home/alice/work/api")
+	assert.NotContains(t, err.Error(), "/home/devuser/work/api")
 	assert.Empty(t, registry.calls)
 }
 
@@ -166,12 +179,18 @@ func TestEnter_StoppedContainer_ReturnsActionableNotRunningError(t *testing.T) {
 		NixRegistry: registry,
 	}
 
-	_, err := container.Enter(ctx, deps, "/home/devuser/Repos/github.com/user/project")
+	_, err := container.Enter(ctx, deps, container.ProjectPaths{
+		HostPath:      "/home/alice/work/api",
+		ContainerPath: "/home/devuser/work/api",
+	})
 
 	var notRunning *container.EnterContainerNotRunningError
 	require.True(t, errors.As(err, &notRunning))
 	assert.Equal(t, "stopped", notRunning.State)
-	assert.ErrorContains(t, err, "havn up /home/devuser/Repos/github.com/user/project")
+	assert.Equal(t, "havn-work-api", notRunning.Name)
+	assert.Equal(t, "/home/alice/work/api", notRunning.ProjectPath)
+	assert.ErrorContains(t, err, "havn up /home/alice/work/api")
+	assert.NotContains(t, err.Error(), "/home/devuser/work/api")
 	assert.Empty(t, exec.interactiveName)
 	assert.Empty(t, registry.calls)
 }
@@ -185,10 +204,13 @@ func TestEnter_RunningContainer_NixRegistryPrepareFailure_AbortsAttach(t *testin
 		NixRegistry: &fakeEnterNixRegistryPreparer{err: errors.New("registry unreadable")},
 	}
 
-	_, err := container.Enter(ctx, deps, "/home/devuser/Repos/github.com/user/project")
+	_, err := container.Enter(ctx, deps, container.ProjectPaths{
+		HostPath:      "/home/alice/work/api",
+		ContainerPath: "/home/devuser/work/api",
+	})
 
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "prepare nix registry aliases in container \"havn-user-project\"")
+	assert.ErrorContains(t, err, "prepare nix registry aliases in container \"havn-work-api\"")
 	assert.ErrorContains(t, err, "registry unreadable")
 	assert.Empty(t, exec.interactiveName)
 }

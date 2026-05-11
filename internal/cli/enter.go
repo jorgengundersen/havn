@@ -13,20 +13,20 @@ import (
 // EnterService is the CLI-facing plain-shell entry dependency for the enter
 // command.
 type EnterService interface {
-	Enter(ctx context.Context, projectPath string) (int, error)
+	Enter(ctx context.Context, paths container.ProjectPaths) (int, error)
 }
 
 type dockerEnterService struct {
 	docker *docker.Client
 }
 
-func (s dockerEnterService) Enter(ctx context.Context, projectPath string) (int, error) {
+func (s dockerEnterService) Enter(ctx context.Context, paths container.ProjectPaths) (int, error) {
 	backend := dockerStartBackend(s)
 	return container.Enter(ctx, container.EnterDeps{
 		Container:   backend,
 		Exec:        backend,
 		NixRegistry: nixRegistryPreparer{docker: s.docker},
-	}, projectPath)
+	}, paths)
 }
 
 func newEnterCmd(service EnterService) *cobra.Command {
@@ -53,7 +53,7 @@ func newEnterCmd(service EnterService) *cobra.Command {
 				return err
 			}
 
-			exitCode, err := service.Enter(cmd.Context(), projectCtx.HostPath)
+			exitCode, err := service.Enter(cmd.Context(), projectCtx.ProjectPaths())
 			if err != nil {
 				return fmt.Errorf("havn enter: %w", err)
 			}

@@ -14,15 +14,15 @@ import (
 )
 
 type fakeEnterService struct {
-	called      bool
-	lastProject string
-	exitCode    int
-	err         error
+	called    bool
+	lastPaths container.ProjectPaths
+	exitCode  int
+	err       error
 }
 
-func (f *fakeEnterService) Enter(_ context.Context, projectPath string) (int, error) {
+func (f *fakeEnterService) Enter(_ context.Context, paths container.ProjectPaths) (int, error) {
 	f.called = true
-	f.lastProject = projectPath
+	f.lastPaths = paths
 	return f.exitCode, f.err
 }
 
@@ -69,7 +69,7 @@ func TestEnterCommand_ReturnsNotImplemented(t *testing.T) {
 	assert.Contains(t, err.Error(), "havn enter:")
 }
 
-func TestEnterCommand_CallsServiceWithResolvedPath(t *testing.T) {
+func TestEnterCommand_CallsServiceWithResolvedProjectPaths(t *testing.T) {
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 	projectPath := filepath.Join(homeDir, "work", "sample-project")
@@ -80,7 +80,7 @@ func TestEnterCommand_CallsServiceWithResolvedPath(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.True(t, svc.called)
-	assert.Equal(t, projectPath, svc.lastProject)
+	assert.Equal(t, container.ProjectPaths{HostPath: projectPath, ContainerPath: "/home/devuser/work/sample-project"}, svc.lastPaths)
 }
 
 func TestEnterCommand_DoesNotInvokeStartupLifecycle(t *testing.T) {
@@ -162,7 +162,7 @@ func TestEnterCommand_PathDefaultsToDot(t *testing.T) {
 	_, _, err = executeCommandWithDeps(cli.Deps{EnterService: svc}, "enter")
 
 	require.NoError(t, err)
-	assert.Equal(t, projectPath, svc.lastProject)
+	assert.Equal(t, container.ProjectPaths{HostPath: projectPath, ContainerPath: "/home/devuser/work/sample-project"}, svc.lastPaths)
 }
 
 func TestEnterCommand_NixRegistryPrepareFailureIsWrapped(t *testing.T) {

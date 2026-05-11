@@ -19,8 +19,12 @@ type EnterDeps struct {
 }
 
 // Enter attaches to a running project container with a plain bash shell.
-func Enter(ctx context.Context, deps EnterDeps, projectPath string) (int, error) {
-	cname, err := deriveContainerName(projectPath)
+func Enter(ctx context.Context, deps EnterDeps, paths ProjectPaths) (int, error) {
+	if err := validateProjectPaths(paths); err != nil {
+		return 0, err
+	}
+
+	cname, err := deriveContainerName(paths.HostPath)
 	if err != nil {
 		return 0, err
 	}
@@ -29,12 +33,12 @@ func Enter(ctx context.Context, deps EnterDeps, projectPath string) (int, error)
 	if err != nil {
 		var notFound *NotFoundError
 		if errors.As(err, &notFound) {
-			return 0, &EnterContainerNotRunningError{Name: string(cname), ProjectPath: projectPath, State: "missing"}
+			return 0, &EnterContainerNotRunningError{Name: string(cname), ProjectPath: paths.HostPath, State: "missing"}
 		}
 		return 0, fmt.Errorf("inspect container %q: %w", cname, err)
 	}
 	if !state.Running {
-		return 0, &EnterContainerNotRunningError{Name: string(cname), ProjectPath: projectPath, State: "stopped"}
+		return 0, &EnterContainerNotRunningError{Name: string(cname), ProjectPath: paths.HostPath, State: "stopped"}
 	}
 	if deps.NixRegistry != nil {
 		if err := deps.NixRegistry.Prepare(ctx, string(cname)); err != nil {
@@ -42,5 +46,5 @@ func Enter(ctx context.Context, deps EnterDeps, projectPath string) (int, error)
 		}
 	}
 
-	return deps.Exec.ContainerExecInteractive(ctx, string(cname), []string{"bash"}, projectPath)
+	return deps.Exec.ContainerExecInteractive(ctx, string(cname), []string{"bash"}, paths.ContainerPath)
 }
