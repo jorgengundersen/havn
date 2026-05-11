@@ -80,7 +80,7 @@ type Deps struct {
 // StartService is the CLI-facing start-or-attach dependency for the root
 // command.
 type StartService interface {
-	StartOrAttach(ctx context.Context, cfg config.Config, projectPath string, status func(msg string), opts container.StartOptions) (int, error)
+	StartOrAttach(ctx context.Context, cfg config.Config, paths container.ProjectPaths, status func(msg string), opts container.StartOptions) (int, error)
 }
 
 // rootOpts holds all flag values for the root command.
@@ -176,7 +176,7 @@ func NewRoot(deps Deps) *cobra.Command {
 			}
 
 			out := commandOutput(cmd)
-			exitCode, err := deps.StartService.StartOrAttach(cmd.Context(), cfg, projectCtx.HostPath, out.Status, container.StartOptions{
+			exitCode, err := deps.StartService.StartOrAttach(cmd.Context(), cfg, projectCtx.ProjectPaths(), out.Status, container.StartOptions{
 				VerboseStartup: opts.Verbose,
 				StartupChecks:  container.StartupCheckPrepare,
 			})

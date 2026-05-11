@@ -12,7 +12,7 @@ import (
 
 type failingStartService struct{}
 
-func (failingStartService) StartOrAttach(context.Context, config.Config, string, func(string), container.StartOptions) (int, error) {
+func (failingStartService) StartOrAttach(context.Context, config.Config, container.ProjectPaths, func(string), container.StartOptions) (int, error) {
 	return 0, &volume.NotFoundError{Name: "havn-dolt-data"}
 }
 

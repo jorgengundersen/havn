@@ -21,7 +21,7 @@ type dockerStartService struct {
 	docker *docker.Client
 }
 
-func (s dockerStartService) StartOrAttach(ctx context.Context, cfg config.Config, projectPath string, status func(msg string), opts container.StartOptions) (int, error) {
+func (s dockerStartService) StartOrAttach(ctx context.Context, cfg config.Config, paths container.ProjectPaths, status func(msg string), opts container.StartOptions) (int, error) {
 	startBackend := dockerStartBackend(s)
 	doltBackend := dockerDoltBackend(s)
 	volumeBackend := dockerVolumeBackend(s)
@@ -41,7 +41,7 @@ func (s dockerStartService) StartOrAttach(ctx context.Context, cfg config.Config
 		Status:      status,
 	}
 
-	return container.StartOrAttachWithOptions(ctx, deps, cfg, projectPath, opts)
+	return container.StartOrAttachWithOptions(ctx, deps, cfg, paths, opts)
 }
 
 type dockerStartBackend struct {
@@ -186,13 +186,13 @@ func hostPortFromMapping(mapping string) (string, bool) {
 
 type hostMountResolver struct{}
 
-func (hostMountResolver) Resolve(cfg config.Config, projectPath string) (mount.ResolveResult, error) {
+func (hostMountResolver) Resolve(cfg config.Config, paths container.ProjectPaths) (mount.ResolveResult, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return mount.ResolveResult{}, err
 	}
 
-	return mount.Resolve(cfg, projectPath, homeDir, mount.ResolveOpts{
+	return mount.ResolveProjectPaths(cfg, paths, homeDir, mount.ResolveOpts{
 		Glob:        filepath.Glob,
 		Exists:      pathExists,
 		SSHAuthSock: os.Getenv("SSH_AUTH_SOCK"),

@@ -48,7 +48,7 @@ func newUpCmd(startService StartService) *cobra.Command {
 			out := commandOutput(cmd)
 			checkMode := startupCheckModeForUp(validate, prepare)
 			startupTelemetry := container.NewStartupCheckTelemetry()
-			_, err = startService.StartOrAttach(cmd.Context(), cfg, projectCtx.HostPath, out.Status, container.StartOptions{
+			_, err = startService.StartOrAttach(cmd.Context(), cfg, projectCtx.ProjectPaths(), out.Status, container.StartOptions{
 				VerboseStartup:        verbose,
 				Mode:                  container.StartupModeNoAttach,
 				StartupChecks:         checkMode,

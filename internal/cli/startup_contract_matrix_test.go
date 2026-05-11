@@ -21,7 +21,7 @@ type matrixStartService struct {
 	lastOpt container.StartOptions
 }
 
-func (s *matrixStartService) StartOrAttach(_ context.Context, cfg config.Config, _ string, _ func(string), opts container.StartOptions) (int, error) {
+func (s *matrixStartService) StartOrAttach(_ context.Context, cfg config.Config, _ container.ProjectPaths, _ func(string), opts container.StartOptions) (int, error) {
 	s.called = true
 	s.lastCfg = cfg
 	s.lastOpt = opts

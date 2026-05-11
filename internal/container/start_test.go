@@ -72,11 +72,13 @@ func (f *fakeVolumeEnsurer) EnsureExists(_ context.Context, name string) error {
 }
 
 type fakeMountResolver struct {
-	result mount.ResolveResult
-	err    error
+	result    mount.ResolveResult
+	err       error
+	lastPaths container.ProjectPaths
 }
 
-func (f *fakeMountResolver) Resolve(_ config.Config, _ string) (mount.ResolveResult, error) {
+func (f *fakeMountResolver) Resolve(_ config.Config, paths container.ProjectPaths) (mount.ResolveResult, error) {
+	f.lastPaths = paths
 	return f.result, f.err
 }
 
@@ -192,7 +194,10 @@ func defaultTestConfig() config.Config {
 	}
 }
 
-const testProjectPath = "/home/devuser/Repos/github.com/user/project"
+const testProjectPath = "/home/alice/Repos/github.com/user/project"
+const testContainerProjectPath = "/home/devuser/Repos/github.com/user/project"
+
+var testProjectPaths = container.ProjectPaths{HostPath: testProjectPath, ContainerPath: testContainerProjectPath}
 
 // --- tests ---
 
@@ -211,13 +216,37 @@ func TestStartOrAttach_RunningContainer_DefaultStartupRetainsNixBuildLogs(t *tes
 		Shell: "default",
 	}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, "/home/devuser/Repos/github.com/user/project")
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
 	assert.Equal(t, []string{"nix", "--extra-experimental-features", "nix-command flakes", "--option", "keep-build-log", "true", "develop", "github:user/env#default"}, exec.interactiveCmd)
-	assert.Equal(t, "/home/devuser/Repos/github.com/user/project", exec.interactiveWorkdir)
+	assert.Equal(t, testContainerProjectPath, exec.interactiveWorkdir)
+}
+
+func TestStartOrAttach_RunningContainer_UsesHostPathForNameAndContainerPathForAttachWorkdir(t *testing.T) {
+	ctx := context.Background()
+	exec := &fakeExecBackend{interactiveExitCode: 0}
+	deps := container.StartDeps{
+		Container: &fakeStartBackend{
+			inspectState: container.State{ID: "abc123", Running: true},
+		},
+		Exec:   exec,
+		Status: func(string) {},
+	}
+	cfg := config.Config{Env: "github:user/env", Shell: "default"}
+	paths := container.ProjectPaths{
+		HostPath:      "/home/alice/work/api",
+		ContainerPath: "/home/devuser/work/api",
+	}
+
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, paths)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, exitCode)
+	assert.Equal(t, "havn-work-api", exec.interactiveName)
+	assert.Equal(t, "/home/devuser/work/api", exec.interactiveWorkdir)
 }
 
 func TestStartOrAttach_RunningContainer_VerboseStartupEnablesDetailedNixLogs(t *testing.T) {
@@ -235,7 +264,7 @@ func TestStartOrAttach_RunningContainer_VerboseStartupEnablesDetailedNixLogs(t *
 		Shell: "default",
 	}
 
-	exitCode, err := container.StartOrAttachWithOptions(ctx, deps, cfg, testProjectPath, container.StartOptions{VerboseStartup: true})
+	exitCode, err := container.StartOrAttachWithOptions(ctx, deps, cfg, testProjectPaths, container.StartOptions{VerboseStartup: true})
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
@@ -262,7 +291,7 @@ func TestStartOrAttachWithOptions_StartupChecksConsumeStreamingStderrEvents(t *t
 		},
 	}
 
-	_, err := container.StartOrAttachWithOptions(ctx, deps, defaultTestConfig(), testProjectPath, container.StartOptions{
+	_, err := container.StartOrAttachWithOptions(ctx, deps, defaultTestConfig(), testProjectPaths, container.StartOptions{
 		StartupChecks: container.StartupCheckValidate,
 	})
 
@@ -290,7 +319,7 @@ func TestStartOrAttachWithOptions_StartupChecksClassifyStreamingProgressMetrics(
 		},
 	}
 
-	_, err := container.StartOrAttachWithOptions(ctx, deps, defaultTestConfig(), testProjectPath, container.StartOptions{
+	_, err := container.StartOrAttachWithOptions(ctx, deps, defaultTestConfig(), testProjectPaths, container.StartOptions{
 		StartupChecks: container.StartupCheckValidate,
 	})
 
@@ -313,7 +342,7 @@ func TestStartOrAttach_RunningContainer_DotProjectPathDerivesContainerName(t *te
 	}
 	cfg := config.Config{Env: "github:user/env", Shell: "default"}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, ".")
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, container.ProjectPaths{HostPath: ".", ContainerPath: "."})
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
@@ -337,7 +366,7 @@ func TestStartOrAttach_RunningContainer_DotSlashProjectPathDerivesContainerName(
 	}
 	cfg := config.Config{Env: "github:user/env", Shell: "default"}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, "./project")
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, container.ProjectPaths{HostPath: "./project", ContainerPath: "./project"})
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
@@ -363,7 +392,7 @@ func TestStartOrAttach_RunningContainer_DotDotProjectPathDerivesContainerName(t 
 	}
 	cfg := config.Config{Env: "github:user/env", Shell: "default"}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, "../project")
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, container.ProjectPaths{HostPath: "../project", ContainerPath: "../project"})
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
@@ -388,7 +417,7 @@ func TestStartOrAttach_RunningContainer_PreparesNixRegistry(t *testing.T) {
 		Shell: "default",
 	}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
@@ -411,7 +440,7 @@ func TestStartOrAttach_RunningContainer_PreparesStartupSessionBeforeAttach(t *te
 		Shell: "default",
 	}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
@@ -440,7 +469,7 @@ func TestStartOrAttach_RunningContainer_RecordsStartupCheckPhaseTelemetry(t *tes
 		Shell: "default",
 	}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
@@ -474,7 +503,7 @@ func TestStartOrAttach_RunningContainer_EmitsStartupCheckPhaseStatusMessages(t *
 		Shell: "default",
 	}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
@@ -523,7 +552,7 @@ func TestStartOrAttach_RunningContainer_CompletionIncludesProgressSummary(t *tes
 		Shell: "default",
 	}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
@@ -563,7 +592,7 @@ func TestStartOrAttach_RunningContainer_CompletionIncludesDominantActivityReason
 		Shell: "default",
 	}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
@@ -600,7 +629,7 @@ func TestStartOrAttach_RunningContainer_RecordsStartupCheckPhaseCancellation(t *
 		Shell: "default",
 	}
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.ErrorContains(t, err, "validate required devShell")
 	events := telemetry.Events()
@@ -636,7 +665,7 @@ func TestStartOrAttach_RunningContainer_ReportsInterruptedStartupCheckPhase(t *t
 		Shell: "default",
 	}
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.ErrorContains(t, err, "validate required devShell")
 	assert.Contains(t, statusMessages, "Startup check phase validation interrupted: context canceled")
@@ -683,7 +712,7 @@ func TestStartOrAttach_RunningContainer_EmitsHeartbeatForLongRunningStartupCheck
 
 	result := make(chan error, 1)
 	go func() {
-		_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+		_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 		result <- err
 	}()
 
@@ -751,7 +780,7 @@ func TestStartOrAttach_RunningContainer_HeartbeatIncludesLastProgressContext(t *
 
 	result := make(chan error, 1)
 	go func() {
-		_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+		_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 		result <- err
 	}()
 
@@ -799,7 +828,7 @@ func TestStartOrAttach_RunningContainer_UsesDefaultHeartbeatCadenceForStartupChe
 		Shell: "default",
 	}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
@@ -830,7 +859,7 @@ func TestStartOrAttach_RunningContainer_ReportsStartupCheckPhaseFailureStatus(t 
 		Shell: "default",
 	}
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.ErrorContains(t, err, "run optional startup capability havn-session-prepare")
 	assert.Contains(t, statusMessages, "Startup check phase prepare failed: prepare hook failed")
@@ -859,7 +888,7 @@ func TestStartOrAttach_RunningContainer_RecordsStartupCheckPhaseFailure(t *testi
 		Shell: "default",
 	}
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.ErrorContains(t, err, "run optional startup capability havn-session-prepare")
 	events := telemetry.Events()
@@ -887,7 +916,7 @@ func TestStartOrAttach_RunningContainer_NixRegistryPrepareFailure_Aborts(t *test
 		Shell: "default",
 	}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.Equal(t, 0, exitCode)
 	assert.ErrorContains(t, err, "prepare nix registry aliases in container \"havn-user-project\"")
@@ -916,7 +945,7 @@ func TestStartOrAttach_RunningContainer_PrepareCapabilityFailure_AbortsWithGuida
 		Shell: "default",
 	}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.Equal(t, 0, exitCode)
 	assert.ErrorContains(t, err, "run optional startup capability havn-session-prepare in container \"havn-user-project\"")
@@ -948,7 +977,7 @@ func TestStartOrAttach_RunningContainer_MissingOptionalPrepareCapability_Continu
 		Shell: "default",
 	}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
@@ -981,7 +1010,7 @@ func TestStartOrAttach_RunningContainer_MissingRequiredDevShell_AbortsBeforePrep
 		Shell: "default",
 	}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.Equal(t, 0, exitCode)
 	assert.ErrorContains(t, err, "validate required devShell \"default\"")
@@ -1005,7 +1034,7 @@ func TestStart_RunningContainer_SkipsStartupChecksWithoutInteractiveAttachByDefa
 		Shell: "default",
 	}
 
-	err := container.Start(ctx, deps, cfg, testProjectPath)
+	err := container.Start(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Empty(t, exec.interactiveName)
@@ -1027,7 +1056,7 @@ func TestStartWithOptions_RunningContainer_ValidateOnlyRunsValidationPhase(t *te
 		Shell: "default",
 	}
 
-	err := container.StartWithOptions(ctx, deps, cfg, testProjectPath, container.StartOptions{StartupChecks: container.StartupCheckValidate})
+	err := container.StartWithOptions(ctx, deps, cfg, testProjectPaths, container.StartOptions{StartupChecks: container.StartupCheckValidate})
 
 	require.NoError(t, err)
 	require.Len(t, exec.execCalls, 1)
@@ -1051,7 +1080,7 @@ func TestStartWithOptions_InvalidStartupCheckMode_ReturnsError(t *testing.T) {
 		Shell: "default",
 	}
 
-	err := container.StartWithOptions(ctx, deps, cfg, testProjectPath, container.StartOptions{StartupChecks: container.StartupCheckMode(99)})
+	err := container.StartWithOptions(ctx, deps, cfg, testProjectPaths, container.StartOptions{StartupChecks: container.StartupCheckMode(99)})
 
 	assert.ErrorContains(t, err, "invalid startup check mode")
 	assert.Empty(t, exec.execCalls)
@@ -1073,7 +1102,7 @@ func TestStartWithOptions_RunningContainer_PrepareModeRunsValidationAndPrepare(t
 		Shell: "default",
 	}
 
-	err := container.StartWithOptions(ctx, deps, cfg, testProjectPath, container.StartOptions{StartupChecks: container.StartupCheckPrepare})
+	err := container.StartWithOptions(ctx, deps, cfg, testProjectPaths, container.StartOptions{StartupChecks: container.StartupCheckPrepare})
 
 	require.NoError(t, err)
 	require.Len(t, exec.execCalls, 2)
@@ -1097,9 +1126,9 @@ func TestStartWithOptions_RunningContainer_PrepareModeIsRepeatSafeAndNonInteract
 		Shell: "default",
 	}
 
-	err := container.StartWithOptions(ctx, deps, cfg, testProjectPath, container.StartOptions{StartupChecks: container.StartupCheckPrepare})
+	err := container.StartWithOptions(ctx, deps, cfg, testProjectPaths, container.StartOptions{StartupChecks: container.StartupCheckPrepare})
 	require.NoError(t, err)
-	err = container.StartWithOptions(ctx, deps, cfg, testProjectPath, container.StartOptions{StartupChecks: container.StartupCheckPrepare})
+	err = container.StartWithOptions(ctx, deps, cfg, testProjectPaths, container.StartOptions{StartupChecks: container.StartupCheckPrepare})
 	require.NoError(t, err)
 
 	require.Len(t, exec.execCalls, 4)
@@ -1125,7 +1154,7 @@ func TestStartOrAttachWithOptions_InvalidStartupMode_ReturnsError(t *testing.T) 
 		Shell: "default",
 	}
 
-	_, err := container.StartOrAttachWithOptions(ctx, deps, cfg, testProjectPath, container.StartOptions{Mode: container.StartupMode(99)})
+	_, err := container.StartOrAttachWithOptions(ctx, deps, cfg, testProjectPaths, container.StartOptions{Mode: container.StartupMode(99)})
 
 	assert.ErrorContains(t, err, "invalid startup mode")
 	assert.Empty(t, exec.execCalls)
@@ -1142,7 +1171,7 @@ func TestStartOrAttach_NewContainer(t *testing.T) {
 	mounts := &fakeMountResolver{
 		result: mount.ResolveResult{
 			Mounts: []mount.Spec{
-				{Source: testProjectPath, Target: testProjectPath, Type: "bind"},
+				{Source: testProjectPath, Target: testContainerProjectPath, Type: "bind"},
 			},
 			Env: map[string]string{"SSH_AUTH_SOCK": "/ssh-agent"},
 		},
@@ -1158,7 +1187,7 @@ func TestStartOrAttach_NewContainer(t *testing.T) {
 		Status:    func(string) {},
 	}
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
@@ -1183,6 +1212,10 @@ func TestStartOrAttach_NewContainer(t *testing.T) {
 	assert.Equal(t, "12g", cb.createdOpts.Labels["havn.memory_swap"])
 	assert.Equal(t, "false", cb.createdOpts.Labels["havn.dolt"])
 
+	// Startup carries explicit host and container project paths into mount resolution.
+	assert.Equal(t, testProjectPaths, mounts.lastPaths)
+	assert.Contains(t, cb.createdOpts.Mounts, mount.Spec{Source: testProjectPath, Target: testContainerProjectPath, Type: "bind"})
+
 	// Env includes SSH from mount resolution.
 	assert.Equal(t, "/ssh-agent", cb.createdOpts.Env["SSH_AUTH_SOCK"])
 
@@ -1200,7 +1233,7 @@ func TestStartOrAttach_NewContainer(t *testing.T) {
 
 	// Interactive shell was attached.
 	assert.Equal(t, "havn-user-project", exec.interactiveName)
-	assert.Equal(t, testProjectPath, exec.interactiveWorkdir)
+	assert.Equal(t, testContainerProjectPath, exec.interactiveWorkdir)
 }
 
 func TestStartOrAttach_NewContainer_ReportsAppliedResourceLimits(t *testing.T) {
@@ -1212,7 +1245,7 @@ func TestStartOrAttach_NewContainer_ReportsAppliedResourceLimits(t *testing.T) {
 	exec := &fakeExecBackend{interactiveExitCode: 0}
 	mounts := &fakeMountResolver{
 		result: mount.ResolveResult{
-			Mounts: []mount.Spec{{Source: testProjectPath, Target: testProjectPath, Type: "bind"}},
+			Mounts: []mount.Spec{{Source: testProjectPath, Target: testContainerProjectPath, Type: "bind"}},
 			Env:    map[string]string{"SSH_AUTH_SOCK": "/ssh-agent"},
 		},
 	}
@@ -1228,7 +1261,7 @@ func TestStartOrAttach_NewContainer_ReportsAppliedResourceLimits(t *testing.T) {
 		Status:    func(msg string) { statusMessages = append(statusMessages, msg) },
 	}
 
-	_, err := container.StartOrAttach(ctx, deps, defaultTestConfig(), testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, defaultTestConfig(), testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Contains(t, statusMessages, "Created container havn-user-project with resources cpus=4 memory=8g memory_swap=12g")
@@ -1244,7 +1277,7 @@ func TestStart_NewContainer_StartsAndInitsWithoutStartupChecksByDefault(t *testi
 	mounts := &fakeMountResolver{
 		result: mount.ResolveResult{
 			Mounts: []mount.Spec{
-				{Source: testProjectPath, Target: testProjectPath, Type: "bind"},
+				{Source: testProjectPath, Target: testContainerProjectPath, Type: "bind"},
 			},
 			Env: map[string]string{"SSH_AUTH_SOCK": "/ssh-agent"},
 		},
@@ -1260,7 +1293,7 @@ func TestStart_NewContainer_StartsAndInitsWithoutStartupChecksByDefault(t *testi
 		Status:    func(string) {},
 	}
 
-	err := container.Start(ctx, deps, cfg, testProjectPath)
+	err := container.Start(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, "new-123", cb.startedID)
@@ -1283,7 +1316,7 @@ func TestStartOrAttach_StoppedContainer_StartsExisting(t *testing.T) {
 	}
 	cfg := defaultTestConfig()
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
@@ -1309,7 +1342,7 @@ func TestStartOrAttach_StoppedContainer_ReusesExistingResourceLimits(t *testing.
 	cfg.Resources.Memory = "20g"
 	cfg.Resources.MemorySwap = "24g"
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
@@ -1332,7 +1365,7 @@ func TestStart_StoppedContainer_StartsAndInitsWithoutStartupChecksByDefault(t *t
 	}
 	cfg := defaultTestConfig()
 
-	err := container.Start(ctx, deps, cfg, testProjectPath)
+	err := container.Start(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, "stopped-123", cb.startedID)
@@ -1355,7 +1388,7 @@ func TestStartOrAttach_StoppedContainer_InitFailure_AbortsStartup(t *testing.T) 
 	}
 	cfg := defaultTestConfig()
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.Equal(t, 0, exitCode)
 	assert.ErrorContains(t, err, "init sshd in container \"havn-user-project\"")
@@ -1381,7 +1414,7 @@ func TestStartOrAttach_ImageMissing_BuildsFirst(t *testing.T) {
 	}
 	cfg := defaultTestConfig()
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, "havn-base:latest", imgBackend.buildOpts.Tag)
@@ -1409,7 +1442,7 @@ func TestStartOrAttach_NetworkMissing_CreatesWithStatus(t *testing.T) {
 	}
 	cfg := defaultTestConfig()
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.True(t, net.created)
@@ -1430,7 +1463,7 @@ func TestStartOrAttach_NetworkInspectError_Aborts(t *testing.T) {
 	}
 	cfg := defaultTestConfig()
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.ErrorContains(t, err, "inspect network \"havn-net\"")
 	assert.False(t, net.created)
@@ -1462,7 +1495,7 @@ func TestStartOrAttach_DoltEnabled(t *testing.T) {
 	cfg.Dolt.Enabled = true
 	cfg.Dolt.Database = "mydb"
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, "havn-dolt", cb.createdOpts.Env["BEADS_DOLT_SERVER_HOST"])
@@ -1498,7 +1531,7 @@ func TestStartOrAttach_DoltEnabled_WithMigrationNotice_ShowsStatus(t *testing.T)
 	cfg.Dolt.Enabled = true
 	cfg.Dolt.Database = "mydb"
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Contains(t, statusMessages, doltSetup.notice)
@@ -1526,7 +1559,7 @@ func TestStartOrAttach_DoltDisabled_SkipsSetup(t *testing.T) {
 	cfg := defaultTestConfig()
 	cfg.Dolt.Enabled = false
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	_, hasDoltEnv := cb.createdOpts.Env["SHOULD_NOT"]
@@ -1552,7 +1585,7 @@ func TestStartOrAttach_InitFailure_AbortsStartup(t *testing.T) {
 	}
 	cfg := defaultTestConfig()
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.Equal(t, 0, exitCode)
 	assert.ErrorContains(t, err, "sshd failed")
@@ -1569,7 +1602,7 @@ func TestStartOrAttach_InspectError_Aborts(t *testing.T) {
 	}
 	cfg := defaultTestConfig()
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.ErrorContains(t, err, "docker daemon not running")
 }
@@ -1587,7 +1620,7 @@ func TestStartOrAttach_VolumeEnsureError_Aborts(t *testing.T) {
 	}
 	cfg := defaultTestConfig()
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.ErrorContains(t, err, "volume create failed")
 }
@@ -1608,7 +1641,7 @@ func TestStartOrAttach_ContainerCreateError_Aborts(t *testing.T) {
 	}
 	cfg := defaultTestConfig()
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.ErrorContains(t, err, "name conflict")
 }
@@ -1630,7 +1663,7 @@ func TestStartOrAttach_EnsuresAllVolumes(t *testing.T) {
 	}
 	cfg := defaultTestConfig()
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"havn-nix", "havn-data", "havn-cache", "havn-state"}, vol.ensuredNames)
@@ -1657,7 +1690,7 @@ func TestStartOrAttach_ConfigEnvironment_IncludedInEnv(t *testing.T) {
 		"DEBUG":      "true",
 	}
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, "secret123", cb.createdOpts.Env["MY_API_KEY"])
@@ -1686,7 +1719,7 @@ func TestStartOrAttach_ConfigEnvironment_PassthroughResolvesHostVar(t *testing.T
 		"MY_API_KEY": "${MY_API_KEY}",
 	}
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, "host-secret", cb.createdOpts.Env["MY_API_KEY"])
@@ -1712,7 +1745,7 @@ func TestStartOrAttach_ConfigEnvironment_ReservedDoltVarRejected(t *testing.T) {
 		"BEADS_DOLT_SERVER_HOST": "custom-host",
 	}
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	var valErr *config.ValidationError
 	require.ErrorAs(t, err, &valErr)
@@ -1739,7 +1772,7 @@ func TestStartOrAttach_ConfigEnvironment_UnsetPassthroughVarRejected(t *testing.
 		"API_KEY": "${UNSET_API_KEY}",
 	}
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	var valErr *config.ValidationError
 	require.ErrorAs(t, err, &valErr)
@@ -1766,7 +1799,7 @@ func TestStartOrAttach_HostPortCheckUsesEffectivePorts(t *testing.T) {
 	cfg := defaultTestConfig()
 	cfg.Ports = []string{"2222:22", "8080:8080"}
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"2222:22", "8080:8080"}, checker.checkedPorts)
@@ -1792,7 +1825,7 @@ func TestStartOrAttach_HostPortCheckFailure_AbortsStartup(t *testing.T) {
 	cfg := defaultTestConfig()
 	cfg.Ports = []string{"8080:8080"}
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.ErrorContains(t, err, "host port 8080 is not available")
 	assert.Empty(t, cb.createdOpts.Name)
@@ -1809,7 +1842,7 @@ func TestStartOrAttach_ShellExitCode_Propagated(t *testing.T) {
 	}
 	cfg := defaultTestConfig()
 
-	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	exitCode, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	require.NoError(t, err)
 	assert.Equal(t, 42, exitCode)
@@ -1827,7 +1860,7 @@ func TestStartOrAttach_ImageBuildError_Aborts(t *testing.T) {
 	}
 	cfg := defaultTestConfig()
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	var buildErr *container.BuildError
 	assert.ErrorAs(t, err, &buildErr)
@@ -1845,7 +1878,7 @@ func TestStartOrAttach_NetworkCreateError_Aborts(t *testing.T) {
 	}
 	cfg := defaultTestConfig()
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.ErrorContains(t, err, "network create failed")
 }
@@ -1868,7 +1901,7 @@ func TestStartOrAttach_DoltSetupError_Aborts(t *testing.T) {
 	cfg := defaultTestConfig()
 	cfg.Dolt.Enabled = true
 
-	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPath)
+	_, err := container.StartOrAttach(ctx, deps, cfg, testProjectPaths)
 
 	assert.ErrorContains(t, err, "dolt health check timed out")
 }

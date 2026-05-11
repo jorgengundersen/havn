@@ -76,6 +76,10 @@ func projectContextFromStartupTarget(target string) (projectContext, error) {
 	return projectCtx, nil
 }
 
+func (p projectContext) ProjectPaths() projectpath.ProjectPaths {
+	return projectpath.ProjectPaths{HostPath: p.HostPath, ContainerPath: p.ContainerPath}
+}
+
 func (p projectContext) ProjectConfigPath() string {
 	return filepath.Join(p.HostPath, ".havn", "config.toml")
 }

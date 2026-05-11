@@ -23,6 +23,7 @@ type fakeStartService struct {
 	called      bool
 	lastCfg     config.Config
 	lastProject string
+	lastPaths   container.ProjectPaths
 	lastOpts    container.StartOptions
 	exitCode    int
 	err         error
@@ -41,7 +42,7 @@ func newRootBoundaryStartService() *rootBoundaryStartService {
 	}
 }
 
-func (s *rootBoundaryStartService) StartOrAttach(ctx context.Context, cfg config.Config, projectPath string, _ func(string), opts container.StartOptions) (int, error) {
+func (s *rootBoundaryStartService) StartOrAttach(ctx context.Context, cfg config.Config, paths container.ProjectPaths, _ func(string), opts container.StartOptions) (int, error) {
 	return container.StartOrAttachWithOptions(ctx, container.StartDeps{
 		Container: s.container,
 		Image:     rootBoundaryFakeImageBackend{},
@@ -53,7 +54,7 @@ func (s *rootBoundaryStartService) StartOrAttach(ctx context.Context, cfg config
 		Dolt:   s.doltSetup,
 		Exec:   rootBoundaryFakeExecBackend{},
 		Status: func(string) {},
-	}, cfg, projectPath, opts)
+	}, cfg, paths, opts)
 }
 
 type rootBoundaryFakeStartBackend struct {
@@ -105,8 +106,14 @@ type rootBoundaryFakeMountResolver struct {
 	result mount.ResolveResult
 }
 
-func (r rootBoundaryFakeMountResolver) Resolve(_ config.Config, _ string) (mount.ResolveResult, error) {
-	return r.result, nil
+func (r rootBoundaryFakeMountResolver) Resolve(_ config.Config, paths container.ProjectPaths) (mount.ResolveResult, error) {
+	result := r.result
+	result.Mounts = append(result.Mounts, mount.Spec{
+		Source: paths.HostPath,
+		Target: paths.ContainerPath,
+		Type:   "bind",
+	})
+	return result, nil
 }
 
 type rootBoundaryFakeDoltSetup struct {
@@ -141,10 +148,11 @@ func (rootBoundaryFakeExecBackend) ContainerExecInteractive(_ context.Context, _
 	return 0, nil
 }
 
-func (f *fakeStartService) StartOrAttach(_ context.Context, cfg config.Config, projectPath string, status func(string), opts container.StartOptions) (int, error) {
+func (f *fakeStartService) StartOrAttach(_ context.Context, cfg config.Config, paths container.ProjectPaths, status func(string), opts container.StartOptions) (int, error) {
 	f.called = true
 	f.lastCfg = cfg
-	f.lastProject = projectPath
+	f.lastProject = paths.HostPath
+	f.lastPaths = paths
 	f.lastOpts = opts
 	if f.onStart != nil {
 		f.onStart(status, opts)
@@ -423,6 +431,11 @@ func TestNewRoot_RunE_NewContainerUsesEffectiveDefaultResourceLimits(t *testing.
 	assert.Equal(t, "4", svc.container.createdOpts.Labels["havn.cpus"])
 	assert.Equal(t, "8g", svc.container.createdOpts.Labels["havn.memory"])
 	assert.Equal(t, "12g", svc.container.createdOpts.Labels["havn.memory_swap"])
+	assert.Contains(t, svc.container.createdOpts.Mounts, mount.Spec{
+		Source: projectPath,
+		Target: "/home/devuser/work/sample-project",
+		Type:   "bind",
+	})
 }
 
 func TestNewRoot_RunE_DoltEnabledStartupPerformsSharedSetupAndInjectsBeadsEnv(t *testing.T) {
@@ -590,6 +603,7 @@ func TestNewRoot_RunE_HomeManagerActivationFailureAbortsBeforeShellHandoff(t *te
 	assert.ErrorIs(t, err, assert.AnError)
 	assert.True(t, svc.called)
 	assert.Equal(t, projectPath, svc.lastProject)
+	assert.Equal(t, container.ProjectPaths{HostPath: projectPath, ContainerPath: "/home/devuser/work/sample-project"}, svc.lastPaths)
 	assert.Equal(t, container.StartupModeAttach, svc.lastOpts.Mode)
 }
 

@@ -13,6 +13,7 @@ import (
 
 	"github.com/jorgengundersen/havn/internal/cli"
 	"github.com/jorgengundersen/havn/internal/container"
+	"github.com/jorgengundersen/havn/internal/mount"
 	"github.com/jorgengundersen/havn/internal/name"
 )
 
@@ -44,6 +45,7 @@ func TestUpCommand_CallsStartServiceInNoAttachMode(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, svc.called)
 	assert.Equal(t, projectPath, svc.lastProject)
+	assert.Equal(t, container.ProjectPaths{HostPath: projectPath, ContainerPath: "/home/devuser/work/sample-project"}, svc.lastPaths)
 	assert.Equal(t, container.StartupModeNoAttach, svc.lastOpts.Mode)
 	assert.Equal(t, container.StartupCheckDefault, svc.lastOpts.StartupChecks)
 }
@@ -236,6 +238,25 @@ func TestUpCommand_VerboseFlagEnablesVerboseStartupMode(t *testing.T) {
 	assert.True(t, svc.called)
 	assert.True(t, svc.lastOpts.VerboseStartup)
 	assert.Equal(t, container.StartupModeNoAttach, svc.lastOpts.Mode)
+}
+
+func TestUpCommand_NewContainerUsesContainerProjectMountTarget(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	projectPath := filepath.Join(homeDir, "work", "sample-project")
+	require.NoError(t, os.MkdirAll(projectPath, 0o755))
+
+	svc := newRootBoundaryStartService()
+	_, _, err := executeCommandWithDeps(cli.Deps{StartService: svc}, "up", projectPath)
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, svc.container.createCalls)
+	assert.Equal(t, "havn-work-sample-project", svc.container.createdOpts.Name)
+	assert.Contains(t, svc.container.createdOpts.Mounts, mount.Spec{
+		Source: projectPath,
+		Target: "/home/devuser/work/sample-project",
+		Type:   "bind",
+	})
 }
 
 func TestUpCommand_PrintsContainerRunningConfirmationOnSuccess(t *testing.T) {

@@ -7,18 +7,33 @@ import (
 	"strings"
 
 	"github.com/jorgengundersen/havn/internal/config"
+	"github.com/jorgengundersen/havn/internal/projectpath"
 )
 
 // Resolve produces all mount specs and environment variables needed for
 // container creation based on the merged config, project path, and home
 // directory.
 func Resolve(cfg config.Config, projectPath, homeDir string, opts ResolveOpts) (ResolveResult, error) {
+	return resolve(cfg, projectpath.ProjectPaths{
+		HostPath:      projectPath,
+		ContainerPath: containerProjectTarget(projectPath, homeDir),
+	}, homeDir, opts)
+}
+
+// ResolveProjectPaths produces mount specs from explicit host/container project
+// paths. The project bind mount source is the host path and the target is the
+// container path.
+func ResolveProjectPaths(cfg config.Config, paths projectpath.ProjectPaths, homeDir string, opts ResolveOpts) (ResolveResult, error) {
+	return resolve(cfg, paths, homeDir, opts)
+}
+
+func resolve(cfg config.Config, paths projectpath.ProjectPaths, homeDir string, opts ResolveOpts) (ResolveResult, error) {
 	var mounts []Spec
 
 	// 1. Project directory — always present, rw.
 	mounts = append(mounts, Spec{
-		Source:   projectPath,
-		Target:   containerProjectTarget(projectPath, homeDir),
+		Source:   paths.HostPath,
+		Target:   paths.ContainerPath,
 		ReadOnly: false,
 		Type:     "bind",
 	})

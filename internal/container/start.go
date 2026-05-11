@@ -51,7 +51,7 @@ type VolumeEnsurer interface {
 
 // MountResolver resolves mount specifications for container creation.
 type MountResolver interface {
-	Resolve(cfg config.Config, projectPath string) (mount.ResolveResult, error)
+	Resolve(cfg config.Config, paths ProjectPaths) (mount.ResolveResult, error)
 }
 
 // DoltSetup ensures the Dolt server and project database are ready.
@@ -153,37 +153,40 @@ const (
 // If the container is already running, it attaches to it. Otherwise, it
 // ensures all infrastructure exists, creates the container, runs init,
 // and attaches to the devShell. Returns the exit code from the shell session.
-func StartOrAttach(ctx context.Context, deps StartDeps, cfg config.Config, projectPath string) (int, error) {
-	return StartOrAttachWithOptions(ctx, deps, cfg, projectPath, StartOptions{})
+func StartOrAttach(ctx context.Context, deps StartDeps, cfg config.Config, paths ProjectPaths) (int, error) {
+	return StartOrAttachWithOptions(ctx, deps, cfg, paths, StartOptions{})
 }
 
 // Start runs startup orchestration without interactive shell attach.
-func Start(ctx context.Context, deps StartDeps, cfg config.Config, projectPath string) error {
-	return StartWithOptions(ctx, deps, cfg, projectPath, StartOptions{})
+func Start(ctx context.Context, deps StartDeps, cfg config.Config, paths ProjectPaths) error {
+	return StartWithOptions(ctx, deps, cfg, paths, StartOptions{})
 }
 
 // StartWithOptions runs startup orchestration without interactive shell attach
 // and supports invocation-scoped options.
-func StartWithOptions(ctx context.Context, deps StartDeps, cfg config.Config, projectPath string, opts StartOptions) error {
+func StartWithOptions(ctx context.Context, deps StartDeps, cfg config.Config, paths ProjectPaths, opts StartOptions) error {
 	opts.Mode = StartupModeNoAttach
-	_, err := StartOrAttachWithOptions(ctx, deps, cfg, projectPath, opts)
+	_, err := StartOrAttachWithOptions(ctx, deps, cfg, paths, opts)
 	return err
 }
 
 // StartOrAttachWithOptions runs startup orchestration with invocation-scoped
 // runtime options.
-func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Config, projectPath string, opts StartOptions) (int, error) {
+func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Config, paths ProjectPaths, opts StartOptions) (int, error) {
 	resolvedOpts, err := normalizeStartOptions(opts)
 	if err != nil {
 		return 0, err
 	}
 	opts = resolvedOpts
+	if err := validateProjectPaths(paths); err != nil {
+		return 0, err
+	}
 
 	if deps.StartupCheckTelemetry == nil {
 		deps.StartupCheckTelemetry = opts.StartupCheckTelemetry
 	}
 
-	cname, err := deriveContainerName(projectPath)
+	cname, err := deriveContainerName(paths.HostPath)
 	if err != nil {
 		return 0, err
 	}
@@ -201,14 +204,14 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 			return 0, err
 		}
 		if shouldRunValidation(opts) {
-			if err := prepareStartupSession(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
+			if err := prepareStartupSession(ctx, deps, string(cname), cfg, paths, opts); err != nil {
 				return 0, err
 			}
 		}
 		if opts.Mode == StartupModeNoAttach {
 			return 0, nil
 		}
-		return attach(ctx, deps.Exec, string(cname), cfg, projectPath, opts)
+		return attach(ctx, deps.Exec, string(cname), cfg, paths, opts)
 	} else {
 		if err := deps.Container.ContainerStart(ctx, state.ID); err != nil {
 			return 0, fmt.Errorf("start container %q: %w", cname, err)
@@ -222,7 +225,7 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 			return 0, err
 		}
 		if shouldRunValidation(opts) {
-			if err := prepareStartupSession(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
+			if err := prepareStartupSession(ctx, deps, string(cname), cfg, paths, opts); err != nil {
 				return 0, err
 			}
 		}
@@ -230,7 +233,7 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 		if opts.Mode == StartupModeNoAttach {
 			return 0, nil
 		}
-		return attach(ctx, deps.Exec, string(cname), cfg, projectPath, opts)
+		return attach(ctx, deps.Exec, string(cname), cfg, paths, opts)
 	}
 
 	// Steps 4-7: ensure infrastructure.
@@ -239,7 +242,7 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 	}
 
 	// Step 8: create and start container.
-	id, err := createContainer(ctx, deps, cfg, string(cname), projectPath)
+	id, err := createContainer(ctx, deps, cfg, string(cname), paths)
 	if err != nil {
 		return 0, err
 	}
@@ -264,7 +267,7 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 	}
 
 	if shouldRunValidation(opts) {
-		if err := prepareStartupSession(ctx, deps, string(cname), cfg, projectPath, opts); err != nil {
+		if err := prepareStartupSession(ctx, deps, string(cname), cfg, paths, opts); err != nil {
 			return 0, err
 		}
 	}
@@ -274,7 +277,7 @@ func StartOrAttachWithOptions(ctx context.Context, deps StartDeps, cfg config.Co
 	}
 
 	// Step 10: attach to devShell.
-	return attach(ctx, deps.Exec, string(cname), cfg, projectPath, opts)
+	return attach(ctx, deps.Exec, string(cname), cfg, paths, opts)
 }
 
 func prepareNixRegistry(ctx context.Context, deps StartDeps, containerName string) error {
@@ -287,7 +290,7 @@ func prepareNixRegistry(ctx context.Context, deps StartDeps, containerName strin
 	return nil
 }
 
-func prepareStartupSession(ctx context.Context, deps StartDeps, containerName string, cfg config.Config, projectPath string, opts StartOptions) error {
+func prepareStartupSession(ctx context.Context, deps StartDeps, containerName string, cfg config.Config, paths ProjectPaths, opts StartOptions) error {
 	if !shouldRunValidation(opts) {
 		return nil
 	}
@@ -295,7 +298,7 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 	if err := runStartupCheckPhase(ctx, deps.StartupCheckTelemetry, deps.Status, deps.StartupCheckHeartbeatInterval, deps.StartupCheckHeartbeatTicker, StartupCheckPhaseValidation, func(reportProgress func(startupProgressClassification, string)) error {
 		return execStartupCheckCommand(ctx, deps.Exec, deps.Status, StartupCheckPhaseValidation, containerName, requiredDevShellValidationCmd(cfg, opts), reportProgress)
 	}); err != nil {
-		return fmt.Errorf("validate required devShell %q in container %q: %w (run 'havn enter %s' to debug startup validation manually)", cfg.Shell, containerName, err, projectPath)
+		return fmt.Errorf("validate required devShell %q in container %q: %w (run 'havn enter %s' to debug startup validation manually)", cfg.Shell, containerName, err, paths.HostPath)
 	}
 
 	if !shouldRunPrepare(opts) {
@@ -315,7 +318,7 @@ func prepareStartupSession(ctx context.Context, deps StartDeps, containerName st
 		return nil
 	}
 
-	return fmt.Errorf("run optional startup capability havn-session-prepare in container %q: %w (run 'havn enter %s' to debug startup preparation manually)", containerName, err, projectPath)
+	return fmt.Errorf("run optional startup capability havn-session-prepare in container %q: %w (run 'havn enter %s' to debug startup preparation manually)", containerName, err, paths.HostPath)
 }
 
 func execStartupCheckCommand(ctx context.Context, exec ExecBackend, status func(msg string), phase StartupCheckPhase, containerName string, cmd []string, reportProgress func(startupProgressClassification, string)) error {
@@ -361,6 +364,16 @@ func shouldRunPrepare(opts StartOptions) bool {
 	default:
 		return opts.Mode != StartupModeNoAttach
 	}
+}
+
+func validateProjectPaths(paths ProjectPaths) error {
+	if paths.HostPath == "" {
+		return errors.New("host project path is required")
+	}
+	if paths.ContainerPath == "" {
+		return errors.New("container project path is required")
+	}
+	return nil
 }
 
 func normalizeStartOptions(opts StartOptions) (StartOptions, error) {
@@ -693,9 +706,9 @@ func ensureInfrastructure(ctx context.Context, deps StartDeps, cfg config.Config
 	return nil
 }
 
-func createContainer(ctx context.Context, deps StartDeps, cfg config.Config, cname, projectPath string) (string, error) {
+func createContainer(ctx context.Context, deps StartDeps, cfg config.Config, cname string, paths ProjectPaths) (string, error) {
 	// Resolve mounts.
-	mountResult, err := deps.Mount.Resolve(cfg, projectPath)
+	mountResult, err := deps.Mount.Resolve(cfg, paths)
 	if err != nil {
 		return "", fmt.Errorf("resolve mounts: %w", err)
 	}
@@ -719,7 +732,7 @@ func createContainer(ctx context.Context, deps StartDeps, cfg config.Config, cna
 		if err != nil {
 			return "", err
 		}
-		notice, err := deps.Dolt.MigrationNotice(ctx, cfg, projectPath)
+		notice, err := deps.Dolt.MigrationNotice(ctx, cfg, paths.HostPath)
 		if err != nil {
 			return "", err
 		}
@@ -734,7 +747,7 @@ func createContainer(ctx context.Context, deps StartDeps, cfg config.Config, cna
 	// Build labels.
 	labels := map[string]string{
 		LabelManagedBy:  "havn",
-		LabelPath:       projectPath,
+		LabelPath:       paths.HostPath,
 		LabelShell:      cfg.Shell,
 		LabelCPUs:       strconv.Itoa(cfg.Resources.CPUs),
 		LabelMemory:     cfg.Resources.Memory,
@@ -766,6 +779,7 @@ func createContainer(ctx context.Context, deps StartDeps, cfg config.Config, cna
 
 	return deps.Container.ContainerCreate(ctx, opts)
 }
+
 func deriveContainerName(projectPath string) (name.ContainerName, error) {
 	absPath, err := filepath.Abs(projectPath)
 	if err != nil {
@@ -783,8 +797,8 @@ func deriveContainerName(projectPath string) (name.ContainerName, error) {
 	return cname, nil
 }
 
-func attach(ctx context.Context, exec ExecBackend, containerName string, cfg config.Config, projectPath string, opts StartOptions) (int, error) {
-	return exec.ContainerExecInteractive(ctx, containerName, shellCmd(cfg, opts), projectPath)
+func attach(ctx context.Context, exec ExecBackend, containerName string, cfg config.Config, paths ProjectPaths, opts StartOptions) (int, error) {
+	return exec.ContainerExecInteractive(ctx, containerName, shellCmd(cfg, opts), paths.ContainerPath)
 }
 
 func shellCmd(cfg config.Config, opts StartOptions) []string {
