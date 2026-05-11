@@ -1197,6 +1197,7 @@ func TestStartOrAttach_NewContainer(t *testing.T) {
 	assert.Equal(t, "havn-base:latest", cb.createdOpts.Image)
 	assert.Equal(t, "havn-net", cb.createdOpts.Network)
 	assert.Equal(t, "devuser", cb.createdOpts.User)
+	assert.Equal(t, testContainerProjectPath, cb.createdOpts.Workdir)
 	assert.Equal(t, []string{"tini", "--", "sleep", "infinity"}, cb.createdOpts.Entrypoint)
 	assert.True(t, cb.createdOpts.AutoRemove)
 	assert.Equal(t, 4, cb.createdOpts.CPUs)

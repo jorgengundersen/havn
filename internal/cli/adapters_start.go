@@ -97,6 +97,7 @@ func (b dockerStartBackend) ContainerCreate(ctx context.Context, opts container.
 		VolumeMounts: volumeMounts,
 		Entrypoint:   opts.Entrypoint,
 		User:         opts.User,
+		Workdir:      opts.Workdir,
 		CPUs:         opts.CPUs,
 		Memory:       opts.Memory,
 		MemorySwap:   opts.MemorySwap,

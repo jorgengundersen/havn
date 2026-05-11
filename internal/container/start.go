@@ -86,6 +86,7 @@ type CreateOpts struct {
 	Labels     map[string]string
 	Entrypoint []string
 	User       string
+	Workdir    string
 	CPUs       int
 	Memory     string
 	MemorySwap string
@@ -765,6 +766,7 @@ func createContainer(ctx context.Context, deps StartDeps, cfg config.Config, cna
 		Labels:     labels,
 		Entrypoint: []string{"tini", "--", "sleep", "infinity"},
 		User:       containerUser,
+		Workdir:    paths.ContainerPath,
 		CPUs:       cfg.Resources.CPUs,
 		Memory:     cfg.Resources.Memory,
 		MemorySwap: cfg.Resources.MemorySwap,
