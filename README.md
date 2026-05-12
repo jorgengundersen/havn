@@ -82,6 +82,7 @@ Output contract quick notes:
 
 - [CLI reference](docs/cli-reference.md)
 - [Configuration guide](docs/configuration-guide.md)
+- [Project-specific dependencies](docs/project-dependencies.md)
 - [Dolt and beads guide](docs/dolt-beads-guide.md)
 - [Doctor troubleshooting guide](docs/doctor-troubleshooting.md)
 - [Specs index](specs/README.md)

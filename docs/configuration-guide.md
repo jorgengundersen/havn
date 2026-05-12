@@ -161,6 +161,13 @@ MY_API_KEY = "${MY_API_KEY}"
 
 ## Common patterns
 
+### Add project-specific dependencies
+
+Use a project-local Nix flake for tools, language runtimes, and setup that are
+specific to one project. See `project-dependencies.md` for copy/paste examples,
+including how `<project>/.havn/flake.nix` can extend a shared/default
+environment.
+
 ### Reuse existing Docker volumes
 
 ```toml

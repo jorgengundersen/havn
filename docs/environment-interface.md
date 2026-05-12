@@ -45,6 +45,8 @@ failure.
 ## For coding agents
 
 Use this checklist when generating or modifying havn-compatible environments.
+For project-specific dependency setup and examples that extend a shared/default
+environment, see `project-dependencies.md`.
 
 - Do define `devShells.<system>.<shell>` first. This is the required entrypoint.
 - Do treat `apps.<system>.havn-session-prepare` as optional capability only.
