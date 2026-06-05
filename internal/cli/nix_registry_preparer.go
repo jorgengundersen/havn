@@ -132,7 +132,7 @@ func (p nixRegistryPreparer) ensureLegacyRegistrySymlink(ctx context.Context, co
 	}
 
 	cmd := []string{"sh", "-c", "ln -sfn " + shellQuote(stateRegistryPath) + " " + shellQuote(legacyRegistryPath)}
-	result, err := p.docker.ContainerExec(ctx, containerName, docker.ExecOpts{Cmd: cmd})
+	result, err := p.docker.ContainerExec(ctx, containerName, docker.ExecOpts{Cmd: cmd, User: "root"})
 	if err != nil {
 		return fmt.Errorf("wire nix registry symlink %q -> %q in container %q: %w", legacyRegistryPath, stateRegistryPath, containerName, err)
 	}

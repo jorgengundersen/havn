@@ -90,7 +90,8 @@ type statefulNixRegistryRuntimeBackend struct {
 	dirs     map[string]struct{}
 	owners   map[string]string
 
-	chownError string
+	chownError                string
+	legacyRegistryDirRootOnly bool
 
 	execCalls []string
 	copyCalls []copyCall
@@ -160,6 +161,9 @@ func (f *statefulNixRegistryRuntimeBackend) ContainerExec(_ context.Context, _ s
 		src, dst, ok := twoQuotedArgs(cmd, "ln -sfn ")
 		if !ok {
 			return docker.ExecResult{}, fmt.Errorf("unsupported ln command: %s", cmd)
+		}
+		if f.legacyRegistryDirRootOnly && dst == legacyRegistryPath && opts.User != "root" {
+			return docker.ExecResult{ExitCode: 1, Stderr: []byte("ln: failed to create symbolic link '/home/devuser/.config/nix/registry.json': Permission denied")}, nil
 		}
 		f.symlinks[dst] = src
 		return docker.ExecResult{ExitCode: 0}, nil
@@ -329,6 +333,17 @@ func TestNixRegistryPreparer_Prepare_ChownFailsAndNotWritable_Fails(t *testing.T
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "Operation not permitted")
 	assert.ErrorContains(t, err, "not writable by devuser")
+}
+
+func TestNixRegistryPreparer_Prepare_WiresLegacySymlinkInRootOwnedConfigDir(t *testing.T) {
+	backend := newStatefulNixRegistryRuntimeBackend()
+	backend.legacyRegistryDirRootOnly = true
+	preparer := nixRegistryPreparer{docker: backend}
+
+	err := preparer.Prepare(context.Background(), "havn-user-project")
+
+	require.NoError(t, err)
+	assert.Equal(t, stateRegistryPath, backend.symlinks[legacyRegistryPath])
 }
 
 func TestNixRegistryPreparer_Prepare_MalformedPersistentState_FailsSafely(t *testing.T) {
