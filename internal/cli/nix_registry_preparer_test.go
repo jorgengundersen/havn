@@ -63,6 +63,7 @@ func TestNixRegistryPreparer_Prepare_NoRegistryFiles_WiresStateRegistryAndLegacy
 			"test -f '/home/devuser/.config/nix/registry.json'":                                                {{ExitCode: 1}},
 			"mkdir -p '/home/devuser/.local/state/nix'":                                                        {{ExitCode: 0}},
 			"chown devuser:devuser '/home/devuser/.local/state/nix/registry.json'":                             {{ExitCode: 0}},
+			homeConfigOwnershipCmd():                                                                           {{ExitCode: 0}},
 			"mkdir -p '/home/devuser/.config/nix'":                                                             {{ExitCode: 0}},
 			"ln -sfn '/home/devuser/.local/state/nix/registry.json' '/home/devuser/.config/nix/registry.json'": {{ExitCode: 0}},
 		},
@@ -92,6 +93,7 @@ type statefulNixRegistryRuntimeBackend struct {
 
 	chownError                string
 	legacyRegistryDirRootOnly bool
+	homeConfigDirMountpoint   bool
 
 	execCalls []string
 	copyCalls []copyCall
@@ -150,6 +152,12 @@ func (f *statefulNixRegistryRuntimeBackend) ContainerExec(_ context.Context, _ s
 			return docker.ExecResult{ExitCode: 1, Stderr: []byte("No such file")}, nil
 		}
 		return docker.ExecResult{ExitCode: 0, Stdout: append([]byte(nil), data...)}, nil
+	case cmd == homeConfigOwnershipCmd():
+		f.dirs[homeConfigDir] = struct{}{}
+		if !f.homeConfigDirMountpoint {
+			f.owners[homeConfigDir] = "devuser:devuser"
+		}
+		return docker.ExecResult{ExitCode: 0}, nil
 	case strings.HasPrefix(cmd, "mkdir -p '"):
 		dirPath, ok := singleQuotedArg(cmd, "mkdir -p ")
 		if !ok {
@@ -344,6 +352,19 @@ func TestNixRegistryPreparer_Prepare_WiresLegacySymlinkInRootOwnedConfigDir(t *t
 
 	require.NoError(t, err)
 	assert.Equal(t, stateRegistryPath, backend.symlinks[legacyRegistryPath])
+}
+
+func TestNixRegistryPreparer_Prepare_RepairsHomeConfigParentOwnership(t *testing.T) {
+	backend := newStatefulNixRegistryRuntimeBackend()
+	backend.dirs[homeConfigDir] = struct{}{}
+	backend.owners[homeConfigDir] = "root:root"
+	preparer := nixRegistryPreparer{docker: backend}
+
+	err := preparer.Prepare(context.Background(), "havn-user-project")
+
+	require.NoError(t, err)
+	assert.Equal(t, "devuser:devuser", backend.owners[homeConfigDir])
+	assert.Contains(t, backend.execCalls, homeConfigOwnershipCmd())
 }
 
 func TestNixRegistryPreparer_Prepare_MalformedPersistentState_FailsSafely(t *testing.T) {

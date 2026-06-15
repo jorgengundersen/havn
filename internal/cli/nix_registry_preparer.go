@@ -24,6 +24,7 @@ type nixRegistryRuntimeBackend interface {
 const (
 	stateRegistryPath    = "/home/devuser/.local/state/nix/registry.json"
 	legacyRegistryPath   = "/home/devuser/.config/nix/registry.json"
+	homeConfigDir        = "/home/devuser/.config"
 	nixUserConfigDir     = "/home/devuser/.config/nix"
 	emptyRegistryContent = `{"version":2,"flakes":[]}`
 )
@@ -127,6 +128,9 @@ func (p nixRegistryPreparer) fileWritableByDevuser(ctx context.Context, containe
 }
 
 func (p nixRegistryPreparer) ensureLegacyRegistrySymlink(ctx context.Context, containerName string) error {
+	if err := p.ensureHomeConfigDirectoryOwnership(ctx, containerName); err != nil {
+		return err
+	}
 	if err := p.ensureDirectory(ctx, containerName, nixUserConfigDir); err != nil {
 		return err
 	}
@@ -145,6 +149,27 @@ func (p nixRegistryPreparer) ensureLegacyRegistrySymlink(ctx context.Context, co
 	}
 
 	return nil
+}
+
+func (p nixRegistryPreparer) ensureHomeConfigDirectoryOwnership(ctx context.Context, containerName string) error {
+	result, err := p.docker.ContainerExec(ctx, containerName, docker.ExecOpts{Cmd: []string{"sh", "-c", homeConfigOwnershipCmd()}, User: "root"})
+	if err != nil {
+		return fmt.Errorf("prepare home config directory %q in container %q: %w", homeConfigDir, containerName, err)
+	}
+	if result.ExitCode != 0 {
+		stderr := strings.TrimSpace(string(result.Stderr))
+		if stderr == "" {
+			stderr = fmt.Sprintf("exit code %d", result.ExitCode)
+		}
+		return fmt.Errorf("prepare home config directory %q in container %q: %s", homeConfigDir, containerName, stderr)
+	}
+	return nil
+}
+
+func homeConfigOwnershipCmd() string {
+	return "mkdir -p " + shellQuote(homeConfigDir) +
+		" && (awk '$5 == \"" + homeConfigDir + "\" {found=1} END {exit found ? 0 : 1}' /proc/self/mountinfo" +
+		" || chown devuser:devuser " + shellQuote(homeConfigDir) + ")"
 }
 
 func (p nixRegistryPreparer) readFileIfExists(ctx context.Context, containerName, filePath string) ([]byte, bool, error) {
