@@ -12,12 +12,18 @@ import (
 
 // --- 1.1 docker_daemon ---
 
+const (
+	dockerDaemonUnavailableMessage = "Docker-compatible daemon is not reachable"
+	dockerDaemonPassMessage        = "Docker-compatible daemon reachable"
+	dockerDaemonRecommendation     = "Start a Docker-compatible daemon such as Docker Desktop, Docker Engine, or Colima with Docker runtime; ensure havn can reach the daemon endpoint"
+)
+
 type dockerDaemonCheck struct {
 	checkMetadata
 	backend Backend
 }
 
-// NewDockerDaemonCheck creates check 1.1: Docker daemon accessible.
+// NewDockerDaemonCheck creates check 1.1: Docker-compatible daemon accessible.
 func NewDockerDaemonCheck(backend Backend) Check {
 	return &dockerDaemonCheck{
 		checkMetadata: newHostCheckMetadata("docker_daemon", nil, defaultTimeout),
@@ -29,27 +35,27 @@ func (c *dockerDaemonCheck) Run(ctx context.Context) CheckResult {
 	if err := c.backend.Ping(ctx); err != nil {
 		return CheckResult{
 			Status:         StatusError,
-			Message:        "Docker daemon is not running",
+			Message:        dockerDaemonUnavailableMessage,
 			Detail:         err.Error(),
-			Recommendation: "Start Docker, or check that the current user is in the docker group",
+			Recommendation: dockerDaemonRecommendation,
 		}
 	}
 	info, err := c.backend.Info(ctx)
 	if err != nil {
 		return CheckResult{
 			Status:         StatusError,
-			Message:        "Docker daemon is not running",
+			Message:        dockerDaemonUnavailableMessage,
 			Detail:         err.Error(),
-			Recommendation: "Start Docker, or check that the current user is in the docker group",
+			Recommendation: dockerDaemonRecommendation,
 		}
 	}
 	detail := ""
 	if info.Version != "" {
-		detail = fmt.Sprintf("Docker %s, API %s", info.Version, info.APIVersion)
+		detail = fmt.Sprintf("Docker-compatible daemon %s, API %s", info.Version, info.APIVersion)
 	}
 	return CheckResult{
 		Status:  StatusPass,
-		Message: "Docker daemon running",
+		Message: dockerDaemonPassMessage,
 		Detail:  detail,
 	}
 }

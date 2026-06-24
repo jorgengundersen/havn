@@ -85,7 +85,7 @@ The majority. Fast, no external dependencies.
 Verify that boundaries work in practice — the places where test doubles
 can diverge from reality.
 
-- Wrapper tests that hit a real Docker daemon.
+- Wrapper tests that hit a real Docker-compatible daemon.
 - Config loading from actual TOML files on disk.
 - Use build tags to separate from unit tests:
 

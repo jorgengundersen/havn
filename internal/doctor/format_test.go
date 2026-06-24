@@ -24,8 +24,8 @@ func sampleReport() doctor.Report {
 				Tier:    "host",
 				Name:    "docker_daemon",
 				Status:  doctor.StatusPass,
-				Message: "Docker daemon running",
-				Detail:  "Docker 24.0.7, API 1.43",
+				Message: "Docker-compatible daemon reachable",
+				Detail:  "Docker-compatible daemon 24.0.7, API 1.43",
 			},
 			{
 				Tier:    "host",
@@ -63,7 +63,7 @@ func TestFormatHuman_SummaryLine(t *testing.T) {
 func TestFormatVerbose_IncludesDetail(t *testing.T) {
 	output := doctor.FormatVerbose(sampleReport())
 
-	assert.Contains(t, output, "Docker 24.0.7")
+	assert.Contains(t, output, "Docker-compatible daemon 24.0.7")
 	assert.Contains(t, output, "[pass]")
 	assert.Contains(t, output, "[skip]")
 }
@@ -102,7 +102,7 @@ func TestFormatJSON_OmitsEmptyOptionalFields(t *testing.T) {
 				Tier:    "host",
 				Name:    "docker_daemon",
 				Status:  doctor.StatusPass,
-				Message: "Docker daemon running",
+				Message: "Docker-compatible daemon reachable",
 			},
 		},
 	}
@@ -119,7 +119,7 @@ func TestFormatHuman_ContainerNameInHeader(t *testing.T) {
 		Status:  doctor.StatusPass,
 		Summary: doctor.Summary{Passed: 2},
 		Checks: []doctor.ReportCheck{
-			{Tier: "host", Name: "docker_daemon", Status: doctor.StatusPass, Message: "Docker daemon running"},
+			{Tier: "host", Name: "docker_daemon", Status: doctor.StatusPass, Message: "Docker-compatible daemon reachable"},
 			{Tier: "container", Container: "havn-user-myproject", Name: "nix_store", Status: doctor.StatusPass, Message: "Nix store mounted"},
 		},
 	}
@@ -154,7 +154,7 @@ func TestFormatHuman_MultipleContainersGrouped(t *testing.T) {
 		Status:  doctor.StatusPass,
 		Summary: doctor.Summary{Passed: 3},
 		Checks: []doctor.ReportCheck{
-			{Tier: "host", Name: "docker_daemon", Status: doctor.StatusPass, Message: "Docker daemon running"},
+			{Tier: "host", Name: "docker_daemon", Status: doctor.StatusPass, Message: "Docker-compatible daemon reachable"},
 			{Tier: "container", Container: "havn-user-api", Name: "nix_store", Status: doctor.StatusPass, Message: "Nix store mounted"},
 			{Tier: "container", Container: "havn-user-web", Name: "nix_store", Status: doctor.StatusPass, Message: "Nix store mounted"},
 		},

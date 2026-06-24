@@ -196,9 +196,10 @@ Published service `ports` follow the same create-time lifecycle contract:
 - Published service ports are Docker publish settings, not SSH forwarding.
   `--port` remains SSH-only and maps `<host>:22`; additional service ports come
   only from the `ports` list.
-- Browser reachability follows where the Docker daemon host network is exposed.
-  A published service port can be unreachable from the local host browser when
-  the daemon is remote or VM-scoped even though in-container access works.
+- Browser reachability follows where the Docker-compatible daemon host network
+  is exposed. A published service port can be unreachable from the local host
+  browser when the daemon is remote or VM-scoped even though in-container access
+  works.
 
 ## Merge Semantics
 

@@ -46,7 +46,7 @@ func TestFormatError_ReturnsErrorMessage(t *testing.T) {
 func TestFormatError_StartError(t *testing.T) {
 	err := &dolt.StartError{Err: errors.New("connection refused")}
 
-	assert.Equal(t, "Failed to start Dolt server: Docker connectivity failed (connection refused). Ensure Docker is running and reachable, then retry `havn dolt start`", cli.FormatError(err))
+	assert.Equal(t, "Failed to start Dolt server: Docker-compatible daemon connectivity failed (connection refused). Ensure a Docker-compatible daemon is running and reachable, then retry `havn dolt start`", cli.FormatError(err))
 }
 
 func TestFormatError_StartErrorPullAuthFailure(t *testing.T) {
@@ -70,7 +70,7 @@ func TestFormatError_StartErrorPullImageReferenceFailure(t *testing.T) {
 func TestFormatError_StartErrorCreateContainerAfterPullFailure(t *testing.T) {
 	err := &dolt.StartError{Err: errors.New("create container: network havn-net not found")}
 
-	assert.Equal(t, "Failed to start Dolt server: container creation failed after image acquisition. Check Docker daemon health, shared network/volume availability, and retry `havn dolt start`", cli.FormatError(err))
+	assert.Equal(t, "Failed to start Dolt server: container creation failed after image acquisition. Check Docker-compatible daemon health, shared network/volume availability, and retry `havn dolt start`", cli.FormatError(err))
 }
 
 func TestFormatError_StartErrorStartContainerAfterPullFailure(t *testing.T) {
@@ -144,7 +144,7 @@ func TestFormatError_ValidationError(t *testing.T) {
 func TestFormatError_DaemonUnreachableError(t *testing.T) {
 	err := &docker.DaemonUnreachableError{Host: "unix:///var/run/docker.sock"}
 
-	assert.Equal(t, "Docker is not running. Start Docker and try again", cli.FormatError(err))
+	assert.Equal(t, "Docker-compatible daemon is not reachable. Start Docker Desktop, Docker Engine, or Colima with Docker runtime, then try again", cli.FormatError(err))
 }
 
 func TestFormatError_ContainerNotFoundError(t *testing.T) {

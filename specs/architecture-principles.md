@@ -212,8 +212,8 @@ specs, not here._
 **Core philosophy: fail fast, fail loudly.** If something is wrong, surface
 it immediately and clearly. Silent failures are the worst kind -- they
 propagate through the system and surface far from the cause. Invalid config
-fails at load, not ten steps later at container start. Missing Docker daemon
-reported before building a mount list.
+fails at load, not ten steps later at container start. Missing
+Docker-compatible daemon reported before building a mount list.
 
 Inconsistent error handling is invisible for months, untraceable in
 production. Establish conventions before agents write code.
@@ -243,9 +243,9 @@ X, fail _this specific way_."
    panics or exceptions. A crash from a programming mistake is acceptable --
    using crash mechanisms for expected conditions is not.
 
-**User-facing errors must be actionable.** "Docker daemon not running" >
-"connection refused." Tell the user what's wrong and what they can do about
-it.
+**User-facing errors must be actionable.** "Docker-compatible daemon is not
+reachable" > "connection refused." Tell the user what's wrong and what they can
+do about it.
 
 _Error types, wrapping conventions, and Go-specific patterns in coding
 standards spec._

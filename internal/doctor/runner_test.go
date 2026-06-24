@@ -89,7 +89,7 @@ func TestRunner_PrerequisiteFailedSkipsDependents(t *testing.T) {
 			tier: "host",
 			result: doctor.CheckResult{
 				Status:  doctor.StatusError,
-				Message: "Docker daemon is not running",
+				Message: "Docker-compatible daemon is not reachable",
 			},
 		},
 		&fakeCheck{

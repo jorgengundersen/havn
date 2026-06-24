@@ -112,7 +112,7 @@ func TestDockerDaemonCheck_Pass(t *testing.T) {
 	result := check.Run(context.Background())
 
 	assert.Equal(t, doctor.StatusPass, result.Status)
-	assert.Equal(t, "Docker daemon running", result.Message)
+	assert.Equal(t, "Docker-compatible daemon reachable", result.Message)
 }
 
 func TestDockerDaemonCheck_Error(t *testing.T) {
@@ -123,7 +123,8 @@ func TestDockerDaemonCheck_Error(t *testing.T) {
 	result := check.Run(context.Background())
 
 	assert.Equal(t, doctor.StatusError, result.Status)
-	assert.Contains(t, result.Recommendation, "Start Docker")
+	assert.Contains(t, result.Recommendation, "Docker-compatible")
+	assert.Contains(t, result.Recommendation, "Colima")
 }
 
 func TestDockerDaemonCheck_Metadata(t *testing.T) {

@@ -201,7 +201,7 @@ Use `ports` in config when you want to reach a web app from your host browser.
 - `--port` is SSH-only and maps `<host>:22`; it does not publish arbitrary app ports
 - `ports` publish settings are applied when startup creates the project container
 - if startup reuses an existing container, changed `ports` values do not apply until you recreate that container
-- published ports can still be unreachable from your local browser when the Docker daemon is remote or VM-scoped
+- published ports can still be unreachable from your local browser when the Docker-compatible daemon is remote or VM-scoped
 
 ### Quick path (copy/paste)
 

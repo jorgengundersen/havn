@@ -111,7 +111,7 @@ func (r *Runner) runCheck(ctx context.Context, c Check, results map[string]Statu
 func prerequisiteFailureRecommendation(prerequisite string) string {
 	switch prerequisite {
 	case "docker_daemon":
-		return "Start Docker, or check that the current user is in the docker group"
+		return dockerDaemonRecommendation
 	case "dolt_server":
 		return "Resolve the dolt_server check result and rerun 'havn doctor --dolt'"
 	default:

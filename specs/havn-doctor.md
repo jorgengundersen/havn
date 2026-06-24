@@ -91,7 +91,7 @@ Host checks always run.
 
 They validate host-side prerequisites and shared infrastructure such as:
 
-- Docker daemon availability
+- Docker-compatible daemon availability
 - base image presence
 - Docker network presence
 - configured named volumes
@@ -125,7 +125,7 @@ Stable check identifiers:
 
 | Tier | Identifier | Meaning |
 |------|------|------|
-| host | `docker_daemon` | Docker daemon accessible |
+| host | `docker_daemon` | Docker-compatible daemon accessible |
 | host | `base_image` | configured base image exists |
 | host | `network` | configured Docker network exists |
 | host | `volumes` | configured named volumes exist |
@@ -149,8 +149,8 @@ Stable check identifiers:
   reason.
 - prerequisite-based `skip` results include actionable `recommendation` text for
   remediation and rerun guidance.
-- If Docker is unavailable, Docker-dependent checks are skipped, but config
-  parsing and validation still run.
+- If the Docker-compatible daemon is unavailable, daemon-dependent checks are
+  skipped, but config parsing and validation still run.
 - `dolt_database` depends on `dolt_server` when a project expects shared Dolt.
 - Container-level checks depend on the target container being selected and
   running.
@@ -206,7 +206,7 @@ commands while preserving the same pass/warn/error/skip results.
       "tier": "host",
       "name": "docker_daemon",
       "status": "pass",
-      "message": "Docker daemon running"
+      "message": "Docker-compatible daemon reachable"
     },
     {
       "tier": "container",
@@ -237,7 +237,7 @@ Per-check fields:
 When `--dolt` is active and prerequisite failures cause Dolt checks to skip:
 
 - `dolt_server` skip due `docker_daemon` failure reports a skip reason naming
-  `docker_daemon` and includes Docker-start remediation guidance
+  `docker_daemon` and includes Docker-compatible daemon remediation guidance
 - `dolt_database` skip due `dolt_server` failure reports a skip reason naming
   `dolt_server` and includes rerun guidance for `havn doctor --dolt`
 

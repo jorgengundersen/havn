@@ -599,7 +599,8 @@ func TestDoctorCommand_DoltFlagReportsActionableSkipRecommendationsInJSON(t *tes
 	doltServer := checksByName["dolt_server"]
 	assert.Equal(t, "skip", doltServer.Status)
 	assert.Contains(t, doltServer.Message, "docker_daemon")
-	assert.Contains(t, doltServer.Recommendation, "Start Docker")
+	assert.Contains(t, doltServer.Recommendation, "Docker-compatible")
+	assert.Contains(t, doltServer.Recommendation, "Colima")
 
 	doltDatabase := checksByName["dolt_database"]
 	assert.Equal(t, "skip", doltDatabase.Status)

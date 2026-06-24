@@ -19,7 +19,7 @@ non-goal for `havn` ownership.
 ## What this setup is
 
 - `havn` runs one shared Dolt SQL server container: `havn-dolt`
-- project containers connect to it over the configured Docker network
+- project containers connect to it over the configured Docker network provided by the selected Docker-compatible daemon
 - each project gets its own database on that server
 - `bd` is the user-facing interface for issue data; `havn` handles server and
   database lifecycle
@@ -52,7 +52,7 @@ Operator expectations for fresh or constrained hosts:
 - fresh hosts may need registry access on first Dolt startup
 - offline/air-gapped/registry-constrained hosts should pre-seed the configured
   image before running Dolt startup paths
-- pre-seeding can use Docker-native image transfer (`docker save`/`docker load`)
+- pre-seeding can use Docker-native image transfer (`docker save`/`docker load`) against the selected daemon endpoint
 
 ## Project configuration
 

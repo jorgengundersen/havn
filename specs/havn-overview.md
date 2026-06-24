@@ -10,10 +10,12 @@ contracts.
 
 ## Product Shape
 
-`havn` is a Go CLI for reproducible development environments built on Docker and
-Nix. It manages one container per project, reuses shared host-side
-infrastructure where possible, and supports separate startup and entry
-workflows.
+`havn` is a Go CLI for reproducible development environments built on Nix and a
+Docker-compatible daemon endpoint. The current production runtime talks to the
+Docker API; supported providers include Docker Desktop, Docker Engine, and
+Colima when started with its Docker runtime. `havn` manages one container per
+project, reuses shared host-side infrastructure where possible, and supports
+separate startup and entry workflows.
 
 At a high level, `havn` owns:
 

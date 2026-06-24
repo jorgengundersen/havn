@@ -1,8 +1,8 @@
 # havn
 
-`havn` is a Go CLI for reproducible development environments with Docker and Nix.
-It starts (or reuses) one container per project and attaches you directly into a
-Nix dev shell.
+`havn` is a Go CLI for reproducible development environments with Nix and a
+Docker-compatible daemon. It starts (or reuses) one container per project and
+attaches you directly into a Nix dev shell.
 
 ## What havn does
 
@@ -28,7 +28,7 @@ For command-level support details, see the support matrix in
 Before using `havn`, install:
 
 - Go (current stable)
-- Docker (daemon running)
+- Docker-compatible daemon endpoint (Docker Desktop, Docker Engine, or Colima with Docker runtime)
 - Make
 
 ## Install (from source)
@@ -50,7 +50,7 @@ This builds `bin/havn` and installs the CLI to your Go binary path via
    havn .
    ```
 
-3. On first run, `havn` may create required Docker resources and then attach you
+3. On first run, `havn` may create required runtime resources and then attach you
    to the project shell.
 4. On later runs, it reuses the existing running container when possible.
 
@@ -83,6 +83,7 @@ Output contract quick notes:
 - [CLI reference](docs/cli-reference.md)
 - [Configuration guide](docs/configuration-guide.md)
 - [Project-specific dependencies](docs/project-dependencies.md)
+- [Docker-compatible runtime guide](docs/docker-compatible-runtime.md)
 - [Dolt and beads guide](docs/dolt-beads-guide.md)
 - [Doctor troubleshooting guide](docs/doctor-troubleshooting.md)
 - [Specs index](specs/README.md)

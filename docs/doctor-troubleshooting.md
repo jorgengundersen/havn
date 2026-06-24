@@ -35,17 +35,18 @@ havn doctor [--all] [--dolt] [--verbose] [--json]
 
 ## Check tiers
 
-- Tier 1 (host): always runs and validates Docker, image, network, volumes, config, and Dolt host-side checks.
+- Tier 1 (host): always runs and validates the Docker-compatible daemon, image, network, volumes, config, and Dolt host-side checks.
 - Tier 2 (container): runs for relevant running containers and validates in-container wiring such as Nix, mounts, SSH agent, and beads health.
 
 ## Troubleshooting flows
 
-### Docker daemon check failed
+### Docker-compatible daemon check failed
 
-1. Start Docker Desktop or Docker Engine.
+1. Start Docker Desktop, Docker Engine, or Colima with Docker runtime (`colima start --runtime docker`).
 2. Confirm daemon access with `docker info`.
-3. If access is denied, ensure your user can access Docker (for example membership in the `docker` group).
-4. Rerun `havn doctor`.
+3. For Colima or another non-default endpoint, export `DOCKER_HOST` so `havn` reaches the same daemon.
+4. If access is denied, ensure your user can access the daemon endpoint (for example membership in the `docker` group for Docker Engine).
+5. Rerun `havn doctor`.
 
 ### Base image check warned
 

@@ -57,7 +57,7 @@ func ExitCode(err error) int {
 func FormatError(err error) string {
 	var daemonErr *docker.DaemonUnreachableError
 	if errors.As(err, &daemonErr) {
-		return "Docker is not running. Start Docker and try again"
+		return "Docker-compatible daemon is not reachable. Start Docker Desktop, Docker Engine, or Colima with Docker runtime, then try again"
 	}
 
 	var containerNotFound *container.NotFoundError
@@ -139,7 +139,7 @@ func formatDoltStartError(startErr *dolt.StartError) string {
 	}
 
 	if strings.Contains(message, "create container:") {
-		return "Failed to start Dolt server: container creation failed after image acquisition. Check Docker daemon health, shared network/volume availability, and retry `havn dolt start`"
+		return "Failed to start Dolt server: container creation failed after image acquisition. Check Docker-compatible daemon health, shared network/volume availability, and retry `havn dolt start`"
 	}
 
 	if strings.Contains(message, "start container:") {
@@ -147,7 +147,7 @@ func formatDoltStartError(startErr *dolt.StartError) string {
 	}
 
 	if isConnectivityFailure(message) {
-		return fmt.Sprintf("Failed to start Dolt server: Docker connectivity failed (%s). Ensure Docker is running and reachable, then retry `havn dolt start`", message)
+		return fmt.Sprintf("Failed to start Dolt server: Docker-compatible daemon connectivity failed (%s). Ensure a Docker-compatible daemon is running and reachable, then retry `havn dolt start`", message)
 	}
 
 	return fmt.Sprintf("Failed to start Dolt server: %s. Retry `havn dolt start` after addressing the reported failure", message)
