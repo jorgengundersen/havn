@@ -18,6 +18,26 @@ func TestExecResultError_UsesDefaultMessageWhenStderrEmpty(t *testing.T) {
 	assert.EqualError(t, err, "container exec exited 17: command failed")
 }
 
+func TestExecResultError_UsesStdoutWhenStderrEmpty(t *testing.T) {
+	err := execResultError(docker.ExecResult{
+		ExitCode: 1,
+		Stdout:   []byte("The agent has no identities.\n"),
+		Stderr:   []byte("   \n\t"),
+	})
+
+	assert.EqualError(t, err, "container exec exited 1: The agent has no identities.")
+}
+
+func TestExecResultError_PrefersStderrOverStdout(t *testing.T) {
+	err := execResultError(docker.ExecResult{
+		ExitCode: 2,
+		Stdout:   []byte("stdout detail"),
+		Stderr:   []byte("stderr detail"),
+	})
+
+	assert.EqualError(t, err, "container exec exited 2: stderr detail")
+}
+
 func TestToDoltContainerInfo_UsesFirstNetworkAndRunningStatus(t *testing.T) {
 	got := toDoltContainerInfo(docker.ContainerInfo{
 		ID:       "ctr-id",

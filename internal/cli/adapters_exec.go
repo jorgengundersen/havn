@@ -8,10 +8,13 @@ import (
 )
 
 func execResultError(result docker.ExecResult) error {
-	stderr := strings.TrimSpace(string(result.Stderr))
-	if stderr == "" {
-		stderr = "command failed"
+	msg := strings.TrimSpace(string(result.Stderr))
+	if msg == "" {
+		msg = strings.TrimSpace(string(result.Stdout))
+	}
+	if msg == "" {
+		msg = "command failed"
 	}
 
-	return fmt.Errorf("container exec exited %d: %s", result.ExitCode, stderr)
+	return fmt.Errorf("container exec exited %d: %s", result.ExitCode, msg)
 }
