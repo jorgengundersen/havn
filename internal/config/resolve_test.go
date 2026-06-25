@@ -247,3 +247,82 @@ func TestResolve_ProjectVolumeNamesOverrideDefaults(t *testing.T) {
 	assert.Equal(t, "custom-cache", cfg.Volumes.Cache)
 	assert.Equal(t, "custom-state", cfg.Volumes.State)
 }
+
+func TestResolve_GlobalAgentSocketAppliesWhenProjectUnset(t *testing.T) {
+	global := config.Config{
+		Mounts: config.MountConfig{
+			SSH: config.SSHConfig{
+				AgentSocket: "/run/host-services/ssh-auth.sock",
+			},
+		},
+	}
+
+	cfg, _ := config.Resolve(global, config.Config{}, config.Overrides{}, config.Overrides{})
+
+	assert.Equal(t, "/run/host-services/ssh-auth.sock", cfg.Mounts.SSH.AgentSocket)
+}
+
+func TestResolve_ProjectAgentSocketOverridesGlobal(t *testing.T) {
+	global := config.Config{
+		Mounts: config.MountConfig{
+			SSH: config.SSHConfig{
+				AgentSocket: "/run/host-services/global.sock",
+			},
+		},
+	}
+	project := config.Config{
+		Mounts: config.MountConfig{
+			SSH: config.SSHConfig{
+				AgentSocket: "/run/host-services/project.sock",
+			},
+		},
+	}
+
+	cfg, _ := config.Resolve(global, project, config.Overrides{}, config.Overrides{})
+
+	assert.Equal(t, "/run/host-services/project.sock", cfg.Mounts.SSH.AgentSocket)
+}
+
+func TestResolve_ProjectForwardAgentFalseDisablesForwardingWithAgentSocket(t *testing.T) {
+	global := config.Config{
+		Mounts: config.MountConfig{
+			SSH: config.SSHConfig{
+				AgentSocket: "/run/host-services/ssh-auth.sock",
+			},
+		},
+	}
+	project := config.Config{
+		Mounts: config.MountConfig{
+			SSH: config.SSHConfig{
+				ForwardAgent: false,
+			},
+		},
+	}
+	projectMeta := config.FileMetadata{MountSSHForwardAgentSet: true}
+
+	cfg, _ := config.ResolveWithMetadata(global, config.FileMetadata{}, project, projectMeta, config.Overrides{}, config.Overrides{})
+
+	assert.Equal(t, "/run/host-services/ssh-auth.sock", cfg.Mounts.SSH.AgentSocket)
+	assert.False(t, cfg.Mounts.SSH.ForwardAgent)
+}
+
+func TestResolve_EmptyProjectAgentSocketDoesNotClearGlobal(t *testing.T) {
+	global := config.Config{
+		Mounts: config.MountConfig{
+			SSH: config.SSHConfig{
+				AgentSocket: "/run/host-services/ssh-auth.sock",
+			},
+		},
+	}
+	project := config.Config{
+		Mounts: config.MountConfig{
+			SSH: config.SSHConfig{
+				AgentSocket: "",
+			},
+		},
+	}
+
+	cfg, _ := config.Resolve(global, project, config.Overrides{}, config.Overrides{})
+
+	assert.Equal(t, "/run/host-services/ssh-auth.sock", cfg.Mounts.SSH.AgentSocket)
+}

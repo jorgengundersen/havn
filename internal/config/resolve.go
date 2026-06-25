@@ -141,6 +141,9 @@ func applyConfig(cfg *Config, layer Config, meta FileMetadata, label string, src
 	if meta.MountSSHForwardAgentSet {
 		cfg.Mounts.SSH.ForwardAgent = layer.Mounts.SSH.ForwardAgent
 	}
+	if layer.Mounts.SSH.AgentSocket != "" {
+		cfg.Mounts.SSH.AgentSocket = layer.Mounts.SSH.AgentSocket
+	}
 	if meta.MountSSHAuthorizedKeysSet {
 		cfg.Mounts.SSH.AuthorizedKeys = layer.Mounts.SSH.AuthorizedKeys
 	}

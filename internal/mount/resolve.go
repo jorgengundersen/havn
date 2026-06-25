@@ -166,14 +166,20 @@ func resolveSSHMounts(ssh config.SSHConfig, homeDir string, opts ResolveOpts) Re
 	var mounts []Spec
 	env := make(map[string]string)
 
-	if ssh.ForwardAgent && opts.SSHAuthSock != "" && opts.Exists(opts.SSHAuthSock) {
-		mounts = append(mounts, Spec{
-			Source:   opts.SSHAuthSock,
-			Target:   "/ssh-agent",
-			ReadOnly: true,
-			Type:     "bind",
-		})
-		env["SSH_AUTH_SOCK"] = "/ssh-agent"
+	if ssh.ForwardAgent {
+		source := ssh.AgentSocket
+		if source == "" && opts.SSHAuthSock != "" && opts.Exists(opts.SSHAuthSock) {
+			source = opts.SSHAuthSock
+		}
+		if source != "" {
+			mounts = append(mounts, Spec{
+				Source:   source,
+				Target:   "/ssh-agent",
+				ReadOnly: true,
+				Type:     "bind",
+			})
+			env["SSH_AUTH_SOCK"] = "/ssh-agent"
+		}
 	}
 
 	if ssh.AuthorizedKeys {

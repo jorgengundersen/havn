@@ -26,11 +26,14 @@ func TestProjectContextFromWorkingDir_ResolvesPathsAndIdentity(t *testing.T) {
 	ctx, err := projectContextFromWorkingDirForStartup()
 	require.NoError(t, err)
 
-	assert.Equal(t, projectPath, ctx.HostPath)
+	expectedHostPath, err := os.Getwd()
+	require.NoError(t, err)
+
+	assert.Equal(t, expectedHostPath, ctx.HostPath)
 	assert.Equal(t, filepath.Join("/home/devuser", "workspace", "myproject"), ctx.ContainerPath)
-	assert.Equal(t, filepath.Join(projectPath, ".havn", "config.toml"), ctx.ProjectConfigPath())
-	assert.Equal(t, filepath.Join(projectPath, ".havn", "flake.nix"), ctx.ProjectFlakePath())
-	assert.Equal(t, filepath.Join(projectPath, ".havn", "environments", "default", "flake.nix"), ctx.ProjectDefaultEnvironmentFlakePath())
+	assert.Equal(t, filepath.Join(expectedHostPath, ".havn", "config.toml"), ctx.ProjectConfigPath())
+	assert.Equal(t, filepath.Join(expectedHostPath, ".havn", "flake.nix"), ctx.ProjectFlakePath())
+	assert.Equal(t, filepath.Join(expectedHostPath, ".havn", "environments", "default", "flake.nix"), ctx.ProjectDefaultEnvironmentFlakePath())
 	assert.Equal(t, "myproject", ctx.DefaultDoltDatabase())
 
 	containerName, err := ctx.ContainerName()

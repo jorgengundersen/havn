@@ -23,7 +23,10 @@ func (e *OutsideHomeError) Error() string {
 }
 
 func Resolve(hostProjectPath, hostHome string) (ProjectPaths, error) {
-	rel, err := filepath.Rel(hostHome, hostProjectPath)
+	canonicalHome := canonicalPath(hostHome)
+	canonicalProjectPath := canonicalPath(hostProjectPath)
+
+	rel, err := filepath.Rel(canonicalHome, canonicalProjectPath)
 	if err != nil {
 		return ProjectPaths{}, fmt.Errorf("resolve project path relative to home: %w", err)
 	}
@@ -35,4 +38,13 @@ func Resolve(hostProjectPath, hostHome string) (ProjectPaths, error) {
 		HostPath:      hostProjectPath,
 		ContainerPath: filepath.Join(ContainerHome, rel),
 	}, nil
+}
+
+func canonicalPath(path string) string {
+	clean := filepath.Clean(path)
+	resolved, err := filepath.EvalSymlinks(clean)
+	if err != nil {
+		return clean
+	}
+	return resolved
 }

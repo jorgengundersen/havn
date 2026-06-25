@@ -162,7 +162,9 @@ func TestEnterCommand_PathDefaultsToDot(t *testing.T) {
 	_, _, err = executeCommandWithDeps(cli.Deps{EnterService: svc}, "enter")
 
 	require.NoError(t, err)
-	assert.Equal(t, container.ProjectPaths{HostPath: projectPath, ContainerPath: "/home/devuser/work/sample-project"}, svc.lastPaths)
+	expectedHostPath, err := os.Getwd()
+	require.NoError(t, err)
+	assert.Equal(t, container.ProjectPaths{HostPath: expectedHostPath, ContainerPath: "/home/devuser/work/sample-project"}, svc.lastPaths)
 }
 
 func TestEnterCommand_NixRegistryPrepareFailureIsWrapped(t *testing.T) {

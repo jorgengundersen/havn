@@ -10,13 +10,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func isolateConfigHome(t *testing.T) {
+	t.Helper()
+	t.Setenv("HOME", t.TempDir())
+}
+
 func TestConfigCommand_PrintsHelp(t *testing.T) {
+	isolateConfigHome(t)
+
 	_, _, err := executeCommand("config")
 
 	require.NoError(t, err)
 }
 
 func TestConfigShowCommand_JSONOutputIncludesSourceObject(t *testing.T) {
+	isolateConfigHome(t)
+
 	stdout, _, err := executeCommand("config", "show", "--json")
 
 	require.NoError(t, err)
@@ -31,6 +40,8 @@ func TestConfigShowCommand_JSONOutputIncludesSourceObject(t *testing.T) {
 }
 
 func TestConfigShowCommand_JSONOutputIncludesNestedSourceForResourcesAndDolt(t *testing.T) {
+	isolateConfigHome(t)
+
 	stdout, _, err := executeCommand("config", "show", "--json")
 
 	require.NoError(t, err)
@@ -75,6 +86,8 @@ func TestConfigShowCommand_UsesConfigFlagForGlobalConfig(t *testing.T) {
 }
 
 func TestConfigShowCommand_JSONOutputMatchesSpecShape(t *testing.T) {
+	isolateConfigHome(t)
+
 	stdout, _, err := executeCommand("config", "show", "--json")
 
 	require.NoError(t, err)
@@ -107,10 +120,13 @@ func TestConfigShowCommand_JSONOutputMatchesSpecShape(t *testing.T) {
 	ssh, ok := mounts["ssh"].(map[string]any)
 	require.True(t, ok)
 	assert.Contains(t, ssh, "forward_agent")
+	assert.Contains(t, ssh, "agent_socket")
 	assert.Contains(t, ssh, "authorized_keys")
 }
 
 func TestConfigShowCommand_JSONOutputDefaultValues(t *testing.T) {
+	isolateConfigHome(t)
+
 	stdout, _, err := executeCommand("config", "show", "--json")
 
 	require.NoError(t, err)
@@ -149,6 +165,8 @@ func TestConfigShowCommand_JSONOutputDefaultValues(t *testing.T) {
 }
 
 func TestConfigShowCommand_HumanOutputIncludesSourceAnnotations(t *testing.T) {
+	isolateConfigHome(t)
+
 	stdout, _, err := executeCommand("config", "show")
 
 	require.NoError(t, err)
@@ -159,6 +177,7 @@ func TestConfigShowCommand_HumanOutputIncludesSourceAnnotations(t *testing.T) {
 }
 
 func TestConfigShowCommand_EnvOverrideReflectedInSource(t *testing.T) {
+	isolateConfigHome(t)
 	t.Setenv("HAVN_SHELL", "rust")
 
 	stdout, _, err := executeCommand("config", "show", "--json")
@@ -174,6 +193,8 @@ func TestConfigShowCommand_EnvOverrideReflectedInSource(t *testing.T) {
 }
 
 func TestConfigShowCommand_ProjectConfigReflectedInSource(t *testing.T) {
+	isolateConfigHome(t)
+
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".havn"), 0o755))
 	require.NoError(t, os.WriteFile(
@@ -202,6 +223,8 @@ func TestConfigShowCommand_ProjectConfigReflectedInSource(t *testing.T) {
 }
 
 func TestConfigShowCommand_JSONOutputIncludesEnvironmentMap(t *testing.T) {
+	isolateConfigHome(t)
+
 	dir := t.TempDir()
 	t.Setenv("API_TOKEN", "host-token")
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".havn"), 0o755))
@@ -225,6 +248,8 @@ func TestConfigShowCommand_JSONOutputIncludesEnvironmentMap(t *testing.T) {
 }
 
 func TestConfigShowCommand_UnsetEnvironmentPassthroughReturnsValidationError(t *testing.T) {
+	isolateConfigHome(t)
+
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".havn"), 0o755))
 	require.NoError(t, os.WriteFile(
@@ -238,4 +263,47 @@ func TestConfigShowCommand_UnsetEnvironmentPassthroughReturnsValidationError(t *
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "environment.API_TOKEN")
+}
+
+func TestConfigShowCommand_JSONOutputIncludesAgentSocket(t *testing.T) {
+	isolateConfigHome(t)
+
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(dir, ".havn", "config.toml"),
+		[]byte("[mounts.ssh]\nagent_socket = \"/run/host-services/ssh-auth.sock\"\n"),
+		0o644,
+	))
+	t.Chdir(dir)
+
+	stdout, _, err := executeCommand("config", "show", "--json")
+
+	require.NoError(t, err)
+
+	var result map[string]any
+	require.NoError(t, json.Unmarshal([]byte(stdout), &result))
+
+	mounts := result["mounts"].(map[string]any)
+	ssh := mounts["ssh"].(map[string]any)
+	assert.Equal(t, "/run/host-services/ssh-auth.sock", ssh["agent_socket"])
+}
+
+func TestConfigShowCommand_HumanOutputIncludesAgentSocket(t *testing.T) {
+	isolateConfigHome(t)
+
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(dir, ".havn", "config.toml"),
+		[]byte("[mounts.ssh]\nagent_socket = \"/run/host-services/ssh-auth.sock\"\n"),
+		0o644,
+	))
+	t.Chdir(dir)
+
+	stdout, _, err := executeCommand("config", "show")
+
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "agent_socket:")
+	assert.Contains(t, stdout, "/run/host-services/ssh-auth.sock")
 }

@@ -20,6 +20,7 @@ config = [".gitconfig:ro", ".config/nvim/:ro"]
 
 [mounts.ssh]
 forward_agent = false
+agent_socket = "/run/host-services/ssh-auth.sock"
 authorized_keys = false
 
 [dolt]

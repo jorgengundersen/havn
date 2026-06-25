@@ -634,3 +634,61 @@ func TestDoctorCommand_JSONWarnExitCodeAndStreamSeparation(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(stdout), &parsed))
 	assert.Equal(t, "warn", parsed.Status)
 }
+
+func TestDoctorCommand_EffectiveAgentSocketChecksContainerSocket(t *testing.T) {
+	homeDir, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
+	t.Setenv("HOME", homeDir)
+
+	projectPath := filepath.Join(homeDir, "workspace", "project-golf")
+	require.NoError(t, os.MkdirAll(filepath.Join(projectPath, ".havn"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(projectPath, ".havn", "config.toml"),
+		[]byte("[mounts.ssh]\nagent_socket = \"/run/host-services/ssh-auth.sock\"\n"),
+		0o644,
+	))
+
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projectPath))
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	parent, project, err := name.SplitProjectPath(projectPath)
+	require.NoError(t, err)
+	containerName, err := name.DeriveContainerName(parent, project)
+	require.NoError(t, err)
+
+	backend := &fakeDoctorBackend{
+		containerInfos: map[string]doctor.ContainerInfo{
+			string(containerName): {
+				Running: true,
+				Labels:  map[string]string{"havn.path": projectPath},
+			},
+		},
+		execErrs: map[string]error{
+			"test -S /run/host-services/ssh-auth.sock": errors.New("host socket should not be checked inside container"),
+		},
+	}
+
+	stdout, _, _ := executeDoctorCommand(backend, "--json")
+
+	var parsed struct {
+		Checks []struct {
+			Name   string `json:"name"`
+			Status string `json:"status"`
+		} `json:"checks"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(stdout), &parsed))
+
+	found := false
+	for _, check := range parsed.Checks {
+		if check.Name == "ssh_agent" {
+			found = true
+			assert.Equal(t, "pass", check.Status)
+			break
+		}
+	}
+	assert.True(t, found, "expected ssh_agent check")
+}

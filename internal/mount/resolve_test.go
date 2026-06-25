@@ -63,6 +63,76 @@ func TestResolve_SSHAgentForwarding(t *testing.T) {
 	assert.Equal(t, "/ssh-agent", result.Env["SSH_AUTH_SOCK"])
 }
 
+func TestResolve_SSHAgentSocketConfig(t *testing.T) {
+	cfg := config.Default()
+	cfg.Mounts.SSH.AgentSocket = "/run/host-services/ssh-auth.sock"
+
+	opts := noopOpts()
+
+	result, err := mount.Resolve(cfg, "/projects/api", "/home/user", opts)
+	require.NoError(t, err)
+
+	assert.Contains(t, result.Mounts, mount.Spec{
+		Source: "/run/host-services/ssh-auth.sock", Target: "/ssh-agent", ReadOnly: true, Type: "bind",
+	})
+	assert.Equal(t, "/ssh-agent", result.Env["SSH_AUTH_SOCK"])
+}
+
+func TestResolve_SSHAgentSocketConfigWinsOverHostSocket(t *testing.T) {
+	cfg := config.Default()
+	cfg.Mounts.SSH.AgentSocket = "/run/host-services/ssh-auth.sock"
+
+	opts := noopOpts()
+	opts.SSHAuthSock = "/tmp/ssh-agent.sock"
+	opts.Exists = func(path string) bool {
+		return path == "/tmp/ssh-agent.sock"
+	}
+
+	result, err := mount.Resolve(cfg, "/projects/api", "/home/user", opts)
+	require.NoError(t, err)
+
+	assert.Contains(t, result.Mounts, mount.Spec{
+		Source: "/run/host-services/ssh-auth.sock", Target: "/ssh-agent", ReadOnly: true, Type: "bind",
+	})
+	for _, m := range result.Mounts {
+		assert.NotEqual(t, "/tmp/ssh-agent.sock", m.Source)
+	}
+}
+
+func TestResolve_SSHAgentSocketConfigSkippedWhenForwardAgentFalse(t *testing.T) {
+	cfg := config.Default()
+	cfg.Mounts.SSH.ForwardAgent = false
+	cfg.Mounts.SSH.AgentSocket = "/run/host-services/ssh-auth.sock"
+
+	result, err := mount.Resolve(cfg, "/projects/api", "/home/user", noopOpts())
+	require.NoError(t, err)
+
+	for _, m := range result.Mounts {
+		assert.NotEqual(t, "/ssh-agent", m.Target)
+	}
+	assert.Empty(t, result.Env["SSH_AUTH_SOCK"])
+}
+
+func TestResolve_SSHAgentSocketConfigDoesNotRequireHostExistence(t *testing.T) {
+	cfg := config.Default()
+	cfg.Mounts.SSH.AgentSocket = "/run/host-services/ssh-auth.sock"
+
+	opts := noopOpts()
+	opts.Exists = func(path string) bool {
+		if path == "/run/host-services/ssh-auth.sock" {
+			t.Fatalf("configured agent socket should not be checked on host")
+		}
+		return false
+	}
+
+	result, err := mount.Resolve(cfg, "/projects/api", "/home/user", opts)
+	require.NoError(t, err)
+
+	assert.Contains(t, result.Mounts, mount.Spec{
+		Source: "/run/host-services/ssh-auth.sock", Target: "/ssh-agent", ReadOnly: true, Type: "bind",
+	})
+}
+
 func TestResolve_SSHAgentEmptySocket(t *testing.T) {
 	cfg := config.Default()
 

@@ -153,6 +153,7 @@ func formatConfigHuman(cfg config.Config, src config.Source) string {
 
 	b.WriteString("\nSSH:\n")
 	fmt.Fprintf(&b, "  %-14s %v\n", "forward_agent:", cfg.Mounts.SSH.ForwardAgent)
+	fmt.Fprintf(&b, "  %-14s %s\n", "agent_socket:", cfg.Mounts.SSH.AgentSocket)
 	fmt.Fprintf(&b, "  %-14s %v\n", "authorized_keys:", cfg.Mounts.SSH.AuthorizedKeys)
 
 	b.WriteString("\nDolt:\n")

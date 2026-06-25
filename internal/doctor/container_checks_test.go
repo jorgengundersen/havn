@@ -195,6 +195,16 @@ func TestSSHAgentCheck_AddFails(t *testing.T) {
 	assert.Equal(t, doctor.StatusWarn, result.Status)
 }
 
+func TestSSHAgentCheck_NoIdentitiesPasses(t *testing.T) {
+	backend := newFakeBackend()
+	backend.execErrors["-l"] = errors.New("The agent has no identities.")
+	check := doctor.NewSSHAgentCheck(backend, "havn-user-myproject", "/ssh-agent")
+
+	result := check.Run(context.Background())
+
+	assert.Equal(t, doctor.StatusPass, result.Status)
+}
+
 func TestSSHAgentCheck_UsesResolvedSocketPath(t *testing.T) {
 	backend := newFakeBackend()
 	backend.execErrors["$SSH_AUTH_SOCK"] = errors.New("literal placeholder should not be used")

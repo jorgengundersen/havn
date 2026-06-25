@@ -17,7 +17,7 @@ the Docker API server that `havn` talks to.
 Start Colima with Docker runtime:
 
 ```bash
-colima start --runtime docker
+colima start --runtime docker --ssh-agent
 ```
 
 Point `havn` at Colima's Docker socket with `DOCKER_HOST`:
@@ -61,3 +61,17 @@ Projects must live in a host path visible to the selected daemon. With Colima,
 projects under the host user's home directory usually work, but custom Colima
 mount configuration can affect bind mounts. Published ports and SSH agent
 sockets may also behave differently with VM-backed daemon endpoints.
+
+For SSH agent forwarding on Colima, configure havn with Colima's
+Docker-daemon-visible SSH agent socket instead of the macOS host
+`SSH_AUTH_SOCK` path:
+
+```toml
+[mounts.ssh]
+forward_agent = true
+agent_socket = "/run/host-services/ssh-auth.sock"
+```
+
+`agent_socket` is ignored when `forward_agent=false`. When unset, havn falls
+back to the host `SSH_AUTH_SOCK` value if that path is visible to the selected
+Docker-compatible daemon.

@@ -33,6 +33,7 @@ func TestLoadFile_ValidTOML(t *testing.T) {
 
 	assert.Equal(t, []string{".gitconfig:ro", ".config/nvim/:ro"}, cfg.Mounts.Config)
 	assert.False(t, cfg.Mounts.SSH.ForwardAgent)
+	assert.Equal(t, "/run/host-services/ssh-auth.sock", cfg.Mounts.SSH.AgentSocket)
 	assert.False(t, cfg.Mounts.SSH.AuthorizedKeys)
 
 	assert.True(t, cfg.Dolt.Enabled)
@@ -87,6 +88,7 @@ func TestConfig_TOMLRoundTrip(t *testing.T) {
 			Config: []string{".gitconfig:ro"},
 			SSH: config.SSHConfig{
 				ForwardAgent:   true,
+				AgentSocket:    "/run/host-services/ssh-auth.sock",
 				AuthorizedKeys: true,
 			},
 		},
@@ -131,9 +133,24 @@ func TestDefault_ReturnsSpecValues(t *testing.T) {
 	assert.Equal(t, "havn-state", cfg.Volumes.State)
 
 	assert.True(t, cfg.Mounts.SSH.ForwardAgent)
+	assert.Empty(t, cfg.Mounts.SSH.AgentSocket)
 	assert.True(t, cfg.Mounts.SSH.AuthorizedKeys)
 
 	assert.False(t, cfg.Dolt.Enabled)
 	assert.Equal(t, 3308, cfg.Dolt.Port)
 	assert.Equal(t, "dolthub/dolt-sql-server:latest", cfg.Dolt.Image)
+}
+
+func TestLoadFile_AgentSocket(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	require.NoError(t, os.WriteFile(path, []byte(`
+[mounts.ssh]
+agent_socket = "/run/host-services/ssh-auth.sock"
+`), 0o644))
+
+	cfg, err := config.LoadFile(path)
+
+	require.NoError(t, err)
+	assert.Equal(t, "/run/host-services/ssh-auth.sock", cfg.Mounts.SSH.AgentSocket)
 }

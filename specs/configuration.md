@@ -216,6 +216,7 @@ Examples:
 - `resources.cpus`
 - `resources.memory`
 - `resources.memory_swap`
+- `mounts.ssh.agent_socket`
 - `dolt.port`
 - `dolt.image`
 - `dolt.database`
@@ -234,6 +235,28 @@ This rule applies to:
 `--no-dolt` is a startup runtime override for `havn [path]` and
 `havn up [path]` that forces the effective value of `dolt.enabled` to `false`
 for that startup invocation.
+
+### SSH agent forwarding
+
+`mounts.ssh.forward_agent` controls whether havn mounts an SSH agent socket and
+sets `SSH_AUTH_SOCK` inside the project container.
+
+- When `forward_agent=false`, havn must not create an SSH agent mount and must
+  not inject `SSH_AUTH_SOCK`, even if `mounts.ssh.agent_socket` is configured.
+- When `forward_agent=true` and `mounts.ssh.agent_socket` is non-empty, havn
+  bind-mounts that path to `/ssh-agent` and sets
+  `SSH_AUTH_SOCK=/ssh-agent` in the container.
+- When `forward_agent=true` and `mounts.ssh.agent_socket` is empty or unset,
+  havn falls back to the host `SSH_AUTH_SOCK` value if it is non-empty and
+  host-visible.
+
+`mounts.ssh.agent_socket` is a Docker-daemon-visible source path. It is not
+required to exist on the macOS host running the havn CLI because VM-backed
+Docker-compatible daemons such as Colima may expose a daemon-side socket path.
+
+Because scalar merge ignores empty strings, `agent_socket = ""` in a
+higher-precedence file does not clear a lower-precedence socket value. Use
+`forward_agent = false` to disable SSH agent forwarding.
 
 ### Lists
 
@@ -298,6 +321,7 @@ state = "havn-state"
 
 [mounts.ssh]
 forward_agent = true
+agent_socket = ""
 authorized_keys = true
 
 [dolt]
@@ -397,6 +421,7 @@ Expected shape:
     "config": [".gitconfig:ro"],
     "ssh": {
       "forward_agent": true,
+      "agent_socket": "",
       "authorized_keys": true
     }
   },

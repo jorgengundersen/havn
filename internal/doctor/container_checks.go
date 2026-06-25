@@ -219,6 +219,13 @@ func (c *sshAgentCheck) Run(ctx context.Context) CheckResult {
 	}
 	_, err = c.backend.ContainerExec(ctx, c.container, []string{"ssh-add", "-l"})
 	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "agent has no identities") {
+			return CheckResult{
+				Status:  StatusPass,
+				Message: "SSH agent forwarding works",
+				Detail:  "agent reachable, no identities loaded",
+			}
+		}
 		return CheckResult{
 			Status:         StatusWarn,
 			Message:        "SSH agent not forwarding",

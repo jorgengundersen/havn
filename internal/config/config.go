@@ -49,8 +49,9 @@ type MountConfig struct {
 
 // SSHConfig controls SSH agent and key forwarding into the container.
 type SSHConfig struct {
-	ForwardAgent   bool `toml:"forward_agent" json:"forward_agent"`
-	AuthorizedKeys bool `toml:"authorized_keys" json:"authorized_keys"`
+	ForwardAgent   bool   `toml:"forward_agent" json:"forward_agent"`
+	AgentSocket    string `toml:"agent_socket" json:"agent_socket"`
+	AuthorizedKeys bool   `toml:"authorized_keys" json:"authorized_keys"`
 }
 
 // DoltConfig controls the shared Dolt SQL server.
